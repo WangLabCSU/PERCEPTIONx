@@ -14,6 +14,7 @@
 #'        \emph{less than or equal to} the observed overlap (depletion).
 #'
 #' @return Numeric p-value.
+#' @export
 hypergeometric_test_for_twolists <- function(test_list, base_list, global, lower.tail = FALSE) {
   base_in_global <- global[na.omit(match(base_list, global))]
   overlap <- test_list[!is.na(match(test_list, base_in_global))]
@@ -34,6 +35,7 @@ hypergeometric_test_for_twolists <- function(test_list, base_list, global, lower
 #'
 #' @param test_list A numeric vector of p-values to be corrected.
 #' @return A numeric vector of FDR-adjusted p-values (q-values).
+#' @export
 fdrcorr <- function(test_list) {
   p.adjust(test_list, method = "fdr")
 }
