@@ -1,33 +1,73 @@
 #' Load pre-built model of provided drugs
 #'
-#' There are 44 drugs and each of them corresponds to a pre-built model in the path data/model.
-#' Users can input one or more drug names in lowercase to load drug models they want.
+#' Downloads model files from GitHub Release if not cached locally.
+#' Default destination is present working directory.
+#' And (default cannot) can automatically load the downloaded model(s) after download completion.
+#' @param ... One or more drug names (e.g., "erlotinib", "gefitinib").
+#' @param dest Directory to downloaded models. Default = ".".
+#' @param read Whether read the downloaded model or not.
 #'
-#' @param ... Character vector. The drugs provided by users.
-#' @return One or more RDS file(s).
+#' @return Invisibly returns a list of model objects. Creates individual variables in global environment.
 #' @export
-load_model <- function(...){
-  drug <- c(...)
-  exist_model <- list.files(system.file("extdata", "models", package="PERCEPTION"), pattern = "\\.RDS$")
-  available_drugs <- gsub("\\.RDS$", "", exist_model)
-  drug_amount <- length(drug)
+load_model <- function(..., dest = ".", read = FALSE) {
+  drugs <- tolower(c(...))
+  if (length(drugs) == 0) stop("Drug list is empty.")
 
-  if (drug_amount == 0) stop("Drug list is empty.")
+  available_drugs <- c(
+    "abemaciclib", "afatinib", "axitinib", "azacitidine", "cladribine",
+    "clofarabine", "cobimetinib", "dabrafenib", "dasatinib", "daunorubicin",
+    "decitabine", "docetaxel", "doxorubicin", "epirubicin", "erlotinib",
+    "etoposide", "gefitinib", "gemcitabine", "homoharringtonine", "ibrutinib",
+    "icotinib", "ixabepilone", "lapatinib", "lenvatinib", "midostaurin",
+    "niraparib", "osimertinib", "paclitaxel", "palbociclib", "ponatinib",
+    "romidepsin", "sunitinib", "temsirolimus", "teniposide", "thioguanine",
+    "topotecan", "trametinib", "vandetanib", "vemurafenib", "vinblastine",
+    "vincristine", "vindesine", "vinflunine", "vinorelbine"
+  )
 
-  if (!all(drug %in% available_drugs)) stop("Some input drugs do not exist.")
+  invalid_drugs <- drugs[!drugs %in% available_drugs]
+  if (length(invalid_drugs) > 0) {
+    stop("Some input drugs do not exist: ", paste(invalid_drugs, collapse = ", "))
+  }
+
+  if (!dir.exists(dest)) {
+    dir.create(dest, recursive = TRUE)
+    cat(paste0("'", dest, "' does not exist, created just now."))
+  }
+
+  base_url <- "https://github.com/SunPast/PERCEPTION/releases/download/models-v1/"
   result <- list()
 
-  for (single_drug in drug) {
-    result[[single_drug]] <- readRDS(paste0(system.file("extdata", "models", package="PERCEPTION"), "/", single_drug, ".RDS"))
-    cat("Successfully loaded:", single_drug, "\n")
+  for (drug in drugs) {
+    file_path <- file.path(dest, paste0(drug, ".RDS"))
+
+    if (!file.exists(file_path)) {
+      url <- paste0(base_url, drug, ".RDS")
+      message("Downloading model for: ", drug)
+      download.file(url, file_path, mode = "wb")
+      cat(paste0("Successfully downloaded: '", drug, ".RDS'!\n"))
+    } else {
+      cat(paste0("Found cached model at: ", "'", file_path, "'\n"))
+    }
+
+    if (read) {
+      result[[drug]] <- readRDS(file_path)
+      cat(paste0("Successfully loaded ", "'", drug, ".RDS' as ", "'", drug, "'!\n"))
+    }
   }
-  list2env(result, envir = .GlobalEnv)
-  return(invisible(result))
+
+  if (read && length(result) > 0) {
+    list2env(result, envir = .GlobalEnv)
+    return(invisible(result))
+  }
+
+  return(invisible(NULL))
 }
+
 
 #' Download DepMapv12.RDS
 #'
-#' Downloads the required DepMap RDS file for traing models from Zenodo,
+#' Downloads the required DepMap RDS file for training models from Zenodo,
 #' which contains: bulk expression, scRNA expression, drug response annotations, etc.
 #' Default destination is present working directory.
 #' And (default cannot) can automatically load it after download completion, variable named `DepMap`.
@@ -39,6 +79,9 @@ load_model <- function(...){
 #' @export
 load_depmap <- function(dest = ".", read = FALSE) {
   url <- "https://zenodo.org/record/7860559/files/DepMapv12.RDS"
+  if (!dir.exists(dest)) {
+    dir.create(dest, recursive = TRUE)
+  }
   destfile <- file.path(dest, "DepMap.RDS")
   if (!file.exists(destfile)) {
     message("Downloading 883 MB file. This may take several minutes...")
