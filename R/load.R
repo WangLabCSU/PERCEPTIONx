@@ -90,11 +90,15 @@ load_depmap <- function(dest = ".", read = FALSE) {
   } else {
     message("The file 'DepMap.RDS' already exists.")
   }
-  if (read == TRUE){
+  if (read){
     cat("Reading DepMap.RDS...")
     DepMap <- readRDS(file.path(dest, "DepMap.RDS"))
     cat("Successfully read 'DepMap.RDS' as variable 'DepMap'!")
-    list2env(DepMap, envir = .GlobalEnv)
+    # Assign to global environment
+    assign("DepMap", DepMap, envir = .GlobalEnv)
+    message("Assigned 'DepMap' to global environment.")
+
     return(invisible(DepMap))
   }
+  return(invisible(NULL))
 }

@@ -28,6 +28,7 @@ hypergeometric_test_for_twolists <- function(test_list, base_list, global, lower
 }
 
 
+
 #' FDR correction for multiple testing
 #'
 #' Performs False Discovery Rate (FDR) correction using the Benjamini-Hochberg method.
@@ -38,4 +39,45 @@ hypergeometric_test_for_twolists <- function(test_list, base_list, global, lower
 #' @export
 fdrcorr <- function(test_list) {
   p.adjust(test_list, method = "fdr")
+}
+
+
+
+#' Rank-normalize each column of a metrix
+#'
+#' Convert each column to ranks and divide by column length.
+#'
+#' @param mat A numeric matrix. Rows = genes, columns = cells.
+#' @return A rank-normalized matrix.
+#' @export
+rank_normalization_mat <- function(mat){
+  apply(
+    mat,
+    2,
+    function(x) rank(x, ties.method = "average")/length(x))
+}
+
+
+
+# Change range to 0-1
+range01 <- function(x){
+  # Chossing 95% and 5% percentile as thresholds for outliers
+  substitute_of_Min <- topXPercentValue(vec=x,
+                                     X_percentile=5)
+  substitute_of_Max <- topXPercentValue(vec=x,
+                                     X_percentile=95)
+  x_scaled <- (x-substitute_of_Min)/(substitute_of_Max-substitute_of_Min)
+  x_scaled[x_scaled<0] = 0
+  x_scaled[x_scaled>1] = 1
+  x_scaled
+}
+
+
+
+# topXPercentValue of a vector
+topXPercentValue<-function(vec, X_percentile=95){
+  vec=na.omit(vec)
+  len=length(vec)
+  vec=sort(vec)
+  vec[ceiling(len*(X_percentile/100))]
 }
