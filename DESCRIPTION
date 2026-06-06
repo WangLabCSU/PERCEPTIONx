@@ -29,6 +29,6 @@ Imports:
     Seurat,
     corrplot,
     ggpmisc,
-    readxl
+    readxl,
 URL: https://github.com/SunPast/PERCEPTION
 BugReports: https://github.com/SunPast/PERCEPTION/issues
