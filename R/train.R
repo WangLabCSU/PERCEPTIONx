@@ -422,11 +422,11 @@ build_on_BULK_v2 <- function(infunc_drugName,
 #'                                rownames(DepMap$scRNA_complete))
 #'   set.seed(123)
 #'   GOI_100 <- sample(available_genes, 100)
-#'   train_perception_models("abemaciclib", "PanCan", "PanCan", GOI_100, ncores = 1)
+#'   train_models("abemaciclib", "PanCan", "PanCan", GOI_100, ncores = 1)
 #' }
 #'
 #' @export
-train_perception_models <- function(drug_list = NULL,
+train_models <- function(drug_list = NULL,
                                     cancer_type = "PanCan",
                                     exclude_cancer = "PanCan",
                                     GOI = NULL,

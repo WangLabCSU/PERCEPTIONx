@@ -202,21 +202,26 @@ reset_perception_mirrors <- function() {
 #' Supports automatic mirror fallback for users in different regions.
 #'
 #' @param ... One or more drug names (e.g., "erlotinib", "gefitinib").
-#' @param dest Directory to save downloaded models. Default = ".".
-#' @param read Whether to read and load the downloaded model(s) into global environment.
-#' @param timeout_seconds Numeric, timeout for each download attempt in seconds. Default = 120.
+#' @param dest Directory to save downloaded models. Default = "./models".
+#' @param read Whether to read and return the downloaded model(s) as a named list.
+#'        Default = FALSE (download only).
+#' @param timeout_seconds Numeric, timeout for each download attempt in seconds. Default = 30.
 #' @param retries Integer, number of retries for each mirror. Default = 0.
 #'
-#' @return Invisibly returns a list of model objects. Creates individual variables in global environment.
+#' @return If \code{read = TRUE}, a named list of model objects (names = drug names).
+#'         If \code{read = FALSE}, invisibly returns NULL (files are saved to disk only).
+#'         The returned list can be directly passed to \code{predict_drugs()},
+#'         \code{compare_performance()}, or \code{get_significant_models()}.
 #' @export
 #'
 #' @examples
 #' \dontrun{
-#' # Download and load a single model
-#' load_model("erlotinib", read = TRUE)
+#' # Download and load models as a named list
+#' models <- load_model("erlotinib", "gefitinib", read = TRUE)
+#' # models$erlotinib, models$gefitinib
 #'
-#' # Download multiple models
-#' load_model("erlotinib", "gefitinib", "osimertinib", read = TRUE)
+#' # Use directly with predict_drugs
+#' pred <- predict_drugs(models, expr_rnorm)
 #'
 #' # Download without loading (for later use)
 #' load_model("erlotinib", dest = "./models")
@@ -224,13 +229,6 @@ reset_perception_mirrors <- function() {
 load_model <- function(..., dest = "./models", read = FALSE, timeout_seconds = 30, retries = 0) {
   drugs <- tolower(c(...))
   if (length(drugs) == 0) stop("Drug list is empty.")
-
-  available_drugs <- c(...)
-
-  invalid_drugs <- drugs[!drugs %in% available_drugs]
-  if (length(invalid_drugs) > 0) {
-    stop("Some input drugs do not exist: ", paste(invalid_drugs, collapse = ", "))
-  }
 
   if (!dir.exists(dest)) {
     dir.create(dest, recursive = TRUE)
@@ -246,7 +244,6 @@ load_model <- function(..., dest = "./models", read = FALSE, timeout_seconds = 3
       urls <- paste0(mirrors, "/SunPast/PERCEPTION/releases/download/models-v1/", drug, ".RDS")
       message("Downloading model for: ", drug)
 
-      # timeout & retries
       if(!download_with_mirrors(urls, file_path, quiet = FALSE,
                                 timeout_seconds = timeout_seconds,
                                 retries = retries)){
@@ -266,8 +263,7 @@ load_model <- function(..., dest = "./models", read = FALSE, timeout_seconds = 3
   }
 
   if (read && length(result) > 0) {
-    list2env(result, envir = .GlobalEnv)
-    return(invisible(result))
+    return(result)
   }
 
   return(invisible(NULL))
@@ -275,17 +271,18 @@ load_model <- function(..., dest = "./models", read = FALSE, timeout_seconds = 3
 
 
 
-#' Download DepMapv12.RDS
+#' Download filtered DepMap data
 #'
-#' Downloads the required DepMap RDS file for training models from Zenodo.
+#' Downloads the filtered DepMap RDS file for training models from GitHub Release.
 #' The file contains bulk expression, scRNA expression, drug response annotations,
 #' and cell line metadata required for PERCEPTION model training.
+#' Supports automatic mirror fallback for users in different regions.
 #'
 #' @param dest Directory to save the downloaded file. Default = ".".
 #' @param read Whether to read the data and assign to global environment as "DepMap".
 #'        Default = FALSE.
-#' @param speed_threshold Numeric, speed threshold in KB/s to suggest manual download.
-#'        Default 100.
+#' @param timeout_seconds Numeric, timeout for each download attempt in seconds. Default = 600.
+#' @param retries Integer, number of retries for each mirror. Default = 1.
 #'
 #' @return Invisibly returns the DepMap object if read = TRUE, otherwise NULL.
 #' @export
@@ -299,40 +296,36 @@ load_model <- function(..., dest = "./models", read = FALSE, timeout_seconds = 3
 #' load_depmap(read = TRUE)
 #' # Then access DepMap$expression_rnorm, DepMap$scRNA_complete, etc.
 #' }
-load_depmap <- function(dest = ".", read = FALSE, speed_threshold = 10,
+load_depmap <- function(dest = ".", read = FALSE,
                         timeout_seconds = 600, retries = 1) {
-  # Create destination directory if needed
   if (!dir.exists(dest)) {
     dir.create(dest, recursive = TRUE)
   }
 
-  destfile <- file.path(dest, "DepMapv12.RDS")
+  destfile <- file.path(dest, "DepMap.RDS")
 
   if (!file.exists(destfile)) {
-    message("Downloading 883.6 MB file. This may take several minutes...")
-    message("Recommend you download directly from: https://zenodo.org/record/7860559/files/DepMapv12.RDS")
+    mirrors <- get_perception_mirrors()
+    urls <- paste0(mirrors, "/SunPast/PERCEPTION/releases/download/depmap/DepMap.RDS")
 
-    # Use official Zenodo URL
-    url <- "https://zenodo.org/record/7860559/files/DepMapv12.RDS"
+    message("Downloading DepMap.RDS (~567 MB). This may take several minutes...")
 
-    # Pass speed_threshold to download function
-    if (!download_with_mirrors(url, destfile, quiet = FALSE, speed_threshold = speed_threshold,
+    if (!download_with_mirrors(urls, destfile, quiet = FALSE,
                                timeout_seconds = timeout_seconds,
                                retries = retries)) {
-      # If download fails, give detailed manual download instructions
-      message("\n❌ Automatic download failed. Please try manual download:")
-      message("  1. Download from: https://zenodo.org/record/7860559/files/DepMapv12.RDS")
+      message("\nAutomatic download failed. Please try manual download:")
+      message("  1. Download from: https://github.com/SunPast/PERCEPTION/releases/tag/depmap")
       message("  2. Save the file to: ", destfile)
       message("  3. Then run load_depmap(read = TRUE) again")
       stop("Manual download required", call. = FALSE)
     }
-    message("Successfully downloaded DepMapv12.RDS")
+    message("Successfully downloaded DepMap.RDS")
   } else {
     message("File already exists: ", destfile)
   }
 
   if (read) {
-    message("Reading DepMapv12.RDS...")
+    message("Reading DepMap.RDS...")
     DepMap <- readRDS(destfile)
     assign("DepMap", DepMap, envir = .GlobalEnv)
     message("Assigned 'DepMap' to global environment.")
