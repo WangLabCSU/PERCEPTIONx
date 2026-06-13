@@ -6,8 +6,7 @@
 #' and patient/single-cell expression data.
 #'
 #' @name plot_perception
-#' @docType package
-NULL
+"_PACKAGE"
 
 #' Plot t-SNE/UMAP with drug response overlay
 #'
@@ -174,7 +173,7 @@ plot_clone_killing <- function(clone_killing,
          color = "Predicted Viability", size = "Proportion in Tumor") +
     theme(legend.position = "top",
           strip.placement = "outside",
-          strip.background = element_rect(fill = "white", size = 1, color = "white"))
+          strip.background = element_rect(fill = "white", linewidth = 1, color = "white"))
 
   if (viridis_scale) {
     p <- p + scale_colour_viridis_c()
@@ -397,13 +396,13 @@ plot_model_performance <- function(performance_list,
 #'
 #' @examples
 #' \dontrun{
-#'   result <- run_seurat_clustering(patient_expression)
+#'   result <- plot_seurat_clustering(patient_expression)
 #'   result$umap_plot
 #'   result$cluster_ids
 #' }
 #'
 #' @export
-run_seurat_clustering <- function(expression_matrix,
+plot_seurat_clustering <- function(expression_matrix,
                                   min_cells = 3,
                                   min_features = 200,
                                   nfeatures = 2000,

@@ -99,6 +99,7 @@ predict_drugs <- function(model_list, expr) {
 #' @return A named numeric vector of predicted viability scores.
 #'
 #' @keywords internal
+#' @noRd
 viability_from_model_internal <- function(drug_name, model, dataset) {
 
   # Step 1: Try exact match of model features to expression matrix rows

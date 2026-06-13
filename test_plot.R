@@ -6,7 +6,7 @@
 # ==============================================================================
 
 # Set working directory
-setwd("c:/Users/LENOVO/Desktop/PERCEPTION")
+setwd("C:/Users/LENOVO/Desktop/PERCEPTION")
 
 # Load required packages
 required_packages <- c("ggplot2", "gridExtra", "pROC", "ggpubr", "viridis",
@@ -33,6 +33,7 @@ source('R/utils_cortest.R')
 source('R/load.R')
 source('R/train.R')
 source('R/predict.R')
+source('R/evaluate.R')
 source('R/plot.R')
 
 cat("========================================\n")
@@ -109,10 +110,9 @@ cat("  Models trained successfully\n\n")
 # ==============================================================================
 cat("  Predicting killing for each clone...\n")
 
-killing_eachClone <- killing_in_each_dataset(
-  infunc_scRNAseq_dataset_rnorm = clone_Level_z_expression_rnorm,
-  infunc_GOI = genes_available,
-  infunc_model_list = models_mm
+killing_eachClone <- predict_drugs(
+  model_list = models_mm,
+  expr = clone_Level_z_expression_rnorm
 )
 
 killing_eachClone <- data.frame(killing_eachClone)
@@ -126,12 +126,7 @@ combination_Killing <- pmin(killing_eachClone_z$carfilzomib,
                             killing_eachClone_z$lenalidomide)
 names(combination_Killing) <- rownames(killing_eachClone)
 
-# Helper function for strsplit (from original script)
-strsplit_customv0 <- function(x, infunc_split_by, retreiving_onject_id) {
-  sapply(strsplit(x, infunc_split_by), '[', retreiving_onject_id)
-}
-
-# Build clone killing dataframe
+# Build clone killing dataframe (using strsplit_customv0 from utils.R)
 comb_killing_df <- data.frame(
   patient = gsub('z.', '', strsplit_customv0(names(combination_Killing), '_', 1)),
   clone_id = strsplit_customv0(names(combination_Killing), '_', 2),
@@ -143,10 +138,22 @@ comb_killing_df <- data.frame(
 # ==============================================================================
 cat("Test 1.1: plot_clone_distribution\n")
 
-# Build clone distribution data
-clone_distribution <- data.frame(t(sapply(1:nrow(Clone_Counts_per_patients), function(P)
-  each_patient_clone_weights(x = P, comb_killing_df = comb_killing_df,
-                             Clone_Counts_per_patients = Clone_Counts_per_patients))))
+# Build clone distribution data using predict_patients helper logic
+clone_cols <- setdiff(colnames(Clone_Counts_per_patients), "patients")
+clone_distribution <- data.frame(t(sapply(1:nrow(Clone_Counts_per_patients), function(P) {
+  patient_clones <- comb_killing_df[
+    comb_killing_df$patient == Clone_Counts_per_patients$patients[P], ]$clone_id
+  clone_weights <- rep(0, length(clone_cols))
+  names(clone_weights) <- clone_cols
+  if (length(patient_clones) > 0) {
+    total_cells <- sum(Clone_Counts_per_patients[P, patient_clones])
+    if (total_cells > 0) {
+      existing_weights <- unlist(Clone_Counts_per_patients[P, patient_clones] / total_cells)
+      clone_weights[match(names(existing_weights), names(clone_weights))] <- existing_weights
+    }
+  }
+  clone_weights
+})))
 clone_distribution$patients <- Clone_Counts_per_patients$patients
 clone_distribution_df <- gather(clone_distribution, clones, weights, c1:c3)
 clone_distribution_df$response <- resp$response[match(clone_distribution_df$patients, resp$Patient)]
@@ -180,11 +187,15 @@ print(panelB)
 cat("\nTest 1.3: plot_response_boxplot\n")
 cat("Test 1.4: plot_roc_curve\n")
 
-# Patient-level aggregation
-most_resistant_clone_based_killing <- sapply(1:nrow(Clone_Counts_per_patients), function(P)
-  each_patient_killing(x = P, mode = 'weighted_max',
-                       clone_killing_matrix = comb_killing_df,
-                       Clone_Counts_per_patients = Clone_Counts_per_patients))
+# Patient-level aggregation using predict_patients
+# Only pass patient, clone_id, and comb_killing columns
+comb_killing_for_pred <- comb_killing_df[, c("patient", "clone_id", "comb_killing")]
+patient_pred <- predict_patients(
+  clone_killing_matrix = comb_killing_for_pred,
+  clone_counts = Clone_Counts_per_patients,
+  mode = "weighted_max"
+)
+most_resistant_clone_based_killing <- patient_pred[, 1]
 names(most_resistant_clone_based_killing) <- Clone_Counts_per_patients$patients
 
 # Build prediction vs observation dataframe
@@ -250,9 +261,11 @@ models_lung <- train_perception_models(
 
 # Predict on lung scRNA data (use CPM_scRNA_CCLE_rnorm which has all cells)
 lung_scRNA_rnorm <- DepMap$CPM_scRNA_CCLE_rnorm
-viab_lung <- viability_from_model("erlotinib",
-                                   models_lung$erlotinib$model,
-                                   lung_scRNA_rnorm)
+viab_lung <- predict_drugs(
+  model_list = models_lung,
+  expr = lung_scRNA_rnorm
+)
+viab_lung <- viab_lung[, 1]  # Extract single drug vector
 
 cat("  Predicted viability for", length(viab_lung), "cells\n")
 cat("  t-SNE has", nrow(lung_tSNE), "cells\n")
@@ -266,14 +279,8 @@ cat("  Common cells:", length(common_cells), "\n\n")
 # ==============================================================================
 cat("Test 2.1: plot_tsne_response\n")
 
-# Helper function for range normalization
-range01 <- function(x) {
-  x <- x[!is.na(x)]
-  if (length(x) == 0) return(numeric(0))
-  (x - min(x)) / (max(x) - min(x))
-}
-
 # Build t-SNE data with killing overlay (only for cells with both t-SNE and prediction)
+# range01 is now exported from stats.R
 tsne_data <- data.frame(
   X = lung_tSNE[common_cells, "X"],
   Y = lung_tSNE[common_cells, "Y"],

@@ -59,8 +59,8 @@ get_response_matrix <- function(infunc_drugName) {
 #'
 #' @return A list of length 2:
 #' \itemize{
-#'   \item [[1]] common_cellLines: Cell lines to use for training
-#'   \item [[2]] cellLines2remove: Cell lines excluded (reserved for testing)
+#'   \item Element 1: common_cellLines - Cell lines to use for training
+#'   \item Element 2: cellLines2remove - Cell lines excluded (reserved for testing)
 #' }
 #'
 #' @export
@@ -213,7 +213,7 @@ run_parallel_feature_ranking_bulk <- function(infunc_DrugsToUse,
 #' @param infunc_cancerType Character. Cancer type for training. Default = "PanCan".
 #' @param exclude_cancer Character. Cancer type to exclude. Default = "PanCan".
 #' @param infunc_features Character vector. Feature gene names (ranked).
-#' @param single_best Character. Name of the single best feature. Default = infunc_features[1].
+#' @param single_best Character. Name of the single best feature. Default is the first element of infunc_features.
 #' @param k_features Integer. Number of top features to use. Default = 100.
 #' @param infunc_alpha Numeric. Alpha for glmnet (not used directly, tuning via alpha_gradient). Default = 1.
 #' @param model_type Character. Model type: "glmnet" or "rf". Default = "glmnet".
@@ -520,7 +520,7 @@ train_models <- function(drug_list = NULL,
   # ============================================================================
   message("Step 2/2: Training models with hyperparameter tuning...")
 
-  for_output_lung_Test_vglm <- list()
+  tuned_models <- list()
   Performance_by_features <- list()
 
   for (i in seq_along(drug_list)) {
@@ -531,7 +531,7 @@ train_models <- function(drug_list = NULL,
     features <- features_list[[i]]
     if (is.null(features) || (length(features) == 1 && is.na(features))) {
       warning("  Skipping ", drug, " - feature ranking failed.")
-      for_output_lung_Test_vglm[[i]] <- NULL
+      tuned_models[[i]] <- NULL
       next
     }
 
@@ -539,7 +539,7 @@ train_models <- function(drug_list = NULL,
     drug_match <- which(stripall2match(DepMap$secondary_screen_drugAnnotation$CommonName) == drug)
     if (length(drug_match) == 0) {
       warning("  Skipping ", drug, " - drug not found in DepMap response data.")
-      for_output_lung_Test_vglm[[i]] <- NULL
+      tuned_models[[i]] <- NULL
       next
     }
 
@@ -574,7 +574,7 @@ train_models <- function(drug_list = NULL,
     # Check if any models were successfully built
     if (length(Raw_models_output) == 0 || all(sapply(Raw_models_output, is.null))) {
       warning("  Skipping ", drug, " - all model builds failed.")
-      for_output_lung_Test_vglm[[i]] <- NULL
+      tuned_models[[i]] <- NULL
       next
     }
 
@@ -583,7 +583,7 @@ train_models <- function(drug_list = NULL,
     Performance_by_features[[i]] <- lapply(Raw_models_output, function(x) x$performance_in_scRNA)
 
     # Store the Tuned model (select based on highest correlation estimate)
-    for_output_lung_Test_vglm[[i]] <- err_handle(
+    tuned_models[[i]] <- err_handle(
       Raw_models_output[[which.max(sapply(Raw_models_output, function(x) x$performance_in_scRNA)[2, ])]])
 
     # Clean up
@@ -592,9 +592,9 @@ train_models <- function(drug_list = NULL,
   }
 
   # Assign names and filter out NULL entries (failed drugs)
-  names(for_output_lung_Test_vglm) <- drug_list
-  for_output_lung_Test_vglm <- for_output_lung_Test_vglm[!sapply(for_output_lung_Test_vglm, is.null)]
-  Tuned_models_output <- for_output_lung_Test_vglm
+  names(tuned_models) <- drug_list
+  tuned_models <- tuned_models[!sapply(tuned_models, is.null)]
+  Tuned_models_output <- tuned_models
 
   # ============================================================================
   # 8. Save all models to a single RDS file

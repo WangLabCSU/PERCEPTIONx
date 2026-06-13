@@ -59,25 +59,37 @@ rank_normalization_mat <- function(mat){
 
 
 
-# Change range to 0-1
-range01 <- function(x){
-  # Chossing 95% and 5% percentile as thresholds for outliers
-  substitute_of_Min <- topXPercentValue(vec=x,
-                                     X_percentile=5)
-  substitute_of_Max <- topXPercentValue(vec=x,
-                                     X_percentile=95)
-  x_scaled <- (x-substitute_of_Min)/(substitute_of_Max-substitute_of_Min)
-  x_scaled[x_scaled<0] = 0
-  x_scaled[x_scaled>1] = 1
+#' Scale vector to 0-1 range with outlier robustness
+#'
+#' Uses the 5th and 95th percentiles as thresholds for outliers,
+#' capping values outside the range to 0 or 1.
+#'
+#' @param x Numeric vector.
+#' @return Numeric vector scaled to the 0-1 range.
+#' @export
+range01 <- function(x) {
+  substitute_of_Min <- topXPercentValue(vec = x, X_percentile = 5)
+  substitute_of_Max <- topXPercentValue(vec = x, X_percentile = 95)
+  x_scaled <- (x - substitute_of_Min) / (substitute_of_Max - substitute_of_Min)
+  x_scaled[x_scaled < 0] = 0
+  x_scaled[x_scaled > 1] = 1
   x_scaled
 }
 
 
 
-# topXPercentValue of a vector
-topXPercentValue<-function(vec, X_percentile=95){
-  vec=na.omit(vec)
-  len=length(vec)
-  vec=sort(vec)
-  vec[ceiling(len*(X_percentile/100))]
+#' Get value at a given percentile of a vector
+#'
+#' Returns the value at the X-th percentile of a sorted vector (after removing NAs).
+#'
+#' @param vec Numeric vector.
+#' @param X_percentile Integer. Percentile to retrieve (0-100). Default = 95.
+#' @return Numeric value at the specified percentile.
+#' @keywords internal
+#' @noRd
+topXPercentValue <- function(vec, X_percentile = 95) {
+  vec = na.omit(vec)
+  len = length(vec)
+  vec = sort(vec)
+  vec[ceiling(len * (X_percentile / 100))]
 }

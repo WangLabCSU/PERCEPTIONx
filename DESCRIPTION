@@ -2,7 +2,7 @@ Package: PERCEPTION
 Title: The R Package version of the PERCEPTION Project
 Version: 0.0.0.9000
 Authors@R: 
-    person("Jia", "Ding", , "jiading@gmail.com", role = c("aut", "cre"))
+    person("Jia", "Ding", , "jiading682@gmail.com", role = c("aut", "cre"))
 Description: This package aims to provide a convenient way to better adopt the PERCEPTION(https://github.com/ruppinlab/PERCEPTION), which is a prediction tool to assess the function of certain drugs against certain cancers on provided patients.
 License: MIT
 Encoding: UTF-8
@@ -32,3 +32,8 @@ Imports:
     readxl,
 URL: https://github.com/SunPast/PERCEPTION
 BugReports: https://github.com/SunPast/PERCEPTION/issues
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+Config/testthat/edition: 3

@@ -47,6 +47,7 @@ cor.test_trimmed_v0 <- function(x, ...) UseMethod("cor.test_trimmed_v0")
 #'
 #' @keywords internal
 #' @noRd
+#' @exportS3Method cor.test_trimmed_v0 default
 cor.test_trimmed_v0.default <-
   function(x, y, alternative = c("two.sided", "less", "greater"),
            method = c("pearson"), exact = NULL,
@@ -254,6 +255,7 @@ cor.test_trimmed_v0.default <-
 #'
 #' @keywords internal
 #' @noRd
+#' @exportS3Method cor.test formula
 cor.test.formula <-
   function(formula, data, subset, na.action, ...)
   {
