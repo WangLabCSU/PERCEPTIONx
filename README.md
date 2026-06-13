@@ -2,9 +2,9 @@
 
 An R package for predicting patient response and resistance to cancer treatment using single-cell transcriptomics.
 
-## Overview
+## 1. Overview
 
-PERCEPTION (PatiEnt Response Prediction using Single-Cell Transcriptomics) is a computational framework that predicts how individual patients respond to drug treatments by leveraging both bulk and single-cell RNA sequencing data. It trains models on DepMap cell line data and applies them to patient single-cell expression profiles, enabling clone-level drug sensitivity prediction and patient-level response stratification.
+PERCEPTION (PERsonalized single-Cell Expression-based Planning for Treatments In ONcology) is a computational framework that predicts how individual patients respond to drug treatments by leveraging both bulk and single-cell RNA sequencing data. It trains models on DepMap cell line data and applies them to patient single-cell expression profiles, enabling clone-level drug sensitivity prediction and patient-level response stratification.
 
 This package is an R implementation of the original PERCEPTION pipeline, providing a unified and reproducible interface for model training, prediction, evaluation, and visualization.
 
@@ -12,17 +12,20 @@ This package is an R implementation of the original PERCEPTION pipeline, providi
 >
 > **Original repository**: [https://github.com/ruppinlab/PERCEPTION](https://github.com/ruppinlab/PERCEPTION)
 
-## Installation
+## 2. Installation
+
+Install the development version from GitHub using devtools.
 
 ```r
-# Install from GitHub
 # install.packages("devtools")
 devtools::install_github("SunPast/PERCEPTION")
 ```
 
-## Quick Start
+## 3. Quick Start
 
-### 💾 Load Data
+### 3.1 💾 Load Data
+
+PERCEPTION relies on DepMap reference data and optional pre-trained models. Both can be downloaded automatically with the built-in loading functions.
 
 ```r
 library(PERCEPTION)
@@ -34,7 +37,9 @@ models <- load_model("abemaciclib")
 DepMap <- load_depmap(read = TRUE)
 ```
 
-### 🧠 Train Models
+### 3.2 🏋 Train Models
+
+Before training, identify the genes available across both bulk and single-cell expression datasets. The `train_models()` function then performs feature ranking, model building, and hyperparameter tuning in a single call.
 
 ```r
 # Identify available genes across expression and scRNA datasets
@@ -55,7 +60,9 @@ models <- train_models(
 )
 ```
 
-### 🎯 Predict Drug Response
+### 3.3 🎯 Predict Drug Response
+
+Prediction proceeds in two stages: first, `predict_drugs()` scores each clone's drug sensitivity from the expression matrix; then, `predict_patients()` aggregates clone-level scores into a patient-level prediction using clone proportions.
 
 ```r
 # Clone-level prediction (returns matrix: clones x drugs)
@@ -81,7 +88,9 @@ patient_pred <- predict_patients(
 )
 ```
 
-### 🎨 Visualize Results
+### 3.4 🎨 Visualize Results
+
+PERCEPTION provides a suite of plotting functions to inspect model predictions from different perspectives: spatial (t-SNE), clonal (distribution and killing), and clinical (ROC and response stratification).
 
 ```r
 # t-SNE with drug response overlay
@@ -103,7 +112,7 @@ plot_clone_killing(
   killing_var = "comb_killing"
 )
 
-# ROC curve
+# ROC curve with AUC annotation
 plot_roc_curve(
   response = response,
   predictor = predictor,
@@ -117,9 +126,9 @@ plot_response_boxplot(
 )
 ```
 
-## Function Reference
+## 4. Function Reference
 
-### Data Loading
+### 4.1 Data Loading
 
 | Function | Description |
 |----------|-------------|
@@ -130,14 +139,14 @@ plot_response_boxplot(
 | `list_perception_mirrors()` | List current mirrors |
 | `reset_perception_mirrors()` | Reset to default mirrors |
 
-### Preprocessing
+### 4.2 Preprocessing
 
 | Function | Description |
 |----------|-------------|
 | `rank_normalization_mat()` | Rank-normalize an expression matrix |
 | `range01()` | Scale a numeric vector to the 0-1 range |
 
-### Model Training
+### 4.3 Model Training
 
 | Function | Description |
 |----------|-------------|
@@ -148,14 +157,14 @@ plot_response_boxplot(
 | `run_parallel_feature_ranking_bulk()` | Parallel feature ranking for multiple drugs |
 | `build_on_BULK_v2()` | Build a single-drug model (glmnet or random forest) |
 
-### Prediction
+### 4.4 Prediction
 
 | Function | Description |
 |----------|-------------|
 | `predict_drugs()` | Predict drug sensitivity at clone/cell level |
 | `predict_patients()` | Aggregate clone-level predictions to patient level |
 
-### Evaluation
+### 4.5 Evaluation
 
 | Function | Description |
 |----------|-------------|
@@ -164,7 +173,7 @@ plot_response_boxplot(
 | `get_performance()` | Load pre-computed performance metrics |
 | `each_patient_pseudo_bulk()` | Compute patient pseudo-bulk expression |
 
-### Visualization
+### 4.6 Visualization
 
 | Function | Description |
 |----------|-------------|
@@ -178,7 +187,7 @@ plot_response_boxplot(
 | `plot_seurat_clustering()` | Seurat clustering and UMAP visualization |
 | `plot_patient_response_panel()` | Composite patient response panel |
 
-### Utilities
+### 4.7 Utilities
 
 | Function | Description |
 |----------|-------------|
@@ -188,7 +197,7 @@ plot_response_boxplot(
 | `hypergeometric_test_for_twolists()` | Hypergeometric enrichment test |
 | `fdrcorr()` | FDR multiple testing correction |
 
-## Workflow
+## 5. Workflow
 
 ```
 DepMap Data ──► Preprocessing ──► Feature Ranking ──► Model Training
@@ -205,18 +214,18 @@ Patient scRNA ──► Preprocessing ──► Clone Prediction ──► Patie
                                               compare_performance() / get_significant_models()
 ```
 
-## Data Requirements
+## 6. Data Requirements
 
 - **DepMap reference data**: Automatically downloaded via `load_depmap()`, including bulk expression, single-cell expression, drug response (AUC), and cell line annotations.
 - **Patient data**: Single-cell RNA expression matrix (genes as rows, cells as columns), rank-normalized via `rank_normalization_mat()`.
 - **Clone annotations**: Mapping from cells to clones/patients, with clone proportions per patient.
 
-## Citation
+## 7. Citation
 
 If you use this package, please cite the original PERCEPTION study:
 
 Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts patient response and resistance to treatment using single-cell transcriptomics of their tumors. *Nat Cancer* 5, 938–952 (2024). https://doi.org/10.1038/s43018-024-00756-7
 
-## License
+## 8. License
 
 MIT © PERCEPTION authors
