@@ -1,6 +1,11 @@
 #' PERCEPTION Prediction Functions
 #'
 #' Functions for predicting drug response at cell/clone level and patient level.
+#'
+#' @name predict_perception
+#' @keywords internal
+#' @importFrom stats predict setNames
+NULL
 
 
 #' Predict drug response for cells or clones
@@ -99,7 +104,6 @@ predict_drugs <- function(model_list, expr) {
 #' @return A named numeric vector of predicted viability scores.
 #'
 #' @keywords internal
-#' @noRd
 viability_from_model_internal <- function(drug_name, model, dataset) {
 
   # Step 1: Try exact match of model features to expression matrix rows

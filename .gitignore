@@ -1,2 +1,39 @@
-.Rproj.user
-.positai
+# History files
+.Rhistory
+.Rapp.history
+
+# Session Data files
+.RData
+.RDataTmp
+
+# Example code in package build process
+*-Ex.R
+
+# Output files from R CMD build
+/*.tar.gz
+
+# Output files from R CMD check
+/*.Rcheck/
+
+# RStudio files
+.Rproj.user/
+
+# IDE files
+.positai/
+.claude/
+.vscode/
+
+# Large data files
+DepMap.RDS
+*.RDS
+
+# Test output directories
+test_pipeline_output/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.RDS
+*.rds
+test_pipeline_output/
+inst/testdata/

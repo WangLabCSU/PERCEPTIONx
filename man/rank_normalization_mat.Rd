@@ -2,16 +2,58 @@
 % Please edit documentation in R/stats.R
 \name{rank_normalization_mat}
 \alias{rank_normalization_mat}
-\title{Rank-normalize each column of a metrix}
+\title{Rank-normalize each column of a matrix}
 \usage{
 rank_normalization_mat(mat)
 }
 \arguments{
-\item{mat}{A numeric matrix. Rows = genes, columns = cells.}
+\item{mat}{A numeric matrix. Rows = genes, columns = cells/samples.}
 }
 \value{
-A rank-normalized matrix.
+A rank-normalized matrix of the same dimensions, with values
+between 0 and 1.
 }
 \description{
-Convert each column to ranks and divide by column length.
+Converts each column to ranks divided by column length, producing values in
+the range 0 to 1 (exclusive of 0, inclusive of 1). This is a \strong{crucial preprocessing step} when using your
+own expression data with PERCEPTION.
+}
+\section{Why rank normalization?}{
+
+PERCEPTION models are trained on DepMap expression data that has been
+rank-normalized. The model coefficients capture the relationship between
+\strong{relative gene expression ranks} and drug response, not absolute expression
+values. Therefore, any new expression data fed into the model must undergo
+the same rank normalization to ensure compatibility.
+}
+
+\section{How it works}{
+
+For each column (cell/sample), every gene's expression value is replaced by
+its rank within that column, divided by the total number of genes:
+\deqn{x_{ij}^{norm} = \frac{\mathrm{rank}(x_{ij})}{n}}
+where \eqn{n} is the number of rows (genes) and ties are resolved by
+averaging. This transforms each column into a uniform distribution over
+\eqn{(0,1]}, making the data robust to batch effects, library size
+differences, and outliers.
+}
+
+\section{Important}{
+
+If you provide your own expression data that has \strong{not} been
+rank-normalized, predictions will be unreliable. Always run
+\code{rank_normalization_mat()} on your raw expression matrix before passing
+it to \code{\link{predict_drugs}()}.
+}
+
+\examples{
+# Raw expression matrix (genes x cells)
+raw_expr <- matrix(c(10, 200, 50, 30, 300, 80), nrow = 3, ncol = 2)
+rownames(raw_expr) <- c("GENE_A", "GENE_B", "GENE_C")
+
+# MUST normalize before prediction
+norm_expr <- rank_normalization_mat(raw_expr)
+
+# Then feed into predict_drugs()
+# predict_drugs(models, norm_expr)
 }

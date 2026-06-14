@@ -4,3 +4,8 @@
 ^\.claude$
 ^LICENSE\.md$
 ^test_plot\.R$
+^test_pipeline_output$
+^DepMap\.RDS$
+^\.Rhistory$
+^Tools$
+^\.github$

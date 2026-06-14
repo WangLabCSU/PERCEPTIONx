@@ -28,7 +28,7 @@ build_on_BULK_v2(
 
 \item{infunc_features}{Character vector. Feature gene names (ranked).}
 
-\item{single_best}{Character. Name of the single best feature. Default is the first element of infunc_features.}
+\item{single_best}{Character. Name of the single best feature. Default = infunc_features[1].}
 
 \item{k_features}{Integer. Number of top features to use. Default = 100.}
 

@@ -8,6 +8,8 @@ load_model(
   ...,
   dest = "./models",
   read = FALSE,
+  mirror = FALSE,
+  mirror_url = NULL,
   timeout_seconds = 30,
   retries = 0
 )
@@ -19,6 +21,12 @@ load_model(
 
 \item{read}{Whether to read and return the downloaded model(s) as a named list.
 Default = FALSE (download only).}
+
+\item{mirror}{Logical. If FALSE (default), download from GitHub directly.
+If TRUE, use mirror sites from \code{get_mirrors()}.}
+
+\item{mirror_url}{Character. A specific mirror URL to use (e.g.,
+\code{"https://gh-proxy.com/https://github.com"}). Overrides \code{mirror}.}
 
 \item{timeout_seconds}{Numeric, timeout for each download attempt in seconds. Default = 30.}
 
@@ -36,14 +44,14 @@ Supports automatic mirror fallback for users in different regions.
 }
 \examples{
 \dontrun{
-# Download and load models as a named list
+# Download and load models from GitHub directly
 models <- load_model("erlotinib", "gefitinib", read = TRUE)
-# models$erlotinib, models$gefitinib
 
-# Use directly with predict_drugs
-pred <- predict_drugs(models, expr_rnorm)
+# Use mirror sites
+models <- load_model("erlotinib", "gefitinib", read = TRUE, mirror = TRUE)
 
-# Download without loading (for later use)
-load_model("erlotinib", dest = "./models")
+# Use a specific mirror
+models <- load_model("erlotinib", read = TRUE,
+                     mirror_url = "https://gh-proxy.com/https://github.com")
 }
 }

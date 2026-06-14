@@ -1,4 +1,7 @@
 # PERCEPTION
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/SunPast/PERCEPTION/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/SunPast/PERCEPTION/actions/workflows/R-CMD-check.yaml)
+<!-- badges: end -->
 
 An R package for predicting patient response and resistance to cancer treatment using single-cell transcriptomics.
 
@@ -34,10 +37,10 @@ library(PERCEPTION)
 models <- load_model("abemaciclib")
 
 # Load DepMap reference data
-DepMap <- load_depmap(read = TRUE)
+load_depmap(read = TRUE)
 ```
 
-### 3.2 🏋 Train Models
+### 3.2 🧠 Train Models
 
 Before training, identify the genes available across both bulk and single-cell expression datasets. The `train_models()` function then performs feature ranking, model building, and hyperparameter tuning in a single call.
 
@@ -61,6 +64,18 @@ models <- train_models(
 ```
 
 ### 3.3 🎯 Predict Drug Response
+
+> **Important: Rank Normalization**
+>
+> PERCEPTION models are trained on **rank-normalized** expression data. If you provide your own expression data (e.g., from scRNA-seq), you **must** normalize it first using `rank_normalization_mat()`, or predictions will be unreliable.
+>
+> **How rank normalization works**: For each cell (column), every gene's expression value is replaced by its rank within that column, divided by the total number of genes: `x_norm = rank(x) / n`. This transforms each column into a uniform distribution over (0, 1], making the data robust to batch effects, library size differences, and outliers. Since the model coefficients capture the relationship between **relative gene expression ranks** and drug response (not absolute values), the same normalization must be applied to any new data.
+>
+> ```r
+> # If your data is NOT already rank-normalized:
+> my_expr_norm <- rank_normalization_mat(my_raw_expr)
+> # Then use my_expr_norm in predict_drugs()
+> ```
 
 Prediction proceeds in two stages: first, `predict_drugs()` scores each clone's drug sensitivity from the expression matrix; then, `predict_patients()` aggregates clone-level scores into a patient-level prediction using clone proportions.
 

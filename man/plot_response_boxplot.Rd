@@ -8,7 +8,7 @@ plot_response_boxplot(
   exp_vs_pred,
   response_var = "response",
   predicted_var = "predicted_killing",
-  y_label = "Predicted Viability\\n(z-score)",
+  y_label = "Predicted Viability (z-score)",
   base_size = 15,
   compare_method = "wilcox.test",
   alternative = "greater"
@@ -21,7 +21,7 @@ plot_response_boxplot(
 
 \item{predicted_var}{Character. Column name for predicted values. Default = "predicted_killing".}
 
-\item{y_label}{Character. Y-axis label. Default = "Predicted Viability\n(z-score)".}
+\item{y_label}{Character. Y-axis label. Default = "Predicted Viability (z-score)".}
 
 \item{base_size}{Numeric. Base font size. Default = 15.}
 

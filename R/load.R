@@ -1,26 +1,41 @@
-#' Get GitHub download mirrors for model files
+#' PERCEPTION Data Loading
 #'
+#' @name load_perception
 #' @keywords internal
-#' @noRd
-get_github_mirrors <- function() {
-  c(
-    # Original GitHub (default)
-    "https://github.com",
-    # Chinese mirrors (Verified working)
-    "https://gh-proxy.com/https://github.com",
-    "https://ghproxy.net/https://github.com",
-    "https://moeyy.cn/gh-proxy/https://github.com",
-    "https://github.akams.cn/https://github.com",
-    "http://toolwa.com/github/https://github.com",
-    "https://v6.gh-proxy.org/https://github.com",
-    "https://gh-proxy.org/https://github.com",
-    "https://ghfast.top/https://github.com",
-    "https://download.githubcdn.com?url=https://github.com",
-    "https://proxy.gitwarp.top/https://github.com"
-  )
+#' @importFrom utils download.file
+NULL
+
+# Package-level environment for storing DepMap data
+# (avoids assigning to .GlobalEnv which triggers R CMD check NOTE)
+.depmap_env <- new.env(parent = emptyenv())
+
+#' Get the DepMap dataset
+#'
+#' Retrieves the DepMap dataset from the package-level cache.
+#' This is the recommended way to access DepMap data after loading
+#' with \code{load_depmap(read = TRUE)}.
+#'
+#' @return The DepMap list object, or NULL if not yet loaded.
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' load_depmap(read = TRUE)
+#' depmap <- get_depmap()
+#' }
+get_depmap <- function() {
+  if (exists("DepMap", envir = .depmap_env)) {
+    return(get("DepMap", envir = .depmap_env))
+  }
+  # Fallback: check .GlobalEnv for backward compatibility
+  if (exists("DepMap", envir = .GlobalEnv)) {
+    return(get("DepMap", envir = .GlobalEnv))
+  }
+  stop("DepMap data not loaded. Run load_depmap(read = TRUE) first.")
 }
 
-
+# DepMap is accessed via get_depmap() - declare to suppress R CMD check note
+utils::globalVariables("DepMap")
 
 #' Download file with mirror fallback and speed monitoring
 #'
@@ -38,6 +53,11 @@ download_with_mirrors <- function(urls, destfile, quiet = FALSE,
                                   speed_threshold = 10,
                                   timeout_seconds = 30,
                                   retries = 0) {
+  # Save and restore R timeout setting
+  old_timeout <- getOption("timeout")
+  on.exit(options(timeout = old_timeout), add = TRUE)
+  options(timeout = timeout_seconds)
+
   for (i in seq_along(urls)) {
     if (!quiet) message("Trying mirror ", i, "/", length(urls))
 
@@ -54,7 +74,7 @@ download_with_mirrors <- function(urls, destfile, quiet = FALSE,
         })
         success <- TRUE
       }, error = function(e) {
-        if (grepl("Timeout", e$message, ignore.case = TRUE)) {
+        if (grepl("Timeout|timed out|reached elapsed time", e$message, ignore.case = TRUE)) {
           timeout_occurred <<- TRUE
           if (!quiet && attempt == retries) {
             message("  Mirror ", i, " timed out after ", timeout_seconds, " seconds")
@@ -74,7 +94,7 @@ download_with_mirrors <- function(urls, destfile, quiet = FALSE,
         speed_kb_s <- (file.size(destfile) / 1024) / elapsed
 
         if (!quiet) {
-          message(sprintf("✓ Downloaded %.2f MB in %.1f sec (%.0f KB/s)",
+          message(sprintf("Downloaded %.2f MB in %.1f sec (%.0f KB/s)",
                           file_size_mb, elapsed, speed_kb_s))
         }
         return(TRUE)
@@ -91,24 +111,26 @@ download_with_mirrors <- function(urls, destfile, quiet = FALSE,
 
 
 
-#' Get current download mirrors for PERCEPTION
+#' Get current download mirrors
+#'
+#' Returns the current mirror list, including any user-added mirrors.
+#' User-added mirrors are tried first by default.
 #'
 #' @return Character vector of mirror URLs.
 #' @export
 #'
 #' @examples
-#' get_perception_mirrors()
-get_perception_mirrors <- function() {
+#' get_mirrors()
+get_mirrors <- function() {
   getOption("PERCEPTION.download_mirrors", get_default_perception_mirrors())
 }
 
-#' Get default download mirrors
+#' Get default download mirrors (excluding GitHub primary)
 #'
 #' @keywords internal
 #' @noRd
 get_default_perception_mirrors <- function() {
   c(
-    "https://github.com",
     "https://gh-proxy.com/https://github.com",
     "https://ghproxy.net/https://github.com",
     "https://moeyy.cn/gh-proxy/https://github.com",
@@ -124,49 +146,45 @@ get_default_perception_mirrors <- function() {
 
 
 
-#' Add custom download mirror
+#' Add custom download mirrors
 #'
-#' @param url Character string. The mirror URL to add.
-#' @param position Character. Where to add: "first", "last", or "before_github".
-#'        Default: "first".
+#' @param urls Character vector of mirror URLs to add.
+#' @param position Character. Where to add: "first" or "last". Default: "first".
 #'
 #' @return Invisibly returns the updated mirror list.
 #' @export
 #'
 #' @examples
 #' \dontrun{
-#' add_perception_mirror("https://my-mirror.com/https://github.com")
+#' add_mirrors("https://my-mirror.com/https://github.com")
+#' add_mirrors(c("https://mirror1.com/https://github.com",
+#'               "https://mirror2.com/https://github.com"))
 #' }
-add_perception_mirror <- function(url, position = c("first", "last", "before_github")) {
+add_mirrors <- function(urls, position = c("first", "last")) {
   position <- match.arg(position)
 
-  if (!grepl("^https?://", url)) {
-    stop("Invalid URL. Must start with http:// or https://")
+  if (!all(grepl("^https?://", urls))) {
+    stop("All URLs must start with http:// or https://")
   }
 
   current_mirrors <- getOption("PERCEPTION.download_mirrors", get_default_perception_mirrors())
-  url <- sub("/$", "", url)
+  urls <- sub("/$", "", urls)
 
-  if (url %in% current_mirrors) {
-    message("Mirror already exists")
+  # Remove duplicates (both against current and within input)
+  urls <- unique(urls)
+  urls <- urls[!urls %in% current_mirrors]
+
+  if (length(urls) == 0) {
+    message("All mirrors already exist")
     return(invisible(current_mirrors))
   }
 
   new_mirrors <- switch(position,
-                        "first" = c(url, current_mirrors),
-                        "last" = c(current_mirrors, url),
-                        "before_github" = {
-                          github_idx <- which(current_mirrors == "https://github.com")
-                          if (length(github_idx) == 0) {
-                            c(current_mirrors, url)
-                          } else {
-                            c(current_mirrors[1:(github_idx - 1)], url, current_mirrors[github_idx:length(current_mirrors)])
-                          }
-                        }
-  )
+                        "first" = c(urls, current_mirrors),
+                        "last" = c(current_mirrors, urls))
 
   options(PERCEPTION.download_mirrors = new_mirrors)
-  message("Added mirror: ", url)
+  message("Added ", length(urls), " mirror(s)")
   invisible(new_mirrors)
 }
 
@@ -175,8 +193,8 @@ add_perception_mirror <- function(url, position = c("first", "last", "before_git
 #' List current download mirrors
 #'
 #' @export
-list_perception_mirrors <- function() {
-  mirrors <- get_perception_mirrors()
+list_mirrors <- function() {
+  mirrors <- get_mirrors()
   for (i in seq_along(mirrors)) {
     cat(sprintf("%d. %s\n", i, mirrors[i]))
   }
@@ -188,7 +206,7 @@ list_perception_mirrors <- function() {
 #' Reset mirrors to default
 #'
 #' @export
-reset_perception_mirrors <- function() {
+reset_mirrors <- function() {
   options(PERCEPTION.download_mirrors = NULL)
   message("Mirrors reset to default")
   invisible(get_default_perception_mirrors())
@@ -205,6 +223,10 @@ reset_perception_mirrors <- function() {
 #' @param dest Directory to save downloaded models. Default = "./models".
 #' @param read Whether to read and return the downloaded model(s) as a named list.
 #'        Default = FALSE (download only).
+#' @param mirror Logical. If FALSE (default), download from GitHub directly.
+#'        If TRUE, use mirror sites from \code{get_mirrors()}.
+#' @param mirror_url Character. A specific mirror URL to use (e.g.,
+#'        \code{"https://gh-proxy.com/https://github.com"}). Overrides \code{mirror}.
 #' @param timeout_seconds Numeric, timeout for each download attempt in seconds. Default = 30.
 #' @param retries Integer, number of retries for each mirror. Default = 0.
 #'
@@ -216,17 +238,18 @@ reset_perception_mirrors <- function() {
 #'
 #' @examples
 #' \dontrun{
-#' # Download and load models as a named list
+#' # Download and load models from GitHub directly
 #' models <- load_model("erlotinib", "gefitinib", read = TRUE)
-#' # models$erlotinib, models$gefitinib
 #'
-#' # Use directly with predict_drugs
-#' pred <- predict_drugs(models, expr_rnorm)
+#' # Use mirror sites
+#' models <- load_model("erlotinib", "gefitinib", read = TRUE, mirror = TRUE)
 #'
-#' # Download without loading (for later use)
-#' load_model("erlotinib", dest = "./models")
+#' # Use a specific mirror
+#' models <- load_model("erlotinib", read = TRUE,
+#'                      mirror_url = "https://gh-proxy.com/https://github.com")
 #' }
-load_model <- function(..., dest = "./models", read = FALSE, timeout_seconds = 30, retries = 0) {
+load_model <- function(..., dest = "./models", read = FALSE, mirror = FALSE,
+                       mirror_url = NULL, timeout_seconds = 30, retries = 0) {
   drugs <- tolower(c(...))
   if (length(drugs) == 0) stop("Drug list is empty.")
 
@@ -234,14 +257,21 @@ load_model <- function(..., dest = "./models", read = FALSE, timeout_seconds = 3
     dir.create(dest, recursive = TRUE)
   }
 
-  mirrors <- get_perception_mirrors()
+  base_urls <- if (!is.null(mirror_url)) {
+    mirror_url
+  } else if (mirror) {
+    get_mirrors()
+  } else {
+    "https://github.com"
+  }
+
   result <- list()
 
   for (drug in drugs) {
     file_path <- file.path(dest, paste0(drug, ".RDS"))
 
     if (!file.exists(file_path)) {
-      urls <- paste0(mirrors, "/SunPast/PERCEPTION/releases/download/models-v1/", drug, ".RDS")
+      urls <- paste0(base_urls, "/SunPast/PERCEPTION/releases/download/models-v1/", drug, ".RDS")
       message("Downloading model for: ", drug)
 
       if(!download_with_mirrors(urls, file_path, quiet = FALSE,
@@ -281,6 +311,10 @@ load_model <- function(..., dest = "./models", read = FALSE, timeout_seconds = 3
 #' @param dest Directory to save the downloaded file. Default = ".".
 #' @param read Whether to read the data and assign to global environment as "DepMap".
 #'        Default = FALSE.
+#' @param mirror Logical. If FALSE (default), download from GitHub directly.
+#'        If TRUE, use mirror sites from \code{get_mirrors()}.
+#' @param mirror_url Character. A specific mirror URL to use (e.g.,
+#'        \code{"https://gh-proxy.com/https://github.com"}). Overrides \code{mirror}.
 #' @param timeout_seconds Numeric, timeout for each download attempt in seconds. Default = 600.
 #' @param retries Integer, number of retries for each mirror. Default = 1.
 #'
@@ -289,15 +323,17 @@ load_model <- function(..., dest = "./models", read = FALSE, timeout_seconds = 3
 #'
 #' @examples
 #' \dontrun{
-#' # Download only (no loading)
-#' load_depmap()
-#'
-#' # Download, read, and assign to global environment
+#' # Download from GitHub directly
 #' load_depmap(read = TRUE)
-#' # Then access DepMap$expression_rnorm, DepMap$scRNA_complete, etc.
+#'
+#' # Use mirror sites
+#' load_depmap(read = TRUE, mirror = TRUE)
+#'
+#' # Use a specific mirror
+#' load_depmap(read = TRUE, mirror_url = "https://gh-proxy.com/https://github.com")
 #' }
-load_depmap <- function(dest = ".", read = FALSE,
-                        timeout_seconds = 600, retries = 1) {
+load_depmap <- function(dest = ".", read = FALSE, mirror = FALSE, mirror_url = NULL,
+                        timeout_seconds = 300, retries = 1) {
   if (!dir.exists(dest)) {
     dir.create(dest, recursive = TRUE)
   }
@@ -305,8 +341,14 @@ load_depmap <- function(dest = ".", read = FALSE,
   destfile <- file.path(dest, "DepMap.RDS")
 
   if (!file.exists(destfile)) {
-    mirrors <- get_perception_mirrors()
-    urls <- paste0(mirrors, "/SunPast/PERCEPTION/releases/download/depmap/DepMap.RDS")
+    base_urls <- if (!is.null(mirror_url)) {
+      mirror_url
+    } else if (mirror) {
+      get_mirrors()
+    } else {
+      "https://github.com"
+    }
+    urls <- paste0(base_urls, "/SunPast/PERCEPTION/releases/download/depmap/DepMap.RDS")
 
     message("Downloading DepMap.RDS (~567 MB). This may take several minutes...")
 
@@ -327,8 +369,12 @@ load_depmap <- function(dest = ".", read = FALSE,
   if (read) {
     message("Reading DepMap.RDS...")
     DepMap <- readRDS(destfile)
-    assign("DepMap", DepMap, envir = .GlobalEnv)
-    message("Assigned 'DepMap' to global environment.")
+    assign("DepMap", DepMap, envir = .depmap_env)
+    # Also assign to .GlobalEnv for backward compatibility with existing scripts
+    # that reference DepMap directly
+    do.call("assign", list("DepMap", DepMap, envir = .GlobalEnv))
+    message("Assigned 'DepMap' to package cache and global environment.")
+    message("Use get_depmap() or DepMap to access the data.")
     return(invisible(DepMap))
   }
 

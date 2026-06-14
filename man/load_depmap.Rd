@@ -4,13 +4,26 @@
 \alias{load_depmap}
 \title{Download filtered DepMap data}
 \usage{
-load_depmap(dest = ".", read = FALSE, timeout_seconds = 600, retries = 1)
+load_depmap(
+  dest = ".",
+  read = FALSE,
+  mirror = FALSE,
+  mirror_url = NULL,
+  timeout_seconds = 300,
+  retries = 1
+)
 }
 \arguments{
 \item{dest}{Directory to save the downloaded file. Default = ".".}
 
 \item{read}{Whether to read the data and assign to global environment as "DepMap".
 Default = FALSE.}
+
+\item{mirror}{Logical. If FALSE (default), download from GitHub directly.
+If TRUE, use mirror sites from \code{get_mirrors()}.}
+
+\item{mirror_url}{Character. A specific mirror URL to use (e.g.,
+\code{"https://gh-proxy.com/https://github.com"}). Overrides \code{mirror}.}
 
 \item{timeout_seconds}{Numeric, timeout for each download attempt in seconds. Default = 600.}
 
@@ -27,11 +40,13 @@ Supports automatic mirror fallback for users in different regions.
 }
 \examples{
 \dontrun{
-# Download only (no loading)
-load_depmap()
-
-# Download, read, and assign to global environment
+# Download from GitHub directly
 load_depmap(read = TRUE)
-# Then access DepMap$expression_rnorm, DepMap$scRNA_complete, etc.
+
+# Use mirror sites
+load_depmap(read = TRUE, mirror = TRUE)
+
+# Use a specific mirror
+load_depmap(read = TRUE, mirror_url = "https://gh-proxy.com/https://github.com")
 }
 }

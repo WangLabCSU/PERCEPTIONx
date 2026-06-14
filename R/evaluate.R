@@ -1,6 +1,11 @@
 #' PERCEPTION Model Evaluation Functions
 #'
 #' Functions for evaluating and comparing performance of trained drug response models.
+#'
+#' @name evaluate_perception
+#' @keywords internal
+#' @importFrom stats reformulate aggregate median
+NULL
 
 
 #' Compare performance of multiple trained models
@@ -42,7 +47,11 @@ compare_performance <- function(model_list, threshold = 0.3, verbose = TRUE) {
     if (is.null(x) || length(x) == 1 && is.na(x)) {
       return(c(NA, NA))
     }
-    x$model_performance_during_cv
+    cv_val <- x$model_performance_during_cv
+    if (length(cv_val) == 1) {
+      return(c(NA, cv_val))
+    }
+    cv_val
   }))
 
   perf_bulk <- do.call(rbind, lapply(model_list, function(x) {

@@ -2,17 +2,17 @@
 % Please edit documentation in R/stats.R
 \name{range01}
 \alias{range01}
-\title{Scale vector to 0-1 range with outlier robustness}
+\title{Change range to 0-1}
 \usage{
 range01(x)
 }
 \arguments{
-\item{x}{Numeric vector.}
+\item{x}{A numeric vector.}
 }
 \value{
-Numeric vector scaled to the 0-1 range.
+A numeric vector scaled between 0 and 1.
 }
 \description{
-Uses the 5th and 95th percentiles as thresholds for outliers,
-capping values outside the range to 0 or 1.
+Scales a numeric vector to the 0-1 range using the 5th and 95th percentiles
+as thresholds to handle outliers.
 }

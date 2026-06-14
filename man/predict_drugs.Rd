@@ -2,7 +2,7 @@
 % Please edit documentation in R/predict.R
 \name{predict_drugs}
 \alias{predict_drugs}
-\title{PERCEPTION Prediction Functions}
+\title{Predict drug response for cells or clones}
 \usage{
 predict_drugs(model_list, expr)
 }
@@ -19,10 +19,6 @@ containing predicted viability scores. Lower values indicate higher
 drug sensitivity.
 }
 \description{
-Functions for predicting drug response at cell/clone level and patient level.
-Predict drug response for cells or clones
-}
-\details{
 Given a trained model (or list of models) and a rank-normalized expression matrix,
 predicts viability scores for each cell/sample across one or more drugs.
 This function merges the former viability_from_model (single drug) and

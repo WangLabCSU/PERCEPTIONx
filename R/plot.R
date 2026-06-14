@@ -6,7 +6,16 @@
 #' and patient/single-cell expression data.
 #'
 #' @name plot_perception
-"_PACKAGE"
+#' @keywords internal
+#' @importFrom ggplot2 ggplot aes geom_point geom_segment geom_boxplot geom_bar geom_hline geom_line geom_vline coord_cartesian theme_bw labs theme element_text element_rect facet_grid scale_colour_gradientn scale_fill_brewer scale_size margin unit guide_colourbar guides guide_legend ggtitle annotate rel
+#' @importFrom rlang .data
+#' @importFrom pROC ggroc roc auc smooth
+NULL
+
+# Column names used in aes() - declare as global variables to suppress R CMD check notes
+utils::globalVariables(c("X", "Y", "clones", "weights", "patients",
+                         "clone_id", "Predictibility", "drugsCount", "dataused",
+                         "pred_viab"))
 
 #' Plot t-SNE/UMAP with drug response overlay
 #'
@@ -54,7 +63,8 @@ plot_tsne_response <- function(tsne_data,
     geom_point(size = point_size) +
     theme_bw(base_size = base_size) +
     labs(color = color_label, x = "", y = "") +
-    theme(legend.position = "top") +
+    theme(legend.position = "top",
+          plot.title = element_text(hjust = 0.5)) +
     scale_colour_gradientn(colours = colors)
 
   if (!is.null(title)) {
@@ -100,7 +110,7 @@ plot_clone_distribution <- function(clone_distribution,
   p <- ggplot(clone_distribution, aes(fill = clones, y = weights, x = patients)) +
     geom_bar(position = "stack", stat = "identity") +
     theme_bw(base_size = base_size) +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
           legend.position = "top") +
     labs(y = "Clone Proportion", x = "Patients")
 
@@ -164,19 +174,50 @@ plot_clone_killing <- function(clone_killing,
                        color = .data[[killing_var]])
   }
 
+  y_data <- clone_killing[[killing_var]]
+  y_min <- min(y_data, na.rm = TRUE)
+  y_max <- max(y_data, na.rm = TRUE)
+  y_bottom <- min(0, y_min)
+  y_top <- y_max + (y_max - y_bottom) * 0.1
+
   p <- ggplot(clone_killing, aes_mapping) +
-    geom_point() +
+    geom_hline(yintercept = 0, color = "grey50", linewidth = 0.3) +
     geom_segment(aes(x = clone_id, xend = clone_id, y = 0, yend = .data[[killing_var]]),
-                 color = "black") +
+                 color = "black", linewidth = 0.4) +
+    geom_point() +
+    coord_cartesian(ylim = c(y_bottom, y_top)) +
     theme_bw(base_size = base_size) +
-    labs(x = "Clones", y = "Predicted Viability\n(z-score)",
+    labs(x = "Clones", y = "Predicted Viability (z-score)",
          color = "Predicted Viability", size = "Proportion in Tumor") +
     theme(legend.position = "top",
           strip.placement = "outside",
-          strip.background = element_rect(fill = "white", linewidth = 1, color = "white"))
+          strip.background = element_rect(fill = "white", linewidth = 1, color = "white"),
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+          legend.box = "horizontal",
+          legend.box.spacing = unit(8, "pt"),
+          legend.key.size = unit(14, "pt"),
+          legend.text = element_text(size = rel(0.7)),
+          legend.title = element_text(size = rel(0.8), vjust = 0.5),
+          legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"))
 
   if (viridis_scale) {
-    p <- p + scale_colour_viridis_c()
+    p <- p + scale_colour_gradientn(
+        colours = c("#440154", "#3B528B", "#21908C", "#5DC863", "#FDE725"),
+        breaks = function(limits) pretty(limits, n = 4)
+    ) +
+      guides(color = guide_colourbar(
+        barwidth = unit(120, "pt"),
+        barheight = unit(8, "pt"),
+        label.hjust = 0.5,
+        ticks.colour = "grey50",
+        title.position = "top"
+      ))
+  }
+
+  if (!is.null(weights_var) && weights_var %in% colnames(clone_killing)) {
+    p <- p + scale_size(range = c(1, 8))
+  } else {
+    p <- p + guides(size = "none")
   }
 
   if (!is.null(response_var) && response_var %in% colnames(clone_killing)) {
@@ -191,11 +232,7 @@ plot_clone_killing <- function(clone_killing,
                         as.table = TRUE)
   }
 
-  if (!is.null(y_limits)) {
-    p <- p + ylim(y_limits[1], y_limits[2])
-  }
-
-  return(p)
+  p
 }
 
 #' Plot ROC curve with AUC annotation
@@ -262,7 +299,7 @@ plot_roc_curve <- function(response,
 #' @param exp_vs_pred Data frame with columns: response, predicted_killing.
 #' @param response_var Character. Column name for response labels. Default = "response".
 #' @param predicted_var Character. Column name for predicted values. Default = "predicted_killing".
-#' @param y_label Character. Y-axis label. Default = "Predicted Viability\n(z-score)".
+#' @param y_label Character. Y-axis label. Default = "Predicted Viability (z-score)".
 #' @param base_size Numeric. Base font size. Default = 15.
 #' @param compare_method Character. Statistical test method. Default = "wilcox.test".
 #' @param alternative Character. Alternative hypothesis direction. Default = "greater".
@@ -282,7 +319,7 @@ plot_roc_curve <- function(response,
 plot_response_boxplot <- function(exp_vs_pred,
                                   response_var = "response",
                                   predicted_var = "predicted_killing",
-                                  y_label = "Predicted Viability\n(z-score)",
+                                  y_label = "Predicted Viability (z-score)",
                                   base_size = 15,
                                   compare_method = "wilcox.test",
                                   alternative = "greater") {
@@ -301,9 +338,10 @@ plot_response_boxplot <- function(exp_vs_pred,
   p <- ggplot(exp_vs_pred, aes(y = .data[[predicted_var]], x = .data[[response_var]],
                                color = .data[[response_var]])) +
     geom_boxplot() +
-    geom_point() +
-    stat_compare_means(method.args = list(alternative = alternative),
-                       size = 7, label = "p", label.x = 1.2, label.y = 0.7) +
+    geom_point(size = 1, alpha = 0.5) +
+    ggpubr::stat_compare_means(method.args = list(alternative = alternative),
+                       size = 5, label = "p",
+                       label.x.npc = 0.95, label.y.npc = 0.95) +
     theme_bw(base_size = base_size) +
     labs(y = y_label, x = "Patients") +
     theme(legend.position = "top")
@@ -369,9 +407,9 @@ plot_model_performance <- function(performance_list,
     geom_line() +
     geom_vline(xintercept = highlight_threshold, linetype = "dashed") +
     theme_bw(base_size = base_size) +
-    labs(y = "Number of Drugs", color = "Dataset Used",
-         x = "Predictibility\n(Pearson Correlation)") +
-    theme(legend.position = "none")
+    labs(y = "Number of Drugs", color = "Validation Dataset",
+         x = "Predictibility (Pearson Correlation)") +
+    theme(legend.position = "top")
 
   return(p)
 }
@@ -455,6 +493,7 @@ plot_seurat_clustering <- function(expression_matrix,
 #' @param exp_vs_pred Data frame. Predicted vs observed response.
 #' @param response_col Character. Response column name. Default = "response".
 #' @param killing_col Character. Killing column name. Default = "comb_killing".
+#' @param predicted_col Character. Predicted values column name. Default = "predicted_killing".
 #' @param weights_col Character. Weights column name. Default = "weights".
 #' @param layout_matrix Matrix. Layout for grid.arrange. Default = NULL (auto).
 #'
