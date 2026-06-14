@@ -37,3 +37,4 @@ Thumbs.db
 *.rds
 test_pipeline_output/
 inst/testdata/
+.positai
