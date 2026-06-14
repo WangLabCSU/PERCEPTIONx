@@ -1,6 +1,6 @@
 # PERCEPTION
 <!-- badges: start -->
-[![R-CMD-check](https://github.com/SunPast/PERCEPTION/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/SunPast/PERCEPTION/actions/workflows/R-CMD-check.yaml)
+
 <!-- badges: end -->
 
 An R package for predicting patient response and resistance to cancer treatment using single-cell transcriptomics.
