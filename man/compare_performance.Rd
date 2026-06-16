@@ -2,7 +2,7 @@
 % Please edit documentation in R/evaluate.R
 \name{compare_performance}
 \alias{compare_performance}
-\title{PERCEPTION Model Evaluation Functions}
+\title{Compare performance of multiple trained models}
 \usage{
 compare_performance(model_list, threshold = 0.3, verbose = TRUE)
 }
@@ -24,10 +24,6 @@ A list containing:
 }
 }
 \description{
-Functions for evaluating and comparing performance of trained drug response models.
-Compare performance of multiple trained models
-}
-\details{
 Computes and summarizes performance metrics across multiple drug models.
 Returns performance in cross-validation, bulk test, pseudo-bulk, and scRNA datasets.
 }

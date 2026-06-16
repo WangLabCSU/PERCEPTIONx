@@ -26,6 +26,8 @@ plot_patient_response_panel(
 
 \item{killing_col}{Character. Killing column name. Default = "comb_killing".}
 
+\item{predicted_col}{Character. Predicted values column name. Default = "predicted_killing".}
+
 \item{weights_col}{Character. Weights column name. Default = "weights".}
 
 \item{layout_matrix}{Matrix. Layout for grid.arrange. Default = NULL (auto).}

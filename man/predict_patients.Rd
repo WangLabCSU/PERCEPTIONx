@@ -4,7 +4,12 @@
 \alias{predict_patients}
 \title{Predict drug response at patient level}
 \usage{
-predict_patients(clone_killing_matrix, clone_counts, mode = "weighted_average")
+predict_patients(
+  clone_killing_matrix,
+  clone_counts,
+  mode = "max",
+  zscore = TRUE
+)
 }
 \arguments{
 \item{clone_killing_matrix}{Data frame. Must have columns 'patient' and
@@ -18,11 +23,14 @@ cell counts as values.}
 
 \item{mode}{Character. Aggregation method:
 \describe{
-\item{"weighted_average"}{Weighted average of clone killing by clone abundance (default)}
-\item{"min"}{Minimum killing across clones (most resistant clone)}
-\item{"max"}{Maximum killing across clones (most sensitive clone)}
+\item{"max"}{Maximum killing across clones (most resistant clone). Default.}
+\item{"weighted_average"}{Weighted average of clone killing by clone abundance}
+\item{"min"}{Minimum killing across clones (most sensitive clone)}
 \item{"weighted_max"}{Maximum of weighted killing across clones}
 }}
+
+\item{zscore}{Logical. Whether to z-score scale drug columns across patients
+before aggregation. Default = TRUE. Matches the original PERCEPTION pipeline.}
 }
 \value{
 A data frame with patients as rows and drugs as columns,
@@ -47,8 +55,7 @@ the former each_patient_killing (single drug) and each_patient_killingv2
   )
 
   # Step 3: Aggregate to patient level
-  patient_pred <- predict_patients(clone_killing_df, clone_counts,
-                                  mode = "weighted_average")
+  patient_pred <- predict_patients(clone_killing_df, clone_counts)
 }
 
 }

@@ -1,3 +1,7 @@
+# C_pKendall and C_pRho are internal C symbols from the stats package
+# used via .Call() - declare as global variables to suppress R CMD check note
+utils::globalVariables(c("C_pKendall", "C_pRho"))
+
 #' Fast correlation test (generic)
 #'
 #' A generic function for fast correlation testing. Dispatches methods based on
@@ -10,10 +14,9 @@
 #' @return A list containing the p-value and correlation estimate.
 #'         The exact structure depends on the method used.
 #'
-#' @seealso \code{\link{cor.test_trimmed_v0.default}} for the default method.
+#' @seealso \code{\link{cor.test}} for the full version with confidence intervals.
 #'
-#' @keywords internal
-#' @noRd
+#' @export
 cor.test_trimmed_v0 <- function(x, ...) UseMethod("cor.test_trimmed_v0")
 
 
@@ -47,7 +50,7 @@ cor.test_trimmed_v0 <- function(x, ...) UseMethod("cor.test_trimmed_v0")
 #'
 #' @keywords internal
 #' @noRd
-#' @exportS3Method cor.test_trimmed_v0 default
+#' @export
 cor.test_trimmed_v0.default <-
   function(x, y, alternative = c("two.sided", "less", "greater"),
            method = c("pearson"), exact = NULL,
@@ -255,7 +258,7 @@ cor.test_trimmed_v0.default <-
 #'
 #' @keywords internal
 #' @noRd
-#' @exportS3Method cor.test formula
+#' @exportS3Method stats::cor.test
 cor.test.formula <-
   function(formula, data, subset, na.action, ...)
   {

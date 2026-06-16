@@ -1,3 +1,13 @@
+#' PERCEPTION Model Training
+#'
+#' @name train_perception
+#' @keywords internal
+#' @importFrom stats cor.test predict aggregate setNames na.omit median
+#' @importFrom utils head
+#' @importFrom glmnet glmnet
+#' @importFrom randomForest randomForest
+NULL
+
 #' Get specific drug response data for cell-lines
 #'
 #' Extracts the drug response (AUC) for a given drug from the DepMap database.
@@ -59,8 +69,8 @@ get_response_matrix <- function(infunc_drugName) {
 #'
 #' @return A list of length 2:
 #' \itemize{
-#'   \item Element 1: common_cellLines - Cell lines to use for training
-#'   \item Element 2: cellLines2remove - Cell lines excluded (reserved for testing)
+#'   \item \[1\] common_cellLines: Cell lines to use for training
+#'   \item \[2\] cellLines2remove: Cell lines excluded (reserved for testing)
 #' }
 #'
 #' @export
@@ -213,10 +223,13 @@ run_parallel_feature_ranking_bulk <- function(infunc_DrugsToUse,
 #' @param infunc_cancerType Character. Cancer type for training. Default = "PanCan".
 #' @param exclude_cancer Character. Cancer type to exclude. Default = "PanCan".
 #' @param infunc_features Character vector. Feature gene names (ranked).
-#' @param single_best Character. Name of the single best feature. Default is the first element of infunc_features.
+#' @param single_best Character. Name of the single best feature. Default = infunc_features\[1\].
 #' @param k_features Integer. Number of top features to use. Default = 100.
 #' @param infunc_alpha Numeric. Alpha for glmnet (not used directly, tuning via alpha_gradient). Default = 1.
 #' @param model_type Character. Model type: "glmnet" or "rf". Default = "glmnet".
+#' @param num_folds Integer. Number of CV folds. Default = 3.
+#' @param num_tree Integer. Number of trees for random forest. Default = 500.
+#' @param seed Integer. Random seed for training. Default = 1.
 #' @param alpha_gradient Numeric. Step size for alpha grid in glmnet tuning. Default = 0.05.
 #' @param lambda_gradient Integer. Number of lambda values in glmnet tuning grid. Default = 20.
 #' @param lambda_range Numeric vector of length 2. Min and max lambda for tuning grid. Default = c(0.0001, 1).
@@ -234,6 +247,9 @@ build_on_BULK_v2 <- function(infunc_drugName,
                              k_features = 100,
                              infunc_alpha = 1,
                              model_type = "glmnet",
+                             num_folds = 3,
+                             num_tree = 500,
+                             seed = 1,
                              alpha_gradient = 0.05,
                              lambda_gradient = 20,
                              lambda_range = c(0.0001, 1),
@@ -316,8 +332,8 @@ build_on_BULK_v2 <- function(infunc_drugName,
   ##########
   # ML Model
   ##########
-  set.seed(1)
-  tc <- caret::trainControl(method = cv_method, number = 3)
+  set.seed(seed)
+  tc <- caret::trainControl(method = cv_method, number = num_folds)
 
   if (model_type == 'rf') {
     tunegrid <- expand.grid(.mtry = ncol(Train_features) / seq(10, 1, -3))
@@ -326,7 +342,7 @@ build_on_BULK_v2 <- function(infunc_drugName,
                            method = 'rf',
                            trControl = tc,
                            tunegrid = tunegrid,
-                           ntree = 500))
+                           ntree = num_tree))
   } else if (model_type == 'glmnet') {
     tunegrid <- expand.grid(alpha = seq(0, 1, alpha_gradient),
                             lambda = seq(lambda_range[1], lambda_range[2], length = lambda_gradient))
@@ -408,6 +424,9 @@ build_on_BULK_v2 <- function(infunc_drugName,
 #' @param ncores Integer. Number of CPU cores for parallel feature ranking. Default = 4.
 #' @param output_dir Character. Directory to save trained model RDS file. Default = "./models".
 #' @param model_type Character. Model type: "glmnet" or "rf". Default = "glmnet".
+#' @param num_folds Integer. Number of CV folds. Default = 3.
+#' @param num_tree Integer. Number of trees for random forest. Default = 500.
+#' @param seed Integer. Random seed for training. Default = 1.
 #' @param alpha_gradient Numeric. Step size for alpha grid in glmnet tuning. Default = 0.05.
 #' @param lambda_gradient Integer. Number of lambda values in glmnet tuning grid. Default = 20.
 #' @param lambda_range Numeric vector of length 2. Min and max lambda for tuning grid. Default = c(0.0001, 1).
@@ -434,6 +453,9 @@ train_models <- function(drug_list = NULL,
                                     ncores = 4,
                                     output_dir = "./models",
                                     model_type = "glmnet",
+                                    num_folds = 3,
+                                    num_tree = 500,
+                                    seed = 1,
                                     alpha_gradient = 0.05,
                                     lambda_gradient = 20,
                                     lambda_range = c(0.0001, 1),
@@ -520,7 +542,7 @@ train_models <- function(drug_list = NULL,
   # ============================================================================
   message("Step 2/2: Training models with hyperparameter tuning...")
 
-  tuned_models <- list()
+  for_output_lung_Test_vglm <- list()
   Performance_by_features <- list()
 
   for (i in seq_along(drug_list)) {
@@ -531,7 +553,7 @@ train_models <- function(drug_list = NULL,
     features <- features_list[[i]]
     if (is.null(features) || (length(features) == 1 && is.na(features))) {
       warning("  Skipping ", drug, " - feature ranking failed.")
-      tuned_models[[i]] <- NULL
+      for_output_lung_Test_vglm[[i]] <- NULL
       next
     }
 
@@ -539,7 +561,7 @@ train_models <- function(drug_list = NULL,
     drug_match <- which(stripall2match(DepMap$secondary_screen_drugAnnotation$CommonName) == drug)
     if (length(drug_match) == 0) {
       warning("  Skipping ", drug, " - drug not found in DepMap response data.")
-      tuned_models[[i]] <- NULL
+      for_output_lung_Test_vglm[[i]] <- NULL
       next
     }
 
@@ -558,6 +580,9 @@ train_models <- function(drug_list = NULL,
           single_best = rownames(features)[1],
           k_features = infunc_k_features_grid,
           model_type = model_type,
+          num_folds = num_folds,
+          num_tree = num_tree,
+          seed = seed,
           alpha_gradient = alpha_gradient,
           lambda_gradient = lambda_gradient,
           lambda_range = lambda_range,
@@ -574,7 +599,7 @@ train_models <- function(drug_list = NULL,
     # Check if any models were successfully built
     if (length(Raw_models_output) == 0 || all(sapply(Raw_models_output, is.null))) {
       warning("  Skipping ", drug, " - all model builds failed.")
-      tuned_models[[i]] <- NULL
+      for_output_lung_Test_vglm[[i]] <- NULL
       next
     }
 
@@ -583,7 +608,7 @@ train_models <- function(drug_list = NULL,
     Performance_by_features[[i]] <- lapply(Raw_models_output, function(x) x$performance_in_scRNA)
 
     # Store the Tuned model (select based on highest correlation estimate)
-    tuned_models[[i]] <- err_handle(
+    for_output_lung_Test_vglm[[i]] <- err_handle(
       Raw_models_output[[which.max(sapply(Raw_models_output, function(x) x$performance_in_scRNA)[2, ])]])
 
     # Clean up
@@ -592,9 +617,9 @@ train_models <- function(drug_list = NULL,
   }
 
   # Assign names and filter out NULL entries (failed drugs)
-  names(tuned_models) <- drug_list
-  tuned_models <- tuned_models[!sapply(tuned_models, is.null)]
-  Tuned_models_output <- tuned_models
+  names(for_output_lung_Test_vglm) <- drug_list
+  for_output_lung_Test_vglm <- for_output_lung_Test_vglm[!sapply(for_output_lung_Test_vglm, is.null)]
+  Tuned_models_output <- for_output_lung_Test_vglm
 
   # ============================================================================
   # 8. Save all models to a single RDS file

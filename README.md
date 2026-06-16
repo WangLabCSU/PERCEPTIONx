@@ -134,10 +134,10 @@ plot_response_boxplot(
 |----------|-------------|
 | `load_depmap()` | Download and load DepMap reference datasets |
 | `load_model()` | Download and load pre-trained models |
-| `get_perception_mirrors()` | Get available download mirrors |
-| `add_perception_mirror()` | Add a custom mirror |
-| `list_perception_mirrors()` | List current mirrors |
-| `reset_perception_mirrors()` | Reset to default mirrors |
+| `get_mirrors()` | Get available download mirrors |
+| `add_mirrors()` | Add a custom mirror |
+| `list_mirrors()` | List current mirrors |
+| `reset_mirrors()` | Reset to default mirrors |
 
 ### 4.2 Preprocessing
 

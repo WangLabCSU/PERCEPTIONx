@@ -29,8 +29,8 @@ get_cellLine_list(
 \value{
 A list of length 2:
 \itemize{
-\item Element 1: common_cellLines - Cell lines to use for training
-\item Element 2: cellLines2remove - Cell lines excluded (reserved for testing)
+\item [1] common_cellLines: Cell lines to use for training
+\item [2] cellLines2remove: Cell lines excluded (reserved for testing)
 }
 }
 \description{

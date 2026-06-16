@@ -1,6 +1,11 @@
 #' PERCEPTION Prediction Functions
 #'
 #' Functions for predicting drug response at cell/clone level and patient level.
+#'
+#' @name predict_perception
+#' @keywords internal
+#' @importFrom stats predict setNames
+NULL
 
 
 #' Predict drug response for cells or clones
@@ -99,7 +104,6 @@ predict_drugs <- function(model_list, expr) {
 #' @return A named numeric vector of predicted viability scores.
 #'
 #' @keywords internal
-#' @noRd
 viability_from_model_internal <- function(drug_name, model, dataset) {
 
   # Step 1: Try exact match of model features to expression matrix rows
@@ -158,11 +162,13 @@ viability_from_model_internal <- function(drug_name, model, dataset) {
 #'        cell counts as values.
 #' @param mode Character. Aggregation method:
 #'   \describe{
-#'     \item{"weighted_average"}{Weighted average of clone killing by clone abundance (default)}
-#'     \item{"min"}{Minimum killing across clones (most resistant clone)}
-#'     \item{"max"}{Maximum killing across clones (most sensitive clone)}
+#'     \item{"max"}{Maximum killing across clones (most resistant clone). Default.}
+#'     \item{"weighted_average"}{Weighted average of clone killing by clone abundance}
+#'     \item{"min"}{Minimum killing across clones (most sensitive clone)}
 #'     \item{"weighted_max"}{Maximum of weighted killing across clones}
 #'   }
+#' @param zscore Logical. Whether to z-score scale drug columns across patients
+#'        before aggregation. Default = TRUE. Matches the original PERCEPTION pipeline.
 #'
 #' @return A data frame with patients as rows and drugs as columns,
 #'         containing aggregated killing scores.
@@ -180,13 +186,12 @@ viability_from_model_internal <- function(drug_name, model, dataset) {
 #'   )
 #'
 #'   # Step 3: Aggregate to patient level
-#'   patient_pred <- predict_patients(clone_killing_df, clone_counts,
-#'                                   mode = "weighted_average")
+#'   patient_pred <- predict_patients(clone_killing_df, clone_counts)
 #' }
 #'
 #' @export
 predict_patients <- function(clone_killing_matrix, clone_counts,
-                             mode = "weighted_average") {
+                             mode = "max", zscore = TRUE) {
 
   # Validate inputs
   if (!"patient" %in% colnames(clone_killing_matrix)) {
@@ -207,6 +212,11 @@ predict_patients <- function(clone_killing_matrix, clone_counts,
   # Identify drug columns (all columns except patient and clone_id)
   drug_cols <- setdiff(colnames(clone_killing_matrix), c("patient", "clone_id"))
   n_drugs <- length(drug_cols)
+
+  # Z-score scale drug columns across patients before aggregation
+  if (zscore) {
+    clone_killing_matrix <- zscore_killing(clone_killing_matrix)
+  }
 
   # Aggregate for each patient
   patient_results <- do.call(rbind, lapply(1:nrow(clone_counts), function(x) {

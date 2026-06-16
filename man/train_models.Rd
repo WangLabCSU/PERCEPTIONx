@@ -13,6 +13,9 @@ train_models(
   ncores = 4,
   output_dir = "./models",
   model_type = "glmnet",
+  num_folds = 3,
+  num_tree = 500,
+  seed = 1,
   alpha_gradient = 0.05,
   lambda_gradient = 20,
   lambda_range = c(1e-04, 1),
@@ -37,6 +40,12 @@ If NULL, automatically calculated from expression_rnorm dimensions.}
 \item{output_dir}{Character. Directory to save trained model RDS file. Default = "./models".}
 
 \item{model_type}{Character. Model type: "glmnet" or "rf". Default = "glmnet".}
+
+\item{num_folds}{Integer. Number of CV folds. Default = 3.}
+
+\item{num_tree}{Integer. Number of trees for random forest. Default = 500.}
+
+\item{seed}{Integer. Random seed for training. Default = 1.}
 
 \item{alpha_gradient}{Numeric. Step size for alpha grid in glmnet tuning. Default = 0.05.}
 
