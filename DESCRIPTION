@@ -4,32 +4,21 @@ Version: 0.0.0.9000
 Authors@R: 
     person("Jia", "Ding", , "jiading682@gmail.com", role = c("aut", "cre"))
 Description: This package aims to provide a convenient way to better adopt the PERCEPTION(https://github.com/ruppinlab/PERCEPTION), which is a prediction tool to assess the function of certain drugs against certain cancers on provided patients.
-License: MIT
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 8.0.0
+VignetteBuilder: knitr
 Imports:
-    RColorBrewer,
     ggplot2,
     ggpubr,
     gridExtra,
-    data.table,
-    tictoc,
-    statar,
     glmnet,
     caret,
     randomForest,
-    tidyr,
-    ggrepel,
     pROC,
-    scales,
-    dplyr,
-    viridis,
-    reshape2,
-    Seurat,
-    corrplot,
-    ggpmisc,
-    readxl,
+    rlang,
+    Seurat
 URL: https://github.com/SunPast/PERCEPTION
 BugReports: https://github.com/SunPast/PERCEPTION/issues
 Suggests:
