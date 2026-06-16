@@ -257,16 +257,16 @@ prepare_patient_data <- function(expression_matrix,
     patient_ids = cell_clone_map$patient
   )
 
-  # Build clone_killing_df template for predict_patients()
+  # Build clone_killing_df template from cell_clone_map
+  # Row order matches clone_expression_rnorm column order
   clone_col_names <- colnames(clone_expression_rnorm)
-  # Parse patient_clone format back to patient and clone_id
-  template_patients <- sapply(strsplit(clone_col_names, "_"), `[`, 1)
-  template_clones <- sapply(strsplit(clone_col_names, "_"), function(x) paste(x[-1], collapse = "_"))
+  # Parse patient_clone format using @@ separator
+  template_patients <- sapply(strsplit(clone_col_names, "@@"), `[`, 1)
+  template_clones <- sapply(strsplit(clone_col_names, "@@"), `[`, 2)
 
   clone_killing_template <- data.frame(
     patient = template_patients,
     clone_id = template_clones,
-    row_names = clone_col_names,
     stringsAsFactors = FALSE
   )
 
