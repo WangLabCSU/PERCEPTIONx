@@ -51,8 +51,21 @@ annotate_clones <- function(expression_matrix,
   so <- Seurat::FindVariableFeatures(so, selection.method = "vst",
                                      nfeatures = nfeatures)
   so <- Seurat::ScaleData(so)
-  so <- Seurat::RunPCA(so, features = Seurat::VariableFeatures(object = so))
-  so <- Seurat::FindNeighbors(so, dims = 1:dims)
+
+  # Adjust PCA dimensions based on available cells/features
+  # PCA requires npcs < min(nrow, ncol) of the scaled matrix
+  max_pcs <- min(ncol(so), length(Seurat::VariableFeatures(object = so))) - 1
+  actual_dims <- min(dims, max_pcs)
+  if (actual_dims < 1) actual_dims <- 1
+
+  if (actual_dims < dims) {
+    message("  Adjusting PCA dims from ", dims, " to ", actual_dims,
+            " due to limited cells/features")
+  }
+
+  so <- Seurat::RunPCA(so, features = Seurat::VariableFeatures(object = so),
+                       npcs = actual_dims)
+  so <- Seurat::FindNeighbors(so, dims = 1:actual_dims)
   so <- Seurat::FindClusters(so, resolution = resolution)
 
   cluster_ids <- Seurat::Idents(so)
@@ -125,9 +138,20 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 #'
 #' @param expression_matrix Matrix. Gene expression matrix with genes as rows
 #'        and cells as columns.
-#' @param sample_cell_names Named list. Each element is named by patient ID and
-#'        contains a character vector of cell IDs belonging to that patient.
-#'        If NULL, all cells are assigned to a single patient.
+#' @param patient_mapping List or data frame. Patient-cell mapping in one of two formats:
+#'   \describe{
+#'     \item{List format}{Named list where each element is a patient ID and
+#'        contains a character vector of cell IDs. Example:
+#'        \code{list(Patient_1 = c("Cell_1", "Cell_2"), Patient_2 = c("Cell_3"))}}
+#'     \item{Data frame format}{Metadata with cell ID and patient ID columns.
+#'        Specify column names via \code{cell_col} and \code{patient_col}.
+#'        Example: \code{data.frame(cell_id = c("Cell_1", "Cell_2"), patient_id = c("P1", "P1"))}}
+#'   }
+#'   If NULL, all cells are assigned to a single patient "patient1".
+#' @param cell_col Character. Cell ID column name in patient_mapping data frame.
+#'        Default = "cell_id". Only used when patient_mapping is a data frame.
+#' @param patient_col Character. Patient ID column name in patient_mapping data frame.
+#'        Default = "patient_id". Only used when patient_mapping is a data frame.
 #' @param genes_to_use Character vector. Genes to retain in the output matrix.
 #'        If NULL, all genes in the expression matrix are used.
 #' @param seurat_resolution Numeric. Clustering resolution. Default = 0.8.
@@ -149,32 +173,111 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 #'
 #' @examples
 #' \dontrun{
-#'   prepared <- prepare_patient_data(
+#'   # List format (same as Rmd)
+#'   prepared <- prepare_data(
 #'     expression_matrix = patient_scRNA,
-#'     sample_cell_names = cell_names_list,
+#'     patient_mapping = cell_names_list,
 #'     genes_to_use = GOI
 #'   )
 #'
+#'   # Or data frame format (from metadata)
+#'   metadata <- data.frame(cell_id = colnames(patient_scRNA), patient_id = patient_ids)
+#'   prepared <- prepare_data(patient_scRNA, metadata)
+#'
+#'   # Parse patient ID from cell names (e.g., "P11_M_Barcode" -> "P11")
+#'   metadata <- data.frame(Cell = c("P11_M_Barcode1", "P12_M_Barcode2"))
+#'   prepared <- prepare_data(
+#'     patient_scRNA, metadata,
+#'     cell_col = "Cell",           # Custom column name
+#'     parse_patient = TRUE,        # Parse from Cell column
+#'     patient_sep = "_",           # Split by "_"
+#'     patient_pos = 1              # Take first element
+#'   )
+#'   # Result: Patient IDs = "P11", "P12"
+#'
 #'   # Use directly with prediction functions
 #'   clone_pred <- predict_drugs(models, prepared$clone_expression_rnorm)
-#'
-#'   # Build clone_killing_df from template
-#'   clone_killing_df <- prepared$clone_killing_df_template
-#'   clone_killing_df <- cbind(clone_killing_df, clone_pred[
-#'     match(rownames(clone_pred), rownames(clone_killing_df)), , drop = FALSE])
-#'   patient_pred <- predict_patients(clone_killing_df, prepared$clone_counts)
+#'   patient_pred <- predict_patients(clone_pred, prepared)
 #' }
 #'
+#' @param parse_patient Logical. If TRUE, parse patient ID from cell_col using separator.
+#'   Default = FALSE. Auto-enabled if patient_sep or patient_pos is provided.
+#'   Useful when cell names contain patient info (e.g., "P11_M_Barcode").
+#' @param patient_sep Character. Separator to split cell_col for parsing patient ID.
+#'   Default = "_". Providing this parameter auto-enables parse_patient.
+#' @param patient_pos Integer. Position of patient ID after splitting.
+#'   Default = 1 (first element). Providing this parameter auto-enables parse_patient.
+#'
 #' @export
-prepare_patient_data <- function(expression_matrix,
-                                  sample_cell_names = NULL,
-                                  genes_to_use = NULL,
-                                  seurat_resolution = 0.8,
-                                  seurat_dims = 10,
-                                  seurat_nfeatures = 2000,
-                                  seurat_seed = 42) {
+prepare_data <- function(expression_matrix,
+                          patient_mapping = NULL,
+                          cell_col = "cell_id",
+                          patient_col = "patient_id",
+                          parse_patient = FALSE,
+                          patient_sep = "_",
+                          patient_pos = 1,
+                          genes_to_use = NULL,
+                          seurat_resolution = 0.8,
+                          seurat_dims = 10,
+                          seurat_nfeatures = 2000,
+                          seurat_seed = 42) {
 
   message("=== PERCEPTION Patient Data Preparation ===")
+
+  # --- Auto-enable parse_patient if patient_sep or patient_pos is provided ---
+  if (!parse_patient) {
+    # Check if user provided non-default patient_sep or patient_pos
+    # Default: patient_sep="_", patient_pos=1
+    # If user explicitly changed either, auto-enable parsing
+    caller_args <- as.list(match.call())
+    if ("patient_sep" %in% names(caller_args) || "patient_pos" %in% names(caller_args)) {
+      parse_patient <- TRUE
+      message("  Auto-enabling parse_patient (patient_sep or patient_pos provided)")
+    }
+  }
+
+  # --- Convert patient_mapping to list format if data frame ---
+  if (is.data.frame(patient_mapping)) {
+    if (!cell_col %in% colnames(patient_mapping)) {
+      stop("patient_mapping data frame must have a column named '", cell_col, "'")
+    }
+
+    # Parse patient ID from cell_col if requested
+    if (parse_patient) {
+      message("  Parsing patient IDs from '", cell_col, "' column using separator '", patient_sep, "'")
+      cell_names <- patient_mapping[[cell_col]]
+      parsed_parts <- strsplit(as.character(cell_names), patient_sep, fixed = TRUE)
+
+      # Extract patient ID at specified position
+      patient_ids_parsed <- sapply(parsed_parts, function(x) {
+        if (length(x) >= patient_pos) {
+          return(x[patient_pos])
+        } else {
+          return(NA_character_)
+        }
+      })
+
+      # Check for parsing failures
+      if (any(is.na(patient_ids_parsed))) {
+        warning(sum(is.na(patient_ids_parsed)), " cells could not be parsed for patient ID")
+      }
+
+      # Add parsed patient IDs to the data frame
+      patient_mapping$patient_id_parsed <- patient_ids_parsed
+      sample_cell_names <- split(patient_mapping[[cell_col]], patient_mapping$patient_id_parsed)
+      message("  Parsed ", length(unique(patient_ids_parsed)), " unique patient IDs")
+    } else {
+      # Use existing patient_col
+      if (!patient_col %in% colnames(patient_mapping)) {
+        stop("patient_mapping data frame must have a column named '", patient_col,
+             "'\n  Or use parse_patient=TRUE to extract patient ID from cell names")
+      }
+      sample_cell_names <- split(patient_mapping[[cell_col]], patient_mapping[[patient_col]])
+    }
+    message("  Converted metadata data frame to list format: ", length(sample_cell_names), " patients")
+  } else {
+    sample_cell_names <- patient_mapping
+  }
 
   # --- Step 1: Seurat clustering to define subclones ---
   message("[1/5] Clustering cells via Seurat...")
@@ -279,6 +382,6 @@ prepare_patient_data <- function(expression_matrix,
     clone_expression_rnorm = clone_expression_rnorm,
     clone_counts = clone_counts,
     cell_clone_map = cell_clone_map,
-    clone_killing_df_template = clone_killing_template
+    clone_killing_template = clone_killing_template
   ))
 }

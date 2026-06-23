@@ -5,21 +5,25 @@
 \title{Predict drug response at patient level}
 \usage{
 predict_patients(
-  clone_killing_matrix,
-  clone_counts,
+  clone_pred,
+  prepared_data,
+  clone_counts = NULL,
   mode = "max",
   zscore = TRUE
 )
 }
 \arguments{
-\item{clone_killing_matrix}{Data frame. Must have columns 'patient' and
-'clone_id', plus one or more drug killing/viability columns.
-Typically produced by merging \code{predict_drugs()} output with
-patient-clone metadata.}
+\item{clone_pred}{Matrix from \code{predict_drugs()}, with clones as rows
+and drugs as columns. Row names should match clone column names from
+\code{prepare_data()}.}
 
-\item{clone_counts}{Data frame. Rows are patients, first column must be
-'patients' with patient IDs, remaining columns are clone IDs with
-cell counts as values.}
+\item{prepared_data}{List from \code{prepare_data()}, containing
+\code{$clone_killing_template} and \code{$clone_counts}. Alternatively,
+you can pass \code{clone_counts} directly as a data frame (legacy mode).}
+
+\item{clone_counts}{Optional. Data frame with patients as rows and clone IDs
+as columns. Only needed if \code{prepared_data} is not a list from
+\code{prepare_data()}.}
 
 \item{mode}{Character. Aggregation method:
 \describe{
@@ -44,17 +48,17 @@ the former each_patient_killing (single drug) and each_patient_killingv2
 }
 \examples{
 \dontrun{
-  # Step 1: Predict at clone level
-  clone_pred <- predict_drugs(models, clone_expr_rnorm)
+  # Simple workflow: pass prepare_data() output directly
+  prepared <- prepare_data(patient_scRNA)
+  clone_pred <- predict_drugs(models, prepared$clone_expression)
+  patient_pred <- predict_patients(clone_pred, prepared)
 
-  # Step 2: Add patient/clone metadata
+  # Legacy workflow: manually build clone_killing_matrix
   clone_killing_df <- data.frame(
     patient = patient_ids,
     clone_id = clone_ids,
     clone_pred
   )
-
-  # Step 3: Aggregate to patient level
   patient_pred <- predict_patients(clone_killing_df, clone_counts)
 }
 

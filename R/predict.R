@@ -153,13 +153,15 @@ viability_from_model_internal <- function(drug_name, model, dataset) {
 #' the former each_patient_killing (single drug) and each_patient_killingv2
 #' (multi-drug) into a unified interface.
 #'
-#' @param clone_killing_matrix Data frame. Must have columns 'patient' and
-#'        'clone_id', plus one or more drug killing/viability columns.
-#'        Typically produced by merging \code{predict_drugs()} output with
-#'        patient-clone metadata.
-#' @param clone_counts Data frame. Rows are patients, first column must be
-#'        'patients' with patient IDs, remaining columns are clone IDs with
-#'        cell counts as values.
+#' @param clone_pred Matrix from \code{predict_drugs()}, with clones as rows
+#'        and drugs as columns. Row names should match clone column names from
+#'        \code{prepare_data()}.
+#' @param prepared_data List from \code{prepare_data()}, containing
+#'        \code{$clone_killing_template} and \code{$clone_counts}. Alternatively,
+#'        you can pass \code{clone_counts} directly as a data frame (legacy mode).
+#' @param clone_counts Optional. Data frame with patients as rows and clone IDs
+#'        as columns. Only needed if \code{prepared_data} is not a list from
+#'        \code{prepare_data()}.
 #' @param mode Character. Aggregation method:
 #'   \describe{
 #'     \item{"max"}{Maximum killing across clones (most resistant clone). Default.}
@@ -175,23 +177,77 @@ viability_from_model_internal <- function(drug_name, model, dataset) {
 #'
 #' @examples
 #' \dontrun{
-#'   # Step 1: Predict at clone level
-#'   clone_pred <- predict_drugs(models, clone_expr_rnorm)
+#'   # Simple workflow: pass prepare_data() output directly
+#'   prepared <- prepare_data(patient_scRNA)
+#'   clone_pred <- predict_drugs(models, prepared$clone_expression)
+#'   patient_pred <- predict_patients(clone_pred, prepared)
 #'
-#'   # Step 2: Add patient/clone metadata
+#'   # Legacy workflow: manually build clone_killing_matrix
 #'   clone_killing_df <- data.frame(
 #'     patient = patient_ids,
 #'     clone_id = clone_ids,
 #'     clone_pred
 #'   )
-#'
-#'   # Step 3: Aggregate to patient level
 #'   patient_pred <- predict_patients(clone_killing_df, clone_counts)
 #' }
 #'
 #' @export
-predict_patients <- function(clone_killing_matrix, clone_counts,
+predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
                              mode = "max", zscore = TRUE) {
+
+  # Determine input mode: simple (prepared_data is a list) vs legacy (prepared_data is clone_counts)
+  # Accept both clone_killing_template and clone_killing_df_template for backward compatibility
+  # Also accept any list with clone_counts + any template-like element
+  template_names <- c("clone_killing_template", "clone_killing_df_template",
+                      "template", "killing_template")
+  has_counts <- "clone_counts" %in% names(prepared_data)
+
+  if (is.list(prepared_data) && !is.data.frame(prepared_data) && has_counts) {
+    # Simple mode: extract from prepare_data() output
+    template_name <- intersect(names(prepared_data), template_names)[1]
+
+    if (is.na(template_name)) {
+      # No template found but has counts - try to build template from clone_pred rownames
+      message("  [predict_patients] No template found, building from clone_pred rownames...")
+      clone_col_names <- rownames(clone_pred)
+      if (length(clone_col_names) > 0 && all(grepl("@@", clone_col_names))) {
+        template_patients <- sapply(strsplit(clone_col_names, "@@"), `[`, 1)
+        template_clones <- sapply(strsplit(clone_col_names, "@@"), `[`, 2)
+        clone_template <- data.frame(
+          patient = template_patients,
+          clone_id = template_clones,
+          stringsAsFactors = FALSE
+        )
+      } else {
+        stop("Cannot build template: clone_pred rownames do not follow Patient@@Clone format.\n",
+             "  clone_pred rownames: ", paste(head(rownames(clone_pred), 5), collapse = ", "))
+      }
+    } else {
+      clone_template <- prepared_data[[template_name]]
+    }
+
+    clone_counts <- prepared_data$clone_counts
+
+    # Merge clone_pred matrix with template to build clone_killing_matrix
+    clone_pred_df <- as.data.frame(clone_pred)
+    clone_pred_df$patient <- clone_template$patient
+    clone_pred_df$clone_id <- clone_template$clone_id
+    clone_killing_matrix <- clone_pred_df
+  } else if (is.data.frame(prepared_data)) {
+    # Legacy mode: prepared_data is actually clone_counts, clone_pred is clone_killing_matrix
+    clone_killing_matrix <- clone_pred
+    clone_counts <- prepared_data
+  } else {
+    stop("prepared_data must be either:\n",
+         "  1. A list from prepare_data() (with clone_counts)\n",
+         "  2. A data frame of clone_counts (legacy mode, requires clone_pred to be clone_killing_matrix)\n",
+         "\nDiagnostic info:\n",
+         "  class(prepared_data): ", class(prepared_data)[1], "\n",
+         "  is.list: ", is.list(prepared_data), "\n",
+         "  is.data.frame: ", is.data.frame(prepared_data), "\n",
+         "  names(prepared_data): ", paste(names(prepared_data), collapse = ", "), "\n",
+         "  has clone_counts: ", has_counts, "\n")
+  }
 
   # Validate inputs
   if (!"patient" %in% colnames(clone_killing_matrix)) {

@@ -47,13 +47,7 @@ it to \code{\link{predict_drugs}()}.
 }
 
 \examples{
-# Raw expression matrix (genes x cells)
 raw_expr <- matrix(c(10, 200, 50, 30, 300, 80), nrow = 3, ncol = 2)
 rownames(raw_expr) <- c("GENE_A", "GENE_B", "GENE_C")
-
-# MUST normalize before prediction
 norm_expr <- rank_normalization_mat(raw_expr)
-
-# Then feed into predict_drugs()
-# predict_drugs(models, norm_expr)
 }

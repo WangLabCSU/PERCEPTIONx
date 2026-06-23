@@ -12,7 +12,7 @@
 #       testthat::test_dir(). Run it manually only when needed.
 # =============================================================================
 
-library(PERCEPTION)
+# library(PERCEPTION)
 
 # -- Parameter Settings -------------------------------------------------------
 
