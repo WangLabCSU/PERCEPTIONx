@@ -164,10 +164,11 @@ viability_from_model_internal <- function(drug_name, model, dataset) {
 #'        \code{prepare_data()}.
 #' @param mode Character. Aggregation method:
 #'   \describe{
-#'     \item{"max"}{Maximum killing across clones (most resistant clone). Default.}
+#'     \item{"weighted_max"}{Maximum of weighted killing across clones. Default.}
+#'     \item{"max"}{Maximum killing across clones (most resistant clone)}
 #'     \item{"weighted_average"}{Weighted average of clone killing by clone abundance}
 #'     \item{"min"}{Minimum killing across clones (most sensitive clone)}
-#'     \item{"weighted_max"}{Maximum of weighted killing across clones}
+#'     \item{"average"}{Average of clone killing}
 #'   }
 #' @param zscore Logical. Whether to z-score scale drug columns across patients
 #'        before aggregation. Default = TRUE. Matches the original PERCEPTION pipeline.
@@ -193,7 +194,7 @@ viability_from_model_internal <- function(drug_name, model, dataset) {
 #'
 #' @export
 predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
-                             mode = "max", zscore = TRUE) {
+                             mode = "weighted_max", zscore = TRUE) {
 
   # Determine input mode: simple (prepared_data is a list) vs legacy (prepared_data is clone_counts)
   # Accept both clone_killing_template and clone_killing_df_template for backward compatibility
@@ -260,7 +261,7 @@ predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
     stop("clone_counts must have a 'patients' column.")
   }
 
-  valid_modes <- c("weighted_average", "min", "max", "weighted_max")
+  valid_modes <- c("weighted_average", "min", "max", "weighted_max", "average")
   if (!mode %in% valid_modes) {
     stop("mode must be one of: ", paste(valid_modes, collapse = ", "))
   }
@@ -308,7 +309,8 @@ predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
         "weighted_average" = sum(killing_values * clone_weights),
         "min" = min(killing_values),
         "max" = max(killing_values),
-        "weighted_max" = max(killing_values * clone_weights)
+        "weighted_max" = max(killing_values * clone_weights),
+        "average" = mean(killing_values)
       )
       return(setNames(result, drug_cols))
     } else {

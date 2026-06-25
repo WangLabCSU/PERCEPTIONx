@@ -158,7 +158,7 @@ message("STEP 5: Aggregating to patient-level response")
 message(strrep("=", 60))
 
 # NEW: Just pass clone_pred and prepared directly - no manual cbind needed!
-patient_pred <- predict_patients(clone_pred, prepared, mode = "max")
+patient_pred <- predict_patients(clone_pred, prepared, mode = "weighted_max")
 
 message("Patient-level predictions (most resistant clone):")
 print(patient_pred)
