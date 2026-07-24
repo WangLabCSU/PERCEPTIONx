@@ -19,7 +19,8 @@
 #' @param resolution Numeric. Clustering resolution. Default = 0.8.
 #' @param seed Integer. Random seed for reproducibility. Default = 42.
 #'
-#' @return A data frame with columns: \code{cell_id} and \code{clone_id}.
+#' @return A data frame with columns: \code{cell_id}, \code{clone_id}, and
+#'         \code{umap_1}, \code{umap_2} (UMAP coordinates for visualization).
 #'
 #' @examples
 #' \dontrun{
@@ -67,12 +68,16 @@ annotate_clones <- function(expression_matrix,
                        npcs = actual_dims)
   so <- Seurat::FindNeighbors(so, dims = 1:actual_dims)
   so <- Seurat::FindClusters(so, resolution = resolution)
+  so <- Seurat::RunUMAP(so, dims = 1:actual_dims)
 
   cluster_ids <- Seurat::Idents(so)
+  umap_emb <- Seurat::Embeddings(so, reduction = "umap")
 
   data.frame(
     cell_id = names(cluster_ids),
     clone_id = as.character(cluster_ids),
+    umap_1 = umap_emb[, 1],
+    umap_2 = umap_emb[, 2],
     stringsAsFactors = FALSE
   )
 }
@@ -157,6 +162,9 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 #' @param seurat_resolution Numeric. Clustering resolution. Default = 0.8.
 #' @param seurat_dims Integer. PCA dimensions for clustering. Default = 10.
 #' @param seurat_nfeatures Integer. Variable features count. Default = 2000.
+#' @param seurat_min_cells Integer. Minimum cells per feature. Default = 3.
+#' @param seurat_min_features Integer. Minimum features per cell. Default = 200.
+#'        Auto-adjusted to 10% of gene count if the expression matrix has fewer genes.
 #' @param seurat_seed Integer. Random seed. Default = 42.
 #'
 #' @return A named list with:
@@ -166,9 +174,11 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 #'   \item{clone_counts}{Data frame. Clone abundance per patient. Ready for
 #'         \code{predict_patients()}.}
 #'   \item{cell_clone_map}{Data frame. Cell-to-clone mapping with columns
-#'         cell_id, clone_id, patient.}
+#'         cell_id, clone_id, patient, umap_1, umap_2.}
 #'   \item{clone_killing_df_template}{Data frame. Template with patient and clone_id
 #'         columns, ready to merge with \code{predict_drugs()} output.}
+#'   \item{umap_coords}{Data frame. UMAP coordinates per cell (cell_id, umap_1, umap_2).
+#'         Ready for \code{plot_tsne_response()} and \code{plot_tsne_biomarker_killing()}.}
 #' }
 #'
 #' @examples
@@ -220,6 +230,8 @@ prepare_data <- function(expression_matrix,
                           seurat_resolution = 0.8,
                           seurat_dims = 10,
                           seurat_nfeatures = 2000,
+                          seurat_min_cells = 3,
+                          seurat_min_features = 200,
                           seurat_seed = 42) {
 
   message("=== PERCEPTION Patient Data Preparation ===")
@@ -281,11 +293,27 @@ prepare_data <- function(expression_matrix,
 
   # --- Step 1: Seurat clustering to define subclones ---
   message("[1/5] Clustering cells via Seurat...")
+
+  # Auto-adjust min_features and nfeatures if gene count is small
+  n_genes <- nrow(expression_matrix)
+  if (n_genes < seurat_min_features) {
+    seurat_min_features <- max(1, floor(n_genes * 0.1))
+    message("  Adjusting min_features to ", seurat_min_features,
+            " (only ", n_genes, " genes in expression matrix)")
+  }
+  if (n_genes < seurat_nfeatures) {
+    seurat_nfeatures <- max(10, n_genes)
+    message("  Adjusting nfeatures to ", seurat_nfeatures,
+            " (only ", n_genes, " genes available)")
+  }
+
   cell_clone_map <- annotate_clones(
     expression_matrix = expression_matrix,
-    resolution = seurat_resolution,
-    dims = seurat_dims,
+    min_cells = seurat_min_cells,
+    min_features = seurat_min_features,
     nfeatures = seurat_nfeatures,
+    dims = seurat_dims,
+    resolution = seurat_resolution,
     seed = seurat_seed
   )
   message("  Found ", length(unique(cell_clone_map$clone_id)), " clones across ",
@@ -382,6 +410,7 @@ prepare_data <- function(expression_matrix,
     clone_expression_rnorm = clone_expression_rnorm,
     clone_counts = clone_counts,
     cell_clone_map = cell_clone_map,
-    clone_killing_template = clone_killing_template
+    clone_killing_template = clone_killing_template,
+    umap_coords = cell_clone_map[, c("cell_id", "umap_1", "umap_2")]
   ))
 }

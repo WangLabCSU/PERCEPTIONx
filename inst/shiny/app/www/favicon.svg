@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#165C91"/>
+      <stop offset="100%" stop-color="#2a7eb8"/>
+    </linearGradient>
+    <radialGradient id="lensGrad" cx="35%" cy="30%" r="85%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="55%" stop-color="#eaf3fa"/>
+      <stop offset="100%" stop-color="#c5d9e9"/>
+    </radialGradient>
+    <linearGradient id="pillRed" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#e84a3a"/>
+      <stop offset="100%" stop-color="#9a1f1f"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Virus-style spike proteins around the badge -->
+  <g stroke="url(#ringGrad)" stroke-width="3.4" stroke-linecap="round">
+    <line x1="90"    y1="50"    x2="97"    y2="50"/>
+    <line x1="86.96" y1="65.31" x2="93.42" y2="67.99"/>
+    <line x1="65.31" y1="86.96" x2="67.99" y2="93.42"/>
+    <line x1="50"    y1="90"    x2="50"    y2="97"/>
+    <line x1="34.69" y1="86.96" x2="32.01" y2="93.42"/>
+    <line x1="13.04" y1="65.31" x2="6.58"  y2="67.99"/>
+    <line x1="10"    y1="50"    x2="3"     y2="50"/>
+    <line x1="13.04" y1="34.69" x2="6.58"  y2="32.01"/>
+    <line x1="21.72" y1="21.72" x2="16.77" y2="16.77"/>
+    <line x1="34.69" y1="13.04" x2="32.01" y2="6.58"/>
+    <line x1="50"    y1="10"    x2="50"    y2="3"/>
+    <line x1="65.31" y1="13.04" x2="67.99" y2="6.58"/>
+    <line x1="86.96" y1="34.69" x2="93.42" y2="32.01"/>
+  </g>
+  <g fill="url(#ringGrad)">
+    <circle cx="97"    cy="50"    r="3"/>
+    <circle cx="93.42" cy="67.99" r="3"/>
+    <circle cx="67.99" cy="93.42" r="3"/>
+    <circle cx="50"    cy="97"    r="3"/>
+    <circle cx="32.01" cy="93.42" r="3"/>
+    <circle cx="6.58"  cy="67.99" r="3"/>
+    <circle cx="3"     cy="50"    r="3"/>
+    <circle cx="6.58"  cy="32.01" r="3"/>
+    <circle cx="16.77" cy="16.77" r="3"/>
+    <circle cx="32.01" cy="6.58"  r="3"/>
+    <circle cx="50"    cy="3"     r="3"/>
+    <circle cx="67.99" cy="6.58"  r="3"/>
+    <circle cx="93.42" cy="32.01" r="3"/>
+  </g>
+
+  <!-- Outer badge ring (slightly reduced) -->
+  <circle cx="50" cy="50" r="40" fill="url(#ringGrad)"/>
+  <circle cx="50" cy="50" r="36.5" fill="#ffffff"/>
+
+  <!-- Simple magnifier handle -->
+  <line x1="70" y1="70" x2="97" y2="97"
+        stroke="#9a1f1f" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- The MAIN cell (in the lens) -->
+  <circle cx="50" cy="50" r="25" fill="url(#lensGrad)" stroke="#9a1f1f" stroke-width="2.8"/>
+  <circle cx="50" cy="50" r="21.5" fill="none" stroke="#9a1f1f" stroke-width="1.2" opacity="0.55"/>
+
+  <!-- The pill as the nucleus -->
+  <g transform="rotate(-22 50 50)">
+    <rect x="34" y="43" width="32" height="14" rx="7" ry="7"
+          fill="#ffffff" stroke="#165C91" stroke-width="1.6"/>
+    <path d="M 50,43 L 59,43 A 7,7 0 0 1 66,50 A 7,7 0 0 1 59,57 L 50,57 Z"
+          fill="url(#pillRed)" stroke="#9a1f1f" stroke-width="1.6"/>
+    <line x1="50" y1="44" x2="50" y2="56" stroke="#7a1818" stroke-width="0.8" opacity="0.7"/>
+    <ellipse cx="57" cy="45.5" rx="2.2" ry="0.9" fill="#ffffff" opacity="0.55"/>
+  </g>
+
+  <!-- Lens highlight -->
+  <ellipse cx="39" cy="36" rx="6" ry="3" fill="#ffffff" opacity="0.4" stroke="#165C91" stroke-width="0.2"/>
+  <ellipse cx="35" cy="40" rx="2" ry="1" fill="#ffffff" opacity="0.4" stroke="#165C91" stroke-width="0.2"/>
+</svg>

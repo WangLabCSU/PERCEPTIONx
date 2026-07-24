@@ -18,7 +18,13 @@ Imports:
     randomForest,
     pROC,
     rlang,
-    Seurat
+    Seurat,
+    shiny,
+    bslib,
+    DT,
+    plotly,
+    waiter,
+    thematic
 URL: https://github.com/SunPast/PERCEPTION
 BugReports: https://github.com/SunPast/PERCEPTION/issues
 Suggests:

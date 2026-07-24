@@ -1,7 +1,7 @@
 #' PERCEPTION Visualization Functions
 #'
 #' This module provides visualization functions for PERCEPTION model results,
-#' including t-SNE/UMAP plots, clone distribution plots, ROC curves, and more.
+#' including UMAP plots, clone distribution plots, ROC curves, and more.
 #' These functions are designed to work seamlessly with trained PERCEPTION models
 #' and patient/single-cell expression data.
 #'
@@ -17,9 +17,9 @@ utils::globalVariables(c("X", "Y", "clones", "weights", "patients",
                          "clone_id", "Predictibility", "drugsCount", "dataused",
                          "pred_viab"))
 
-#' Plot t-SNE/UMAP with drug response overlay
+#' Plot UMAP with drug response overlay
 #'
-#' Visualizes single cells in t-SNE/UMAP space with color overlay representing
+#' Visualizes single cells in UMAP space with color overlay representing
 #' either biomarker expression or predicted drug sensitivity.
 #'
 #' @param tsne_data Data frame with columns: X, Y (coordinates), and optional
@@ -155,7 +155,8 @@ plot_clone_killing <- function(clone_killing,
                                killing_var = "comb_killing",
                                weights_var = NULL,
                                response_var = NULL,
-                               base_size = 15,
+                               drug = NULL,
+                               base_size = 11,
                                y_limits = c(-3, 1.2),
                                viridis_scale = TRUE) {
 
@@ -188,11 +189,17 @@ plot_clone_killing <- function(clone_killing,
     coord_cartesian(ylim = c(y_bottom, y_top)) +
     theme_bw(base_size = base_size) +
     labs(x = "Clones", y = "Predicted Viability (z-score)",
-         color = "Predicted Viability", size = "Proportion in Tumor") +
+         color = "Predicted Viability", size = "Proportion in Tumor",
+         title = drug) +
     theme(legend.position = "top",
+          plot.title = element_text(hjust = 0, size = rel(1.1), face = "plain",
+                                    margin = margin(t = 2, r = 8, b = 4, l = 0, unit = "pt")),
+          plot.margin = margin(t = 10, r = 10, b = 5, l = 5, unit = "pt"),
           strip.placement = "outside",
           strip.background = element_rect(fill = "white", linewidth = 1, color = "white"),
-          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8)),
+          axis.text.y = element_text(size = rel(0.85)),
+          axis.title = element_text(size = rel(0.95)),
           legend.box = "horizontal",
           legend.box.spacing = unit(8, "pt"),
           legend.key.size = unit(14, "pt"),
@@ -221,10 +228,16 @@ plot_clone_killing <- function(clone_killing,
   }
 
   if (!is.null(response_var) && response_var %in% colnames(clone_killing)) {
-    p <- p + facet_grid(reformulate(c(response_var, "patient"), "."),
+    # Build a combined facet label: "patient (R)" or "patient (NR)" on a single line
+    # First, create a new column with the combined label
+    clone_killing$facet_label <- paste(clone_killing$patient, "(",
+                                        ifelse(toupper(as.character(clone_killing[[response_var]])) %in%
+                                                 c("R", "RESPONDER"), "R", "NR"), ")", sep = "")
+    p <- p + facet_grid(reformulate("facet_label", "."),
                         scales = "free_x", shrink = TRUE,
                         drop = TRUE, space = "free_x", switch = "x",
-                        as.table = TRUE)
+                        as.table = TRUE) +
+      theme(strip.text = element_text(size = rel(0.85), lineheight = 1.0, margin = margin(t = 2, b = 2)))
   } else {
     p <- p + facet_grid(reformulate("patient", "."),
                         scales = "free_x", shrink = TRUE,
@@ -270,8 +283,18 @@ plot_roc_curve <- function(response,
   rocobj <- pROC::roc(response = response, predictor = predictor)
 
   if (smooth_curve) {
-    rocobj_smooth <- pROC::smooth(rocobj)
-    p <- ggroc(rocobj_smooth)
+    rocobj_smooth <- tryCatch(
+      pROC::smooth(rocobj),
+      error = function(e) {
+        warning("ROC curve not smoothable: ", e$message, ". Using unsmoothed curve.")
+        NULL
+      }
+    )
+    if (!is.null(rocobj_smooth)) {
+      p <- ggroc(rocobj_smooth)
+    } else {
+      p <- ggroc(rocobj)
+    }
   } else {
     p <- ggroc(rocobj)
   }
@@ -339,12 +362,25 @@ plot_response_boxplot <- function(exp_vs_pred,
                                color = .data[[response_var]])) +
     geom_boxplot() +
     geom_point(size = 1, alpha = 0.5) +
-    ggpubr::stat_compare_means(method.args = list(alternative = alternative),
-                       size = 5, label = "p",
-                       label.x.npc = 0.95, label.y.npc = 0.95) +
     theme_bw(base_size = base_size) +
     labs(y = y_label, x = "Patients") +
     theme(legend.position = "top")
+
+  # Add p-value annotation manually (avoids ggpubr/plotly incompatibility)
+  if (length(levels(exp_vs_pred[[response_var]])) == 2) {
+    grp1 <- exp_vs_pred[[predicted_var]][exp_vs_pred[[response_var]] == levels(exp_vs_pred[[response_var]])[1]]
+    grp2 <- exp_vs_pred[[predicted_var]][exp_vs_pred[[response_var]] == levels(exp_vs_pred[[response_var]])[2]]
+    if (length(grp1) > 0 && length(grp2) > 0) {
+      wt <- tryCatch(wilcox.test(grp1, grp2, alternative = alternative),
+                     error = function(e) NULL)
+      if (!is.null(wt)) {
+        p_label <- sprintf("p = %.3g", wt$p.value)
+        y_pos <- max(exp_vs_pred[[predicted_var]], na.rm = TRUE) * 1.05
+        p <- p + annotate("text", x = 1.5, y = y_pos, label = p_label,
+                          size = 5, hjust = 0.5, fontface = "italic")
+      }
+    }
+  }
 
   return(p)
 }
@@ -535,9 +571,19 @@ plot_patient_response_panel <- function(clone_distribution,
   p3 <- plot_response_boxplot(exp_vs_pred, response_var = response_col,
                               predicted_var = predicted_col)
 
-  # Panel 4: ROC curve (uses predicted_col from exp_vs_pred data)
-  p4 <- plot_roc_curve(response = exp_vs_pred[[response_col]],
-                       predictor = exp_vs_pred[[predicted_col]])
+  # Panel 4: ROC curve — auto-disable smoothing for small samples + safety net
+  n_pts <- sum(!is.na(exp_vs_pred[[response_col]]) & !is.na(exp_vs_pred[[predicted_col]]))
+  p4 <- tryCatch({
+    plot_roc_curve(response = exp_vs_pred[[response_col]],
+                   predictor = exp_vs_pred[[predicted_col]],
+                   smooth_curve = n_pts >= 10)
+  }, error = function(e) {
+    # Last-resort fallback: render an empty placeholder ggplot with error message
+    ggplot(data.frame(x = 0, y = 0, label = paste("ROC unavailable:", e$message))) +
+      geom_text(aes(x, y, label = label), hjust = 0.5, vjust = 0.5, size = 3) +
+      theme_void() +
+      labs(title = "ROC Curve (unavailable)")
+  })
 
   # Arrange panels
   if (is.null(layout_matrix)) {
@@ -554,10 +600,10 @@ plot_patient_response_panel <- function(clone_distribution,
   return(panel)
 }
 
-#' Plot t-SNE/UMAP side-by-side for biomarker and killing
+#' Plot UMAP side-by-side for biomarker and killing
 #'
 #' Creates a side-by-side comparison of biomarker expression and predicted killing
-#' in t-SNE/UMAP space. Useful for visualizing correlation between marker and response.
+#' in UMAP space. Useful for visualizing correlation between marker and response.
 #'
 #' @param tsne_data Data frame with X, Y coordinates and both biomarker/killing columns.
 #' @param biomarker_var Character. Column name for biomarker expression. Default = "biomarker_scaled".
