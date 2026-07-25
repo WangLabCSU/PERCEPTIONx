@@ -206,17 +206,17 @@ mod_help_ui <- function(id) {
             div(class = "help-viz-card",
               div(class = "help-viz-icon", icon("braille")),
               div(
-                strong("UMAP Gene Expression"),
-                p("UMAP plot colored by selected gene expression."),
-                tags$span(class = "status-badge unloaded", "Needs: Predictions + Expression + UMAP")
+                strong("Spatial Gene Expression"),
+                p("2D embedding (UMAP/t-SNE) colored by selected gene expression."),
+                tags$span(class = "status-badge unloaded", "Needs: Predictions + Expression + Embedding")
               )
             ),
             div(class = "help-viz-card",
               div(class = "help-viz-icon", icon("arrows-left-right")),
               div(
-                strong("UMAP Drug Killing"),
-                p("UMAP plot colored by predicted drug killing."),
-                tags$span(class = "status-badge unloaded", "Needs: Predictions + UMAP")
+                strong("Spatial Drug Killing"),
+                p("2D embedding (UMAP/t-SNE) colored by predicted drug killing."),
+                tags$span(class = "status-badge unloaded", "Needs: Predictions + Embedding")
               )
             )
           )

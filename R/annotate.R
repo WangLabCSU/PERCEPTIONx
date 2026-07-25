@@ -10,6 +10,9 @@
 #' a mapping of each cell to its cluster (clone) ID. This matches the original
 #' PERCEPTION pipeline where Seurat clusters define transcriptional subclones.
 #'
+#' @param method Character. Dimensionality reduction method. One of \code{"umap"}
+#'        (default) or \code{"tsne"}. UMAP is faster and preserves global structure
+#'        better; t-SNE emphasizes local neighborhoods.
 #' @param expression_matrix Matrix. Gene expression matrix with genes as rows
 #'        and cells as columns. Raw counts or normalized values are both accepted.
 #' @param min_cells Integer. Minimum cells per feature. Default = 3.
@@ -20,21 +23,25 @@
 #' @param seed Integer. Random seed for reproducibility. Default = 42.
 #'
 #' @return A data frame with columns: \code{cell_id}, \code{clone_id}, and
-#'         \code{umap_1}, \code{umap_2} (UMAP coordinates for visualization).
+#'         \code{dim_1}, \code{dim_2} (2D embedding coordinates for visualization).
 #'
 #' @examples
 #' \dontrun{
 #'   cell_clone_map <- annotate_clones(patient_expression)
+#'   cell_clone_map <- annotate_clones("tsne", patient_expression)
 #' }
 #'
 #' @export
-annotate_clones <- function(expression_matrix,
+annotate_clones <- function(method = c("umap", "tsne"),
+                             expression_matrix,
                              min_cells = 3,
                              min_features = 200,
                              nfeatures = 2000,
                              dims = 10,
                              resolution = 0.8,
                              seed = 42) {
+
+  method <- match.arg(method)
 
   if (!requireNamespace("Seurat", quietly = TRUE)) {
     stop("Package 'Seurat' is required for clone annotation. ",
@@ -68,16 +75,23 @@ annotate_clones <- function(expression_matrix,
                        npcs = actual_dims)
   so <- Seurat::FindNeighbors(so, dims = 1:actual_dims)
   so <- Seurat::FindClusters(so, resolution = resolution)
-  so <- Seurat::RunUMAP(so, dims = 1:actual_dims)
+
+  # Dimensionality reduction: UMAP or t-SNE
+  if (method == "umap") {
+    so <- Seurat::RunUMAP(so, dims = 1:actual_dims)
+    emb <- Seurat::Embeddings(so, reduction = "umap")
+  } else {
+    so <- Seurat::RunTSNE(so, dims = 1:actual_dims, check_duplicates = FALSE)
+    emb <- Seurat::Embeddings(so, reduction = "tsne")
+  }
 
   cluster_ids <- Seurat::Idents(so)
-  umap_emb <- Seurat::Embeddings(so, reduction = "umap")
 
   data.frame(
     cell_id = names(cluster_ids),
     clone_id = as.character(cluster_ids),
-    umap_1 = umap_emb[, 1],
-    umap_2 = umap_emb[, 2],
+    dim_1 = emb[, 1],
+    dim_2 = emb[, 2],
     stringsAsFactors = FALSE
   )
 }
@@ -141,6 +155,10 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 #'   \item Clone abundance table construction
 #' }
 #'
+#' @param method Character. Dimensionality reduction method passed to
+#'        \code{\link{annotate_clones}()}. One of \code{"umap"} (default) or
+#'        \code{"tsne"}. UMAP is faster and preserves global structure;
+#'        t-SNE emphasizes local neighborhoods.
 #' @param expression_matrix Matrix. Gene expression matrix with genes as rows
 #'        and cells as columns.
 #' @param patient_mapping List or data frame. Patient-cell mapping in one of two formats:
@@ -174,11 +192,13 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 #'   \item{clone_counts}{Data frame. Clone abundance per patient. Ready for
 #'         \code{predict_patients()}.}
 #'   \item{cell_clone_map}{Data frame. Cell-to-clone mapping with columns
-#'         cell_id, clone_id, patient, umap_1, umap_2.}
+#'         cell_id, clone_id, patient, dim_1, dim_2.}
 #'   \item{clone_killing_df_template}{Data frame. Template with patient and clone_id
 #'         columns, ready to merge with \code{predict_drugs()} output.}
-#'   \item{umap_coords}{Data frame. UMAP coordinates per cell (cell_id, umap_1, umap_2).
-#'         Ready for \code{plot_tsne_response()} and \code{plot_tsne_biomarker_killing()}.}
+#'   \item{umap_coords}{Data frame. 2D embedding coordinates per cell
+#'         (cell_id, dim_1, dim_2). Ready for \code{plot_tsne_response()}.}
+#'   \item{reduction_method}{Character. The method used (\code{"umap"} or
+#'         \code{"tsne"}).}
 #' }
 #'
 #' @examples
@@ -219,7 +239,8 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 #'   Default = 1 (first element). Providing this parameter auto-enables parse_patient.
 #'
 #' @export
-prepare_data <- function(expression_matrix,
+prepare_data <- function(method = c("umap", "tsne"),
+                          expression_matrix,
                           patient_mapping = NULL,
                           cell_col = "cell_id",
                           patient_col = "patient_id",
@@ -234,7 +255,9 @@ prepare_data <- function(expression_matrix,
                           seurat_min_features = 200,
                           seurat_seed = 42) {
 
+  method <- match.arg(method)
   message("=== PERCEPTION Patient Data Preparation ===")
+  message("  Reduction method: ", toupper(method))
 
   # --- Auto-enable parse_patient if patient_sep or patient_pos is provided ---
   if (!parse_patient) {
@@ -308,6 +331,7 @@ prepare_data <- function(expression_matrix,
   }
 
   cell_clone_map <- annotate_clones(
+    method = method,
     expression_matrix = expression_matrix,
     min_cells = seurat_min_cells,
     min_features = seurat_min_features,
@@ -411,6 +435,7 @@ prepare_data <- function(expression_matrix,
     clone_counts = clone_counts,
     cell_clone_map = cell_clone_map,
     clone_killing_template = clone_killing_template,
-    umap_coords = cell_clone_map[, c("cell_id", "umap_1", "umap_2")]
+    umap_coords = cell_clone_map[, c("cell_id", "dim_1", "dim_2")],
+    reduction_method = method
   ))
 }

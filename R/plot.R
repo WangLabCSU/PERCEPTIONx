@@ -164,9 +164,39 @@ plot_clone_killing <- function(clone_killing,
     stop("clone_killing must contain columns: patient, clone_id, and ", killing_var)
   }
 
-  # Build aes mapping
-  aes_mapping <- aes(y = .data[[killing_var]], x = clone_id)
+  # --- Prepare facet labels: "NR\nPAT_001" or "R\nPAT_002" ---
+  facet_col <- "patient"
+  if (!is.null(response_var) && response_var %in% colnames(clone_killing)) {
+    resp_map <- clone_killing[!duplicated(clone_killing$patient), ]
+    rownames(resp_map) <- resp_map$patient
+    patient_order <- unique(clone_killing$patient[
+      order(clone_killing[[response_var]], decreasing = TRUE)
+    ])
+    clone_killing$patient <- factor(clone_killing$patient, levels = patient_order)
+    clone_killing$facet_label <- vapply(as.character(clone_killing$patient), function(pat) {
+      rv <- as.character(resp_map[pat, response_var])
+      tag <- if (toupper(rv) %in% c("R", "RESPONDER")) "R" else "NR"
+      paste0(tag, "\n", pat)
+    }, character(1))
+    facet_col <- "facet_label"
+  } else {
+    clone_killing$facet_label <- as.character(clone_killing$patient)
+    facet_col <- "facet_label"
+  }
+  if (!is.null(response_var) && response_var %in% colnames(clone_killing)) {
+    clone_killing$facet_label <- factor(clone_killing$facet_label,
+                                        levels = unique(clone_killing$facet_label[
+                                          order(clone_killing$patient)
+                                        ]))
+  }
 
+  # Sort clones by proportion (descending) within each patient
+  if (!is.null(weights_var) && weights_var %in% colnames(clone_killing)) {
+    clone_killing <- clone_killing[order(clone_killing[[facet_col]],
+                                         -clone_killing[[weights_var]]), ]
+  }
+
+  # Build aes mapping
   if (!is.null(weights_var) && weights_var %in% colnames(clone_killing)) {
     aes_mapping <- aes(y = .data[[killing_var]], x = clone_id,
                        color = .data[[killing_var]], size = .data[[weights_var]])
@@ -181,31 +211,51 @@ plot_clone_killing <- function(clone_killing,
   y_bottom <- min(0, y_min)
   y_top <- y_max + (y_max - y_bottom) * 0.1
 
+  # Build minimal data for geom_hline
+  hline_data <- clone_killing[!duplicated(clone_killing[[facet_col]]), facet_col, drop = FALSE]
+  hline_data$yintercept <- 0
+
+  # Adaptive X-axis text rotation
+  max_clones <- max(table(clone_killing[[facet_col]]))
+  x_angle <- if (max_clones <= 6) 0 else 45
+  x_hjust <- if (max_clones <= 6) 0.5 else 1
+  x_vjust <- if (max_clones <= 6) 0.5 else 1
+  x_size <- if (max_clones <= 6) rel(0.65) else rel(0.55)
+
+  # Y-axis label includes drug name if provided
+  y_lab <- if (!is.null(drug)) paste0("Predicted Viability (z-score)\n", drug)
+           else "Predicted Viability (z-score)"
+
   p <- ggplot(clone_killing, aes_mapping) +
-    geom_hline(yintercept = 0, color = "grey50", linewidth = 0.3) +
+    geom_hline(data = hline_data, mapping = aes(yintercept = yintercept),
+               color = "grey50", linewidth = 0.3) +
     geom_segment(aes(x = clone_id, xend = clone_id, y = 0, yend = .data[[killing_var]]),
                  color = "black", linewidth = 0.4) +
     geom_point() +
     coord_cartesian(ylim = c(y_bottom, y_top)) +
     theme_bw(base_size = base_size) +
-    labs(x = "Clones", y = "Predicted Viability (z-score)",
-         color = "Predicted Viability", size = "Proportion in Tumor",
-         title = drug) +
-    theme(legend.position = "top",
-          plot.title = element_text(hjust = 0, size = rel(1.1), face = "plain",
-                                    margin = margin(t = 2, r = 8, b = 4, l = 0, unit = "pt")),
-          plot.margin = margin(t = 10, r = 10, b = 5, l = 5, unit = "pt"),
-          strip.placement = "outside",
-          strip.background = element_rect(fill = "white", linewidth = 1, color = "white"),
-          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8)),
-          axis.text.y = element_text(size = rel(0.85)),
-          axis.title = element_text(size = rel(0.95)),
-          legend.box = "horizontal",
-          legend.box.spacing = unit(8, "pt"),
-          legend.key.size = unit(14, "pt"),
-          legend.text = element_text(size = rel(0.7)),
-          legend.title = element_text(size = rel(0.8), vjust = 0.5),
-          legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"))
+    labs(x = "Clones", y = y_lab,
+         color = "Predicted Viability", size = "Proportion in Tumor") +
+    theme(
+      legend.position = "top",
+      legend.box = "horizontal",
+      legend.box.spacing = unit(8, "pt"),
+      legend.key.size = unit(14, "pt"),
+      legend.text = element_text(size = rel(0.7)),
+      legend.title = element_text(size = rel(0.8), vjust = 0.5),
+      legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+      plot.margin = margin(t = 5, r = 10, b = 5, l = 5, unit = "pt"),
+      strip.placement = "outside",
+      strip.background = element_rect(fill = "white", linewidth = 0.5, color = "grey80"),
+      strip.text = element_text(angle = 90, hjust = 0.5, vjust = 0.5,
+                                size = rel(0.75), lineheight = 0.9,
+                                margin = margin(t = 3, b = 3, l = 2, r = 2, unit = "pt")),
+      axis.text.x = element_text(angle = x_angle, hjust = x_hjust, vjust = x_vjust,
+                                  size = x_size),
+      axis.text.y = element_text(size = rel(0.85)),
+      axis.title = element_text(size = rel(0.95)),
+      panel.spacing = unit(0.15, "lines")
+    )
 
   if (viridis_scale) {
     p <- p + scale_colour_gradientn(
@@ -227,23 +277,10 @@ plot_clone_killing <- function(clone_killing,
     p <- p + guides(size = "none")
   }
 
-  if (!is.null(response_var) && response_var %in% colnames(clone_killing)) {
-    # Build a combined facet label: "patient (R)" or "patient (NR)" on a single line
-    # First, create a new column with the combined label
-    clone_killing$facet_label <- paste(clone_killing$patient, "(",
-                                        ifelse(toupper(as.character(clone_killing[[response_var]])) %in%
-                                                 c("R", "RESPONDER"), "R", "NR"), ")", sep = "")
-    p <- p + facet_grid(reformulate("facet_label", "."),
-                        scales = "free_x", shrink = TRUE,
-                        drop = TRUE, space = "free_x", switch = "x",
-                        as.table = TRUE) +
-      theme(strip.text = element_text(size = rel(0.85), lineheight = 1.0, margin = margin(t = 2, b = 2)))
-  } else {
-    p <- p + facet_grid(reformulate("patient", "."),
-                        scales = "free_x", shrink = TRUE,
-                        drop = TRUE, space = "free_x", switch = "x",
-                        as.table = TRUE)
-  }
+  p <- p + facet_grid(reformulate(".", facet_col),
+                      scales = "free_x", shrink = TRUE,
+                      drop = TRUE, space = "free_x", switch = "x",
+                      as.table = TRUE)
 
   p
 }
@@ -374,7 +411,11 @@ plot_response_boxplot <- function(exp_vs_pred,
       wt <- tryCatch(wilcox.test(grp1, grp2, alternative = alternative),
                      error = function(e) NULL)
       if (!is.null(wt)) {
-        p_label <- sprintf("p = %.3g", wt$p.value)
+        p_label <- if (wt$p.value < 0.001) {
+          "p < 0.001"
+        } else {
+          sprintf("p = %.3f", wt$p.value)
+        }
         y_pos <- max(exp_vs_pred[[predicted_var]], na.rm = TRUE) * 1.05
         p <- p + annotate("text", x = 1.5, y = y_pos, label = p_label,
                           size = 5, hjust = 0.5, fontface = "italic")
@@ -450,11 +491,14 @@ plot_model_performance <- function(performance_list,
   return(p)
 }
 
-#' Run Seurat clustering and plot UMAP
+#' Run Seurat clustering and plot 2D embedding
 #'
-#' Performs Seurat clustering on an expression matrix and generates UMAP visualization.
+#' Performs Seurat clustering on an expression matrix and generates a 2D
+#' embedding visualization (UMAP or t-SNE).
 #' Useful for identifying subclones within patient tumor samples.
 #'
+#' @param method Character. Dimensionality reduction method. One of \code{"umap"}
+#'        (default) or \code{"tsne"}.
 #' @param expression_matrix Matrix. Gene expression matrix (genes as rows, cells as columns).
 #' @param min_cells Integer. Minimum cells per feature. Default = 3.
 #' @param min_features Integer. Minimum features per cell. Default = 200.
@@ -465,24 +509,27 @@ plot_model_performance <- function(performance_list,
 #'
 #' @return A list containing:
 #'   \item{seurat_object}{Seurat object with clustering results}
-#'   \item{umap_plot}{ggplot UMAP visualization}
+#'   \item{embedding_plot}{ggplot 2D embedding visualization}
 #'   \item{cluster_ids}{Named vector of cluster IDs per cell}
 #'
 #' @examples
 #' \dontrun{
 #'   result <- plot_seurat_clustering(patient_expression)
-#'   result$umap_plot
+#'   result$embedding_plot
 #'   result$cluster_ids
 #' }
 #'
 #' @export
-plot_seurat_clustering <- function(expression_matrix,
-                                  min_cells = 3,
-                                  min_features = 200,
-                                  nfeatures = 2000,
-                                  dims = 10,
-                                  resolution = 0.8,
-                                  seed = 1) {
+plot_seurat_clustering <- function(method = c("umap", "tsne"),
+                                    expression_matrix,
+                                    min_cells = 3,
+                                    min_features = 200,
+                                    nfeatures = 2000,
+                                    dims = 10,
+                                    resolution = 0.8,
+                                    seed = 1) {
+
+  method <- match.arg(method)
 
   if (!requireNamespace("Seurat", quietly = TRUE)) {
     stop("Package 'Seurat' is required. Install with: install.packages('Seurat')")
@@ -503,17 +550,23 @@ plot_seurat_clustering <- function(expression_matrix,
   so <- Seurat::RunPCA(so, features = Seurat::VariableFeatures(object = so))
   so <- Seurat::FindNeighbors(so, dims = 1:dims)
   so <- Seurat::FindClusters(so, resolution = resolution)
-  so <- Seurat::RunUMAP(so, dims = 1:dims)
+
+  # Dimensionality reduction
+  if (method == "umap") {
+    so <- Seurat::RunUMAP(so, dims = 1:dims)
+  } else {
+    so <- Seurat::RunTSNE(so, dims = 1:dims, check_duplicates = FALSE)
+  }
 
   # Generate plot
-  umap_plot <- Seurat::DimPlot(so, reduction = "umap")
+  embedding_plot <- Seurat::DimPlot(so, reduction = method)
 
   # Extract cluster IDs
   cluster_ids <- Seurat::Idents(so)
 
   return(list(
     seurat_object = so,
-    umap_plot = umap_plot,
+    embedding_plot = embedding_plot,
     cluster_ids = cluster_ids
   ))
 }
@@ -571,7 +624,7 @@ plot_patient_response_panel <- function(clone_distribution,
   p3 <- plot_response_boxplot(exp_vs_pred, response_var = response_col,
                               predicted_var = predicted_col)
 
-  # Panel 4: ROC curve â€” auto-disable smoothing for small samples + safety net
+  # Panel 4: ROC curve ¡ª auto-disable smoothing for small samples + safety net
   n_pts <- sum(!is.na(exp_vs_pred[[response_col]]) & !is.na(exp_vs_pred[[predicted_col]]))
   p4 <- tryCatch({
     plot_roc_curve(response = exp_vs_pred[[response_col]],
