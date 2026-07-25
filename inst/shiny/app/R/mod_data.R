@@ -229,6 +229,9 @@ PAT_003    Responder")
                 "the clone abundance table required for prediction."
               ),
               p(class = "text-muted", style = "font-size: 0.8rem; line-height: 1.5; margin-bottom: 0;",
+                strong("Method"), " — UMAP (default) preserves global structure and is faster with large datasets. ",
+                "t-SNE emphasizes fine local neighborhoods and may reveal finer substructure at the cost of speed.",
+                br(),
                 strong("Resolution"), " controls clustering granularity — higher values produce more clones (finer subclones); ",
                 "lower values produce fewer, broader clones. Default 0.8 suits most datasets.",
                 br(),
@@ -243,6 +246,9 @@ PAT_003    Responder")
             ),
             # Right: controls
             div(class = "seurat-right",
+              selectInput(ns("seurat_method"), "Reduction Method",
+                          choices = c("UMAP" = "umap", "t-SNE" = "tsne"),
+                          selected = "umap", width = "100%"),
               div(class = "seurat-params",
                 numericInput(ns("seurat_resolution"), "Resolution",
                              value = 0.8, min = 0.1, max = 2, step = 0.1, width = "100%"),
@@ -324,13 +330,13 @@ mod_data_server <- function(id, shared) {
                        "KMT2D", "SETD2", "BAP1", "PBRM1", "NOTCH1", "NOTCH2",
                        "NOTCH3", "JAK1", "JAK3", "SOX9", "IDH1", "IDH2", "FLT3")
       n_cells <- 400
-      n_patients <- 20
+      n_patients <- 25
       cell_names <- paste0("CELL_", sprintf("%04d", 1:n_cells))
       patient_names <- paste0("PAT_", sprintf("%03d", 1:n_patients))
 
       # Clinical response — defined FIRST so expression can be structured around it
-      # 10 Responders + 10 Non-responders for meaningful box plots
-      response_labels <- c(rep("Responder", 10), rep("Non-responder", 10))
+      # 13 Responders + 12 Non-responders for meaningful box plots
+      response_labels <- c(rep("Responder", 13), rep("Non-responder", 12))
       clinical_response <- data.frame(
         patient = patient_names,
         response = response_labels,
@@ -363,15 +369,15 @@ mod_data_server <- function(id, shared) {
       rownames(expr_matrix) <- gene_names
       colnames(expr_matrix) <- cell_names
 
-      # abemaciclib markers: HIGH (mean 12, sd 2) in responders, LOW (mean 2, sd 1) in non-responders
+      # abemaciclib markers: moderately HIGH in responders, LOW in non-responders
       for (g in abemaciclib_markers) {
-        expr_matrix[g, is_responder_cell] <- pmax(rnorm(sum(is_responder_cell), mean = 12, sd = 2), 0.1)
-        expr_matrix[g, !is_responder_cell] <- pmax(rnorm(sum(!is_responder_cell), mean = 2, sd = 1), 0.1)
+        expr_matrix[g, is_responder_cell] <- pmax(rnorm(sum(is_responder_cell), mean = 8, sd = 3), 0.1)
+        expr_matrix[g, !is_responder_cell] <- pmax(rnorm(sum(!is_responder_cell), mean = 3, sd = 2), 0.1)
       }
       # erlotinib markers: OPPOSITE pattern (LOW in responders, HIGH in non-responders)
       for (g in erlotinib_markers) {
-        expr_matrix[g, is_responder_cell] <- pmax(rnorm(sum(is_responder_cell), mean = 2, sd = 1), 0.1)
-        expr_matrix[g, !is_responder_cell] <- pmax(rnorm(sum(!is_responder_cell), mean = 12, sd = 2), 0.1)
+        expr_matrix[g, is_responder_cell] <- pmax(rnorm(sum(is_responder_cell), mean = 3, sd = 2), 0.1)
+        expr_matrix[g, !is_responder_cell] <- pmax(rnorm(sum(!is_responder_cell), mean = 8, sd = 3), 0.1)
       }
       # Noise genes: random uniform (no response signal)
       for (g in noise_genes) {
@@ -392,6 +398,7 @@ mod_data_server <- function(id, shared) {
       w$show()
       tryCatch({
         prepared <- PERCEPTION::prepare_data(
+          method = "umap",
           expression_matrix = expr_matrix,
           patient_mapping = patient_mapping,
           seurat_resolution = 0.8,
@@ -417,8 +424,8 @@ mod_data_server <- function(id, shared) {
 
             # Marker genes follow the SAME pattern as demo expression
             for (g in marker_genes) {
-              x_train[g, responder_like] <- pmax(rnorm(half, mean = 12, sd = 2), 0.1)
-              x_train[g, nonresponder_like] <- pmax(rnorm(half, mean = 2, sd = 1), 0.1)
+              x_train[g, responder_like] <- pmax(rnorm(half, mean = 8, sd = 3), 0.1)
+              x_train[g, nonresponder_like] <- pmax(rnorm(half, mean = 3, sd = 2), 0.1)
             }
             # Noise genes
             for (g in setdiff(gene_names, marker_genes)) {
@@ -768,6 +775,7 @@ mod_data_server <- function(id, shared) {
       w$show()
       tryCatch({
         prepared <- PERCEPTION::prepare_data(
+          method = input$seurat_method,
           expression_matrix = shared$user_expr,
           patient_mapping = shared$user_mapping,
           seurat_resolution = input$seurat_resolution,

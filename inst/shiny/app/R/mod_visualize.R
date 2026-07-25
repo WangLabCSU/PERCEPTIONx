@@ -68,12 +68,12 @@ mod_visualize_ui <- function(id) {
 
             div(class = "viz-advanced-section",
               h6(class = "viz-advanced-title", icon("map"), " Spatial Visualizations"),
-              p(class = "viz-advanced-desc", "Uses UMAP coordinates from Seurat clustering. No extra files needed."),
+              p(class = "viz-advanced-desc", textOutput(ns("spatial_desc"), inline = TRUE)),
 
               radioButtons(ns("plot_type_advanced"), NULL,
                            choices = c(
-                             "UMAP Gene Expression" = "umap_gene",
-                             "UMAP Drug Killing" = "umap_killing"
+                             "Gene Expression" = "umap_gene",
+                             "Drug Killing" = "umap_killing"
                            ),
                            selected = character(0)),
 
@@ -91,7 +91,7 @@ mod_visualize_ui <- function(id) {
               ),
               conditionalPanel(
                 condition = paste0("input['", ns("plot_type_advanced"), "'] == 'umap_gene' || input['", ns("plot_type_advanced"), "'] == 'umap_killing'"),
-                actionButton(ns("generate_advanced"), "Generate UMAP Plot",
+                actionButton(ns("generate_advanced"), "Generate Spatial Plot",
                              class = "btn-primary btn-sm", icon = icon("wand-magic-sparkles"))
               )
             )
@@ -151,11 +151,11 @@ mod_visualize_ui <- function(id) {
                   Shiny.addCustomMessageHandler(wName, function(w) {
                     var el = document.getElementById(plotId);
                     if (el) {
-                      el.style.width = w + '%';
+                      el.style.width = w + '%%';
                       var widgets = el.querySelectorAll('.html-widget, .plotly.html-widget');
                       widgets.forEach(function(wd) {
-                        wd.style.width = w + '%';
-                        wd.style.maxWidth = w + '%';
+                        wd.style.width = w + '%%';
+                        wd.style.maxWidth = w + '%%';
                       });
                       window.dispatchEvent(new Event('resize'));
                     }
@@ -194,6 +194,49 @@ mod_visualize_server <- function(id, shared, main_session) {
     # Reactive text size scale (50-160%)
     text_scale <- reactive({
       if (is.null(input$plot_text_size)) 100 else as.numeric(input$plot_text_size) / 100
+    })
+
+    # Reactive reduction method label (UMAP or t-SNE)
+    reduction_method <- reactive({
+      m <- shared$prepared_data$reduction_method
+      if (is.null(m)) "umap" else m
+    })
+    reduction_label <- reactive({
+      if (reduction_method() == "tsne") "t-SNE" else "UMAP"
+    })
+
+    # Normalize embedding coordinate columns — old prepare_data() returns
+    # umap_1/umap_2, new returns dim_1/dim_2. Accept either.
+    get_embedding_xy <- function(coords, cell_ids) {
+      if (!is.data.frame(coords)) stop("umap_coords is not a data frame")
+      if (nrow(coords) == 0L) stop("umap_coords has 0 rows — re-run Seurat clustering")
+      if (!"cell_id" %in% names(coords)) stop("umap_coords has no 'cell_id' column")
+      x_col <- intersect(c("dim_1", "umap_1"), names(coords))[1]
+      y_col <- intersect(c("dim_2", "umap_2"), names(coords))[1]
+      if (is.na(x_col) || is.na(y_col))
+        stop("Embedding coordinate columns not found in umap_coords (names: ",
+             paste(names(coords), collapse = ", "), ")")
+      idx <- match(cell_ids, coords$cell_id)
+      if (all(is.na(idx)))
+        stop("0 matching cell IDs between query and umap_coords")
+      list(X = coords[[x_col]][idx], Y = coords[[y_col]][idx])
+    }
+
+    # Safe scale: 0—1 using percentiles. Falls back to min-max if range01 fails.
+    safe_range01 <- function(x) {
+      if (length(x) == 0L) stop("empty input to safe_range01")
+      r <- tryCatch(PERCEPTION::range01(x), error = function(e) NULL)
+      if (is.null(r) || length(r) != length(x)) {
+        rng <- range(x, na.rm = TRUE)
+        if (rng[2] == rng[1]) return(rep(0.5, length(x)))
+        (x - rng[1]) / (rng[2] - rng[1])
+      } else {
+        r
+      }
+    }
+
+    output$spatial_desc <- renderText({
+      paste0("Uses ", reduction_label(), " coordinates from Seurat clustering. No extra files needed.")
     })
 
     # Prerequisites Check
@@ -260,9 +303,13 @@ mod_visualize_server <- function(id, shared, main_session) {
       roc = "ROC Curve",
       boxplot = "Response Boxplot",
       model_perf = "Model Performance",
-      umap_gene = "UMAP Gene Expression",
-      umap_killing = "UMAP Drug Killing"
+      umap_gene = "Gene Expression",
+      umap_killing = "Drug Killing"
     )
+    # For display, prefix with method label
+    spatial_plot_label <- function(pt) {
+      paste(reduction_label(), plot_labels[[pt]])
+    }
 
     # Populate drug choices from trained models (or predictions as fallback)
     observe({
@@ -315,7 +362,7 @@ mod_visualize_server <- function(id, shared, main_session) {
       w$show()
 
       tryCatch({
-        p <- suppressWarnings(switch(pt,
+        p <- switch(pt,
 
           "clone_dist" = {
             # Build clone_distribution data frame: patients, clones, weights
@@ -432,10 +479,8 @@ mod_visualize_server <- function(id, shared, main_session) {
 
           "model_perf" = {
             PERCEPTION::plot_model_performance(shared$models)
-          },
-
-          NULL
-        ))
+          }
+        )
 
         if (!is.null(p)) {
           current_plot(p)
@@ -460,10 +505,10 @@ mod_visualize_server <- function(id, shared, main_session) {
         return()
       }
 
-      # Check for UMAP coordinates from prepare_data()
+      # Check for 2D embedding coordinates from prepare_data()
       umap_coords <- shared$prepared_data$umap_coords
       if (is.null(umap_coords)) {
-        showNotification("UMAP coordinates not found. Run Seurat clustering in Data module first.", type = "warning", duration = 8)
+        showNotification(paste0(reduction_label(), " coordinates not found. Run Seurat clustering in Data module first."), type = "warning", duration = 8)
         return()
       }
 
@@ -484,15 +529,15 @@ mod_visualize_server <- function(id, shared, main_session) {
       w$show()
 
       tryCatch({
-        # Build common UMAP data frame
+        # Build common embedding data frame
         common_cells <- intersect(clone_data$cell_id, umap_coords$cell_id)
         if (length(common_cells) == 0) {
           w$hide()
-          showNotification("No matching cells between UMAP coordinates and clone annotation.", type = "error")
+          showNotification(paste0("No matching cells between ", reduction_label(), " coordinates and clone annotation."), type = "error")
           return()
         }
 
-        p <- suppressWarnings(switch(pt,
+        p <- switch(pt,
 
           "umap_gene" = {
             gene <- input$umap_gene
@@ -506,9 +551,12 @@ mod_visualize_server <- function(id, shared, main_session) {
                 NULL
               } else {
                 cell_expr <- as.numeric(expr_mat[gene, common_cells])
+                xy <- get_embedding_xy(umap_coords, common_cells)
+                n <- length(common_cells)
+                stopifnot(length(xy$X) == n, length(xy$Y) == n, length(cell_expr) == n)
                 umap_data <- data.frame(
-                  X = umap_coords$umap_1[match(common_cells, umap_coords$cell_id)],
-                  Y = umap_coords$umap_2[match(common_cells, umap_coords$cell_id)],
+                  X = xy$X,
+                  Y = xy$Y,
                   expression = scale(cell_expr)[, 1],
                   row.names = common_cells
                 )
@@ -527,37 +575,68 @@ mod_visualize_server <- function(id, shared, main_session) {
             } else {
               drug <- if (!is.null(input$umap_drug) && nchar(input$umap_drug) > 0) input$umap_drug else colnames(pred_mat)[1]
 
-              pred_clone_ids <- sapply(strsplit(rownames(pred_mat), "@@"), `[`, 2)
-              cell_pred <- setNames(pred_mat[, drug], pred_clone_ids)
-              cell_killing <- cell_pred[clone_data$clone_id]
-              names(cell_killing) <- clone_data$cell_id
+              # Build Patient@@CloneID key for each cell to look up its
+              # clone-level killing value (correct per-patient-per-clone)
+              cell_keys <- paste(as.character(clone_data$patient),
+                                 as.character(clone_data$clone_id), sep = "@@")
+              pred_keys <- rownames(pred_mat)
+              # If direct match fails, try alternative: parse pred_keys and
+              # match by patient+clone separately (handles format differences)
+              matched_idx <- match(cell_keys, pred_keys)
+              if (all(is.na(matched_idx)) && length(pred_keys) > 0 && any(grepl("@@", pred_keys))) {
+                pred_parts <- strsplit(pred_keys, "@@", fixed = TRUE)
+                pred_pat <- sapply(pred_parts, `[`, 1)
+                pred_cl  <- sapply(pred_parts, `[`, 2)
+                pred_lookup <- split(setNames(seq_along(pred_keys), pred_cl), pred_pat)
+                matched_idx <- sapply(seq_along(cell_keys), function(i) {
+                  pat <- as.character(clone_data$patient)[i]
+                  cl  <- as.character(clone_data$clone_id)[i]
+                  if (pat %in% names(pred_lookup) && cl %in% names(pred_lookup[[pat]])) {
+                    as.integer(pred_lookup[[pat]][cl])
+                  } else {
+                    NA_integer_
+                  }
+                })
+              }
+              cell_killing <- setNames(pred_mat[matched_idx, drug],
+                                       clone_data$cell_id)
 
               kill_common <- intersect(names(cell_killing), umap_coords$cell_id)
+              kill_common <- kill_common[!is.na(cell_killing[kill_common])]
               if (length(kill_common) == 0) {
-                showNotification("No matching cells between UMAP coordinates and prediction data.", type = "error")
+                showNotification(paste0("No matching cells between ", reduction_label(),
+                                        " coordinates and prediction data. ",
+                                        "cell_keys sample: ", paste(head(cell_keys, 3), collapse=", "),
+                                        " | pred_keys sample: ", paste(head(pred_keys, 3), collapse=", ")),
+                                 type = "error", duration = 10)
                 NULL
               } else {
+                raw_vals <- cell_killing[kill_common]
+                scaled_vals <- safe_range01(raw_vals)
+                xy <- get_embedding_xy(umap_coords, kill_common)
+                # Defensive: ensure all columns have the same length
+                n <- length(kill_common)
+                stopifnot(length(xy$X) == n, length(xy$Y) == n, length(scaled_vals) == n)
                 umap_data <- data.frame(
-                  X = umap_coords$umap_1[match(kill_common, umap_coords$cell_id)],
-                  Y = umap_coords$umap_2[match(kill_common, umap_coords$cell_id)],
-                  killing_scaled = scale(cell_killing[kill_common])[, 1],
+                  X = xy$X,
+                  Y = xy$Y,
+                  killing_scaled = scaled_vals,
                   row.names = kill_common
                 )
                 PERCEPTION::plot_tsne_response(umap_data, color_var = "killing_scaled",
                                                 title = drug, color_label = "Predicted Killing",
-                                                point_size = 0.8, base_size = 11)
+                                                point_size = 0.8, base_size = 11,
+                                                colors = c("#440154", "#3B528B", "#21908C", "#5DC863", "#FDE725"))
               }
             }
-          },
-
-          NULL
-        ))
+          }
+        )
 
         if (!is.null(p)) {
           current_plot(p)
           current_plot_type(pt)
           w$hide()
-          showNotification(paste0(plot_labels[[pt]], " generated successfully"), type = "message")
+          showNotification(paste0(spatial_plot_label(pt), " generated successfully"), type = "message")
         } else {
           w$hide()
         }
@@ -627,8 +706,10 @@ mod_visualize_server <- function(id, shared, main_session) {
       req(current_plot())
       pt <- current_plot_type()
       if (is.null(pt)) return(NULL)
+      # Spatial plots get method prefix
+      label <- if (pt %in% c("umap_gene", "umap_killing")) spatial_plot_label(pt) else plot_labels[[pt]]
       tags$span(class = "viz-info-inline",
-        strong(plot_labels[[pt]]),
+        strong(label),
         tags$span(class = "text-muted", style = "margin-left: 0.5rem; font-size: 0.78rem;",
           format(Sys.time(), "%Y-%m-%d %H:%M")
         )
@@ -663,14 +744,14 @@ mod_visualize_server <- function(id, shared, main_session) {
         requires = "Trained Models"
       ),
       umap_gene = list(
-        title = "UMAP Gene Expression",
-        desc = "Shows the expression level of a selected gene across all single cells in UMAP space. Color gradient indicates expression intensity — brighter colors = higher expression. Use this to examine how a gene's expression pattern relates to the transcriptional subclone landscape.",
-        requires = "Clone-level Predictions + Expression Matrix + UMAP coordinates"
+        title = "Gene Expression",
+        desc = "Shows the expression level of a selected gene across all single cells in the 2D embedding space. Color gradient indicates expression intensity — brighter colors = higher expression. Use this to examine how a gene's expression pattern relates to the transcriptional subclone landscape.",
+        requires = "Clone-level Predictions + Expression Matrix + 2D embedding coordinates"
       ),
       umap_killing = list(
-        title = "UMAP Drug Killing",
-        desc = "Shows the predicted drug killing score across all single cells in UMAP space. Color gradient indicates sensitivity — red = sensitive, blue = resistant. Use this to identify which regions of the UMAP (i.e., which subclones) are most affected by a given drug.",
-        requires = "Clone-level Predictions + UMAP coordinates (auto-generated by Seurat)"
+        title = "Drug Killing",
+        desc = "Shows the predicted drug killing score across all single cells in the 2D embedding space. Color gradient indicates sensitivity — red = sensitive, blue = resistant. Use this to identify which regions of the embedding (i.e., which subclones) are most affected by a given drug.",
+        requires = "Clone-level Predictions + 2D embedding coordinates (auto-generated by Seurat)"
       )
     )
 
@@ -684,12 +765,16 @@ mod_visualize_server <- function(id, shared, main_session) {
       info <- plot_explanations[[pt]]
       if (is.null(info)) return(NULL)
 
+      # Prefix title for spatial plots
+      display_title <- if (pt %in% c("umap_gene", "umap_killing"))
+        paste(reduction_label(), info$title) else info$title
+
       div(class = "card viz-explanation-card",
         div(class = "card-header",
           icon("circle-info"), " About This Plot"
         ),
         div(class = "card-body",
-          h6(strong(info$title)),
+          h6(strong(display_title)),
           p(class = "text-muted", style = "font-size: 0.85rem; line-height: 1.5;", info$desc),
           tags$span(class = "viz-explanation-req",
             icon("clipboard-check", style = "font-size: 0.75rem;"),
