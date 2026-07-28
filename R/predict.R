@@ -137,11 +137,15 @@ viability_from_model_internal <- function(drug_name, model, dataset) {
   }
 
   # Subset expression matrix to model features
+  orig_colnames <- colnames(dataset)[feature_match]
   dataset_FOI <- data.frame(
     dataset[feature_match, ],
     row.names = rownames(dataset)[feature_match]
   )
   dataset_FOI <- data.frame(t(dataset_FOI))
+  # data.frame() mangles special chars (e.g. "@@" -> "..") via make.names().
+  # Restore original colnames so predictions carry the proper clone keys.
+  colnames(dataset_FOI) <- orig_colnames
   predict(model, dataset_FOI)
 }
 
