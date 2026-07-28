@@ -111,6 +111,7 @@ plot_clone_distribution <- function(clone_distribution,
     geom_bar(position = "stack", stat = "identity") +
     theme_bw(base_size = base_size) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+          axis.title.x = element_text(margin = margin(t = 18, unit = "pt")),
           legend.position = "top") +
     labs(y = "Clone Proportion", x = "Patients")
 
@@ -176,7 +177,7 @@ plot_clone_killing <- function(clone_killing,
     clone_killing$facet_label <- vapply(as.character(clone_killing$patient), function(pat) {
       rv <- as.character(resp_map[pat, response_var])
       tag <- if (toupper(rv) %in% c("R", "RESPONDER")) "R" else "NR"
-      paste0(tag, "\n", pat)
+      paste(tag, pat)  # Single line label: "R PAT_001"
     }, character(1))
     facet_col <- "facet_label"
   } else {
@@ -223,7 +224,7 @@ plot_clone_killing <- function(clone_killing,
   x_size <- if (max_clones <= 6) rel(0.65) else rel(0.55)
 
   # Y-axis label includes drug name if provided
-  y_lab <- if (!is.null(drug)) paste0("Predicted Viability (z-score)\n", drug)
+  y_lab <- if (!is.null(drug)) paste0("Predicted Viability (z-score)\n[", drug, "]")
            else "Predicted Viability (z-score)"
 
   p <- ggplot(clone_killing, aes_mapping) +
@@ -247,13 +248,14 @@ plot_clone_killing <- function(clone_killing,
       plot.margin = margin(t = 5, r = 10, b = 5, l = 5, unit = "pt"),
       strip.placement = "outside",
       strip.background = element_rect(fill = "white", linewidth = 0.5, color = "grey80"),
-      strip.text = element_text(angle = 90, hjust = 0.5, vjust = 0.5,
+      strip.text = element_text(angle = 45, hjust = 0, vjust = 0.5,
                                 size = rel(0.75), lineheight = 0.9,
                                 margin = margin(t = 3, b = 3, l = 2, r = 2, unit = "pt")),
       axis.text.x = element_text(angle = x_angle, hjust = x_hjust, vjust = x_vjust,
                                   size = x_size),
       axis.text.y = element_text(size = rel(0.85)),
       axis.title = element_text(size = rel(0.95)),
+      axis.title.y = element_text(margin = margin(r = 8, unit = "pt")),
       panel.spacing = unit(0.15, "lines")
     )
 
@@ -624,7 +626,7 @@ plot_patient_response_panel <- function(clone_distribution,
   p3 <- plot_response_boxplot(exp_vs_pred, response_var = response_col,
                               predicted_var = predicted_col)
 
-  # Panel 4: ROC curve ¡ª auto-disable smoothing for small samples + safety net
+  # Panel 4: ROC curve ï¿½ï¿½ auto-disable smoothing for small samples + safety net
   n_pts <- sum(!is.na(exp_vs_pred[[response_col]]) & !is.na(exp_vs_pred[[predicted_col]]))
   p4 <- tryCatch({
     plot_roc_curve(response = exp_vs_pred[[response_col]],
