@@ -414,16 +414,7 @@ prepare_data <- function(method = c("umap", "tsne"),
 
   # Build clone_killing_df template from cell_clone_map
   # Row order matches clone_expression_rnorm column order
-  clone_col_names <- colnames(clone_expression_rnorm)
-  # Parse patient_clone format using @@ separator
-  template_patients <- sapply(strsplit(clone_col_names, "@@"), `[`, 1)
-  template_clones <- sapply(strsplit(clone_col_names, "@@"), `[`, 2)
-
-  clone_killing_template <- data.frame(
-    patient = template_patients,
-    clone_id = template_clones,
-    stringsAsFactors = FALSE
-  )
+  clone_killing_template <- parse_clone_keys(colnames(clone_expression_rnorm))
 
   message("\n=== Preparation complete ===")
   message("  Genes: ", nrow(clone_expression_rnorm))

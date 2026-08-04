@@ -137,15 +137,15 @@ viability_from_model_internal <- function(drug_name, model, dataset) {
   }
 
   # Subset expression matrix to model features
-  orig_colnames <- colnames(dataset)[feature_match]
+  orig_colnames <- colnames(dataset)
   dataset_FOI <- data.frame(
     dataset[feature_match, ],
     row.names = rownames(dataset)[feature_match]
   )
   dataset_FOI <- data.frame(t(dataset_FOI))
-  # data.frame() mangles special chars (e.g. "@@" -> "..") via make.names().
-  # Restore original colnames so predictions carry the proper clone keys.
-  colnames(dataset_FOI) <- orig_colnames
+  # data.frame(t()) mangles clone keys (e.g. "@@" -> "..") via make.names().
+  # Restore correct clone names as rownames; gene names remain as colnames.
+  rownames(dataset_FOI) <- orig_colnames
   predict(model, dataset_FOI)
 }
 
@@ -216,13 +216,7 @@ predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
       message("  [predict_patients] No template found, building from clone_pred rownames...")
       clone_col_names <- rownames(clone_pred)
       if (length(clone_col_names) > 0 && all(grepl("@@", clone_col_names))) {
-        template_patients <- sapply(strsplit(clone_col_names, "@@"), `[`, 1)
-        template_clones <- sapply(strsplit(clone_col_names, "@@"), `[`, 2)
-        clone_template <- data.frame(
-          patient = template_patients,
-          clone_id = template_clones,
-          stringsAsFactors = FALSE
-        )
+        clone_template <- parse_clone_keys(clone_col_names)
       } else {
         stop("Cannot build template: clone_pred rownames do not follow Patient@@Clone format.\n",
              "  clone_pred rownames: ", paste(head(rownames(clone_pred), 5), collapse = ", "))

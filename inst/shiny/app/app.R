@@ -1,4 +1,4 @@
-# PERCEPTION Shiny App ¡ª Embedded in R Package
+# PERCEPTION Shiny App â€” Embedded in R Package
 # Theme: Deep Indigo + Warm Amber
 
 library(shiny)
@@ -55,7 +55,6 @@ ui <- page_navbar(
   id = "navbar",
   selected = "home",
   fillable = FALSE,
-
   header = tagList(
     use_waiter(),
     tags$head(tags$link(rel = "stylesheet", href = "styles.css")),
@@ -67,7 +66,6 @@ ui <- page_navbar(
       });
     ")))
   ),
-
   nav_spacer(),
   nav_item(tagList(
     tags$a(
@@ -76,7 +74,6 @@ ui <- page_navbar(
       icon("github", class = "nav-icon")
     )
   )),
-
   nav_panel(
     " Home",
     value = "home",
@@ -131,14 +128,22 @@ server <- function(input, output, session) {
     model_active = list()
   )
 
-  # Modules ¡ª pass main session for cross-module navigation
+  # Modules â€” pass main session for cross-module navigation
   mod_home_server("home", shared, session)
   mod_data_server("data", shared)
   mod_train_server("train", shared, session)
   mod_predict_server("predict", shared, session)
   mod_visualize_server("visualize", shared, session)
   mod_help_server("help", session)
+
+  # Clean up downloaded temp files when the session ends (browser tab closed)
+  session$onSessionEnded(function() {
+    td <- tempdir()
+    if (dir.exists(td)) {
+      files <- list.files(td, pattern = "\\.(RDS|rds)$", full.names = TRUE, recursive = TRUE)
+      if (length(files) > 0) unlink(files, force = TRUE)
+    }
+  })
 }
 
 shinyApp(ui, server)
-

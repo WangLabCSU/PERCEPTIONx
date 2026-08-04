@@ -111,7 +111,6 @@ plot_clone_distribution <- function(clone_distribution,
     geom_bar(position = "stack", stat = "identity") +
     theme_bw(base_size = base_size) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
-          axis.title.x = element_text(margin = margin(t = 18, unit = "pt")),
           legend.position = "top") +
     labs(y = "Clone Proportion", x = "Patients")
 
@@ -166,24 +165,31 @@ plot_clone_killing <- function(clone_killing,
   }
 
   # --- Prepare facet labels: "NR\nPAT_001" or "R\nPAT_002" ---
+  # When rotated 90 deg, the newline becomes a horizontal separator,
+  # producing two visual columns: response status on the left, patient ID on the right.
   facet_col <- "patient"
   if (!is.null(response_var) && response_var %in% colnames(clone_killing)) {
+    # Build a mapping: patient -> response short label
     resp_map <- clone_killing[!duplicated(clone_killing$patient), ]
     rownames(resp_map) <- resp_map$patient
+    # Order: Responders first
     patient_order <- unique(clone_killing$patient[
       order(clone_killing[[response_var]], decreasing = TRUE)
     ])
     clone_killing$patient <- factor(clone_killing$patient, levels = patient_order)
+    # Create a combined facet label column
     clone_killing$facet_label <- vapply(as.character(clone_killing$patient), function(pat) {
       rv <- as.character(resp_map[pat, response_var])
       tag <- if (toupper(rv) %in% c("R", "RESPONDER")) "R" else "NR"
-      paste(tag, pat)  # Single line label: "R PAT_001"
+      paste0(tag, "\n", pat)
     }, character(1))
     facet_col <- "facet_label"
   } else {
+    # No response info — just use patient name
     clone_killing$facet_label <- as.character(clone_killing$patient)
     facet_col <- "facet_label"
   }
+  # Preserve patient ordering via factor levels on facet_label
   if (!is.null(response_var) && response_var %in% colnames(clone_killing)) {
     clone_killing$facet_label <- factor(clone_killing$facet_label,
                                         levels = unique(clone_killing$facet_label[
@@ -191,7 +197,8 @@ plot_clone_killing <- function(clone_killing,
                                         ]))
   }
 
-  # Sort clones by proportion (descending) within each patient
+  # --- Sort clones within each patient by proportion (descending) ---
+  # Larger-proportion clones appear first (leftmost), making key information prominent.
   if (!is.null(weights_var) && weights_var %in% colnames(clone_killing)) {
     clone_killing <- clone_killing[order(clone_killing[[facet_col]],
                                          -clone_killing[[weights_var]]), ]
@@ -212,20 +219,18 @@ plot_clone_killing <- function(clone_killing,
   y_bottom <- min(0, y_min)
   y_top <- y_max + (y_max - y_bottom) * 0.1
 
-  # Build minimal data for geom_hline
+  # Build minimal data for geom_hline so ggplotly can find the faceting column.
   hline_data <- clone_killing[!duplicated(clone_killing[[facet_col]]), facet_col, drop = FALSE]
   hline_data$yintercept <- 0
 
-  # Adaptive X-axis text rotation
+  # Decide X-axis text rotation:
+  #   If max clones per facet <= 6 → horizontal (angle = 0)
+  #   If > 6 → 45 deg to avoid overlap
   max_clones <- max(table(clone_killing[[facet_col]]))
   x_angle <- if (max_clones <= 6) 0 else 45
   x_hjust <- if (max_clones <= 6) 0.5 else 1
   x_vjust <- if (max_clones <= 6) 0.5 else 1
   x_size <- if (max_clones <= 6) rel(0.65) else rel(0.55)
-
-  # Y-axis label includes drug name if provided
-  y_lab <- if (!is.null(drug)) paste0("Predicted Viability (z-score)\n[", drug, "]")
-           else "Predicted Viability (z-score)"
 
   p <- ggplot(clone_killing, aes_mapping) +
     geom_hline(data = hline_data, mapping = aes(yintercept = yintercept),
@@ -235,9 +240,10 @@ plot_clone_killing <- function(clone_killing,
     geom_point() +
     coord_cartesian(ylim = c(y_bottom, y_top)) +
     theme_bw(base_size = base_size) +
-    labs(x = "Clones", y = y_lab,
+    labs(x = "Clones", y = "Predicted Viability (z-score)",
          color = "Predicted Viability", size = "Proportion in Tumor") +
     theme(
+      # Legend: top, horizontal (size bar + color bar side by side)
       legend.position = "top",
       legend.box = "horizontal",
       legend.box.spacing = unit(8, "pt"),
@@ -245,17 +251,20 @@ plot_clone_killing <- function(clone_killing,
       legend.text = element_text(size = rel(0.7)),
       legend.title = element_text(size = rel(0.8), vjust = 0.5),
       legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+      # Margins
       plot.margin = margin(t = 5, r = 10, b = 5, l = 5, unit = "pt"),
+      # Strip: rotated 90 deg so "NR\nPAT_001" appears as two columns on the bottom
       strip.placement = "outside",
       strip.background = element_rect(fill = "white", linewidth = 0.5, color = "grey80"),
-      strip.text = element_text(angle = 45, hjust = 0, vjust = 0.5,
+      strip.text = element_text(angle = 90, hjust = 0.5, vjust = 0.5,
                                 size = rel(0.75), lineheight = 0.9,
                                 margin = margin(t = 3, b = 3, l = 2, r = 2, unit = "pt")),
+      # X-axis: adaptive angle based on clone count
       axis.text.x = element_text(angle = x_angle, hjust = x_hjust, vjust = x_vjust,
                                   size = x_size),
       axis.text.y = element_text(size = rel(0.85)),
       axis.title = element_text(size = rel(0.95)),
-      axis.title.y = element_text(margin = margin(r = 8, unit = "pt")),
+      # Panel spacing
       panel.spacing = unit(0.15, "lines")
     )
 
@@ -279,7 +288,7 @@ plot_clone_killing <- function(clone_killing,
     p <- p + guides(size = "none")
   }
 
-  p <- p + facet_grid(reformulate(".", facet_col),
+  p <- p + facet_grid(reformulate(facet_col, "."),
                       scales = "free_x", shrink = TRUE,
                       drop = TRUE, space = "free_x", switch = "x",
                       as.table = TRUE)
@@ -626,7 +635,7 @@ plot_patient_response_panel <- function(clone_distribution,
   p3 <- plot_response_boxplot(exp_vs_pred, response_var = response_col,
                               predicted_var = predicted_col)
 
-  # Panel 4: ROC curve �� auto-disable smoothing for small samples + safety net
+  # Panel 4: ROC curve — auto-disable smoothing for small samples + safety net
   n_pts <- sum(!is.na(exp_vs_pred[[response_col]]) & !is.na(exp_vs_pred[[predicted_col]]))
   p4 <- tryCatch({
     plot_roc_curve(response = exp_vs_pred[[response_col]],
@@ -702,4 +711,60 @@ plot_tsne_biomarker_killing <- function(tsne_data,
   combined <- gridExtra::grid.arrange(p1, p2, nrow = nrow)
 
   return(combined)
+}
+
+#' Export plot to file via Cairo device
+#'
+#' High-resolution plot export using the Cairo rendering engine for
+#' superior anti-aliasing and cross-platform font rendering.
+#'
+#' @param file Character. Output file path.
+#' @param plot A ggplot or grid object to export.
+#' @param format Character. One of \code{"png"}, \code{"svg"}, or \code{"pdf"}.
+#'        Default = \code{"png"}.
+#' @param width Numeric. Plot width in inches. Default = 7.
+#' @param height Numeric. Plot height in inches. Default = 5.
+#' @param res Numeric. Output resolution (DPI) for PNG. Default = 600, minimum 96.
+#' @param draw_fun Function. Optional custom draw function (e.g. \code{gridExtra::grid.arrange}
+#'        for multi-panel layouts). If \code{NULL}, \code{print(plot)} is used.
+#'
+#' @return Invisibly returns the file path. Called for its side effect of creating the file.
+#'
+#' @examples
+#' \dontrun{
+#' p <- ggplot2::ggplot(mtcars, ggplot2::aes(wt, mpg)) + ggplot2::geom_point()
+#' export_plot_cairo("plot.png", p)
+#' export_plot_cairo("plot.pdf", p, format = "pdf")
+#' }
+#'
+#' @export
+export_plot_cairo <- function(file, plot, format = "png",
+                               width = 7, height = 5, res = 600,
+                               draw_fun = NULL) {
+  format <- tolower(format)
+  has_cairo <- capabilities("cairo")
+  if (format == "png") {
+    if (has_cairo) {
+      grDevices::png(file, width = width, height = height,
+        units = "in", res = max(res, 96), type = "cairo")
+    } else {
+      grDevices::png(file, width = width, height = height,
+        units = "in", res = max(res, 96))
+    }
+  } else if (format == "svg") {
+    grDevices::svg(file, width = width, height = height, antialias = "default")
+  } else {
+    if (has_cairo) {
+      grDevices::cairo_pdf(file, width = width, height = height)
+    } else {
+      grDevices::pdf(file, width = width, height = height)
+    }
+  }
+  if (is.null(draw_fun)) {
+    print(plot)
+  } else {
+    draw_fun(plot)
+  }
+  grDevices::dev.off()
+  invisible(file)
 }
