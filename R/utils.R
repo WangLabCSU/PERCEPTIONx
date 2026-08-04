@@ -103,3 +103,30 @@ strsplit_customv0 <- function(infunc_list=pred_viab$cellLines_mapping$cellLine_I
   sapply(strsplit(infunc_list, split = infunc_split_by), function(x) x[retreving_onject_id])
 }
 
+# Parse clone keys in "Patient@@Clone" format
+#
+# Splits a character vector of clone identifiers (e.g. "PAT_001@@0")
+# into a data frame with `patient` and `clone_id` columns.
+#
+# @param x Character vector of clone keys.
+# @return A data frame with columns \code{patient} and \code{clone_id}.
+# @keywords internal
+parse_clone_keys <- function(x) {
+  parts <- strsplit(as.character(x), "@@")
+  data.frame(
+    patient  = sapply(parts, `[`, 1),
+    clone_id = sapply(parts, `[`, 2),
+    stringsAsFactors = FALSE
+  )
+}
+
+# Build clone key from patient and clone_id
+#
+# @param patient Character vector of patient IDs.
+# @param clone_id Character vector of clone IDs.
+# @return Character vector of \code{"patient@@clone_id"} keys.
+# @keywords internal
+build_clone_key <- function(patient, clone_id) {
+  paste(as.character(patient), as.character(clone_id), sep = "@@")
+}
+

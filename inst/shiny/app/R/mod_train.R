@@ -232,7 +232,8 @@ mod_train_server <- function(id, shared, main_session) {
           GOI = goi,
           k_features_values = input$k_features,
           model_type = input$model_type,
-          ncores = input$ncores
+          ncores = input$ncores,
+          output_dir = tempdir()
         )
         trained(result)
         shared$models <- result

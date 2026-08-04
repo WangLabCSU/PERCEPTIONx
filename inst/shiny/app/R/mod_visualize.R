@@ -406,8 +406,9 @@ mod_visualize_server <- function(id, shared, main_session) {
               )
             } else {
               # Fallback: parse rownames
-              pred_clone_ids <- sapply(strsplit(rownames(pred_mat), "@@"), `[`, 2)
-              pred_patients <- sapply(strsplit(rownames(pred_mat), "@@"), `[`, 1)
+              parsed <- PERCEPTION::parse_clone_keys(rownames(pred_mat))
+              pred_clone_ids <- parsed$clone_id
+              pred_patients  <- parsed$patient
 
               clone_kill_list <- lapply(unique(clone_data$patient), function(p) {
                 p_clones <- unique(clone_data$clone_id[clone_data$patient == p])
@@ -577,38 +578,15 @@ mod_visualize_server <- function(id, shared, main_session) {
 
               # Build Patient@@CloneID key for each cell to look up its
               # clone-level killing value (correct per-patient-per-clone)
-              cell_keys <- paste(as.character(clone_data$patient),
-                                 as.character(clone_data$clone_id), sep = "@@")
+              cell_keys <- PERCEPTION::build_clone_key(clone_data$patient, clone_data$clone_id)
               pred_keys <- rownames(pred_mat)
-              # If direct match fails, try alternative: parse pred_keys and
-              # match by patient+clone separately (handles format differences)
-              matched_idx <- match(cell_keys, pred_keys)
-              if (all(is.na(matched_idx)) && length(pred_keys) > 0 && any(grepl("@@", pred_keys))) {
-                pred_parts <- strsplit(pred_keys, "@@", fixed = TRUE)
-                pred_pat <- sapply(pred_parts, `[`, 1)
-                pred_cl  <- sapply(pred_parts, `[`, 2)
-                pred_lookup <- split(setNames(seq_along(pred_keys), pred_cl), pred_pat)
-                matched_idx <- sapply(seq_along(cell_keys), function(i) {
-                  pat <- as.character(clone_data$patient)[i]
-                  cl  <- as.character(clone_data$clone_id)[i]
-                  if (pat %in% names(pred_lookup) && cl %in% names(pred_lookup[[pat]])) {
-                    as.integer(pred_lookup[[pat]][cl])
-                  } else {
-                    NA_integer_
-                  }
-                })
-              }
-              cell_killing <- setNames(pred_mat[matched_idx, drug],
+              cell_killing <- setNames(pred_mat[match(cell_keys, pred_keys), drug],
                                        clone_data$cell_id)
 
               kill_common <- intersect(names(cell_killing), umap_coords$cell_id)
               kill_common <- kill_common[!is.na(cell_killing[kill_common])]
               if (length(kill_common) == 0) {
-                showNotification(paste0("No matching cells between ", reduction_label(),
-                                        " coordinates and prediction data. ",
-                                        "cell_keys sample: ", paste(head(cell_keys, 3), collapse=", "),
-                                        " | pred_keys sample: ", paste(head(pred_keys, 3), collapse=", ")),
-                                 type = "error", duration = 10)
+                showNotification(paste0("No matching cells between ", reduction_label(), " coordinates and prediction data."), type = "error")
                 NULL
               } else {
                 raw_vals <- cell_killing[kill_common]
@@ -629,7 +607,9 @@ mod_visualize_server <- function(id, shared, main_session) {
                                                 colors = c("#440154", "#3B528B", "#21908C", "#5DC863", "#FDE725"))
               }
             }
-          }
+          },
+
+          NULL
         )
 
         if (!is.null(p)) {
@@ -809,7 +789,7 @@ mod_visualize_server <- function(id, shared, main_session) {
             }
           )
         } else {
-          ggplot2::ggsave(file, p_obj, device = "png", width = 10, height = 7, dpi = 300)
+          PERCEPTION::export_plot_cairo(file, p_obj, format = "png", width = 10, height = 7, res = 300)
         }
       }
     )
@@ -826,7 +806,7 @@ mod_visualize_server <- function(id, shared, main_session) {
             }
           )
         } else {
-          ggplot2::ggsave(file, p_obj, device = "pdf", width = 10, height = 7)
+          PERCEPTION::export_plot_cairo(file, p_obj, format = "pdf", width = 10, height = 7)
         }
       }
     )

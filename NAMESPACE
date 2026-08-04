@@ -31,6 +31,11 @@ export(plot_roc_curve)
 export(plot_seurat_clustering)
 export(plot_tsne_biomarker_killing)
 export(plot_tsne_response)
+
+export(parse_clone_keys)
+export(build_clone_key)
+
+export(export_plot_cairo)
 export(predict_drugs)
 export(predict_patients)
 export(prepare_data)

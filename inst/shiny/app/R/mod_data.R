@@ -153,10 +153,11 @@ mod_data_ui <- function(id) {
               "Single-cell expression matrix (genes × cells). Raw counts or normalized values. CSV or RDS format."),
             div(class = "data-format-hint",
               icon("table"), " Format: rows = genes, columns = cells",
-              tags$pre(class = "data-format-example", "        CELL_001  CELL_002  CELL_003
-TP53      2.1       0.0       5.3
-BRCA1     0.0       1.8       3.2
-EGFR      4.7       2.1       0.0")
+              tags$pre(class = "data-format-example", 
+              "        CELL_001  CELL_002  CELL_003
+              TP53      2.1       0.0       5.3
+              BRCA1     0.0       1.8       3.2
+              EGFR      4.7       2.1       0.0")
             ),
             fileInput(ns("expr_file"), "Upload Expression",
                       accept = c(".csv", ".rds", ".RDS"), width = "100%"),
@@ -177,7 +178,8 @@ EGFR      4.7       2.1       0.0")
               ". Maps each cell to its patient. Clones will be auto-detected via Seurat clustering."),
             div(class = "data-format-hint",
               icon("users"), " Format: cell_id + patient_id",
-              tags$pre(class = "data-format-example", "cell_id    patient_id
+              tags$pre(class = "data-format-example", 
+              "cell_id    patient_id
 CELL_001   PAT_001
 CELL_002   PAT_001
 CELL_003   PAT_002")
@@ -499,7 +501,7 @@ mod_data_server <- function(id, shared) {
       )
       w$show()
       tryCatch({
-        shared$depmap <- PERCEPTION::load_depmap(read = TRUE, mirror = use_mirror,
+        shared$depmap <- PERCEPTION::load_depmap(dest = tempdir(), read = TRUE, mirror = use_mirror,
                                                    timeout_seconds = 600, retries = 2)
         w$hide()
         showNotification("DepMap data loaded successfully", type = "message")
@@ -572,7 +574,7 @@ mod_data_server <- function(id, shared) {
         failed_drugs <- c()
         for (drug in drug_list) {
           tryCatch({
-            new_model <- PERCEPTION::load_model(drug, read = TRUE, mirror = use_mirror,
+            new_model <- PERCEPTION::load_model(drug, dest = tempdir(), read = TRUE, mirror = use_mirror,
                                                  timeout_seconds = 120, retries = 2)
             shared$models[[drug]] <- new_model[[drug]]
             shared$model_cache[[drug]] <- new_model[[drug]]
