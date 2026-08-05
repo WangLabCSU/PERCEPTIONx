@@ -141,6 +141,12 @@ plot_response_boxplot(
 )
 ```
 
+> **Interactive tooltips (optional)**: every plotting function above accepts
+> `tooltip = TRUE` (default). When the [`ggiraph`](https://cran.r-project.org/package=ggiraph)
+> package is installed, points/bars get hover tooltips (clone id, killing score,
+> proportion, FPR/TPR, ...). Set `tooltip = FALSE` for a plain static `ggplot`
+> with the identical layout. See the package vignette §6.9 for details.
+
 ## 4. Function Reference
 
 ### 4.1 Data Loading
@@ -259,12 +265,62 @@ Expected runtime: with DepMap + a 44-patient scRNA cohort, Seurat clustering and
 clone-level prediction take several minutes and several GB of RAM. The demo data
 can be used first to verify the whole pipeline works end-to-end.
 
-## 7. Citation
+## 7. Shiny Web Application
+
+PERCEPTION ships with an interactive web dashboard (built with Shiny) that wraps
+the whole pipeline — data loading, model training, prediction, and
+visualization — in a point-and-click interface.
+
+### 7.1 Launch
+
+```r
+library(PERCEPTION)
+run_perception_app()          # starts the app in your browser
+```
+
+or directly from the source tree:
+
+```r
+shiny::runApp(system.file("shiny", "app", package = "PERCEPTION"))
+```
+
+### 7.2 Tabs
+
+| Tab | What you can do |
+|-----|-----------------|
+| **Data** | Load the synthetic demo data (smoke-test), load the full DepMap reference (~567 MB), or upload your own rank-normalized single-cell matrix + clinical responses |
+| **Train** | Train drug-response models (`glmnet` / random forest) with tunable parameters |
+| **Predict** | Score clone-level and patient-level drug sensitivity for any loaded model |
+| **Visualize** | Clone distribution, clone-killing lollipop, ROC curve, response boxplot, model performance, and UMAP/t-SNE overlays |
+| **Help** | In-app documentation |
+
+### 7.3 Interactive plots
+
+All figures are rendered as **interactive SVG** (via `ggiraph`): hover any point
+or bar to see a tooltip (clone id, killing score, proportion, FPR/TPR, ...).
+Because the original `ggplot` object is rendered directly — never converted to
+`plotly` — facet layouts and legends stay exactly as designed: no re-flow, no
+overlapping labels. Static downloads are publication-quality:
+
+| Format | Resolution |
+|--------|------------|
+| PNG    | 600 dpi, Cairo anti-aliased (6000 × 4200 px at default size) |
+| PDF / SVG | Vector — infinitely zoomable, recommended for papers |
+
+### 7.4 Caching & cleanup
+
+- Downloaded DepMap data and pre-trained models are written to the R session's
+  `tempdir()`, so caches are **released automatically when the app closes** —
+  nothing persists on disk between sessions.
+- The app cache-busts its own stylesheet on every start, so you always see the
+  newest UI without manually clearing the browser cache.
+
+## 8. Citation
 
 If you use this package, please cite the original PERCEPTION study:
 
 Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts patient response and resistance to treatment using single-cell transcriptomics of their tumors. *Nat Cancer* 5, 938–952 (2024). https://doi.org/10.1038/s43018-024-00756-7
 
-## 8. License
+## 9. License
 
 MIT © PERCEPTION authors

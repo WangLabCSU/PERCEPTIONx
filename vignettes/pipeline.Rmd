@@ -304,7 +304,78 @@ plot_patient_response_panel(
 )
 ```
 
-# 7. Complete Pipeline Script
+## 6.9 Interactive Hover Tooltips
+
+Every plotting function accepts `tooltip = TRUE` (default). When the
+[`ggiraph`](https://cran.r-project.org/package=ggiraph) package is installed,
+the plot is built with interactive layers so that hovering a point or bar shows
+a rich tooltip (clone id, killing score, proportion, FPR/TPR, ...):
+
+```r
+plot_clone_killing(
+  clone_killing = clone_killing_df,
+  killing_var   = "comb_killing",
+  weights_var   = "weights",
+  tooltip       = TRUE
+)
+```
+
+Set `tooltip = FALSE` to obtain a plain static `ggplot` with the identical
+layout — useful when the object is passed to packages that only accept standard
+`ggplot` objects. Tooltip text is auto-built from the plot data; override it
+with the `tooltip_col` argument when a custom text column already exists.
+
+# 7. Shiny Web Application
+
+PERCEPTION also ships with an interactive web dashboard (built with Shiny) that
+wraps the whole pipeline — data loading, model training, prediction, and
+visualization — in a point-and-click interface.
+
+## 7.1 Launch
+
+```r
+library(PERCEPTION)
+run_perception_app()          # starts the app in your browser
+```
+
+or directly from the source tree:
+
+```r
+shiny::runApp(system.file("shiny", "app", package = "PERCEPTION"))
+```
+
+## 7.2 Tabs
+
+| Tab | What you can do |
+|-----|-----------------|
+| **Data** | Load the synthetic demo data (smoke-test), load the full DepMap reference (~567 MB), or upload your own rank-normalized single-cell matrix + clinical responses |
+| **Train** | Train drug-response models (`glmnet` / random forest) with tunable parameters |
+| **Predict** | Score clone-level and patient-level drug sensitivity for any loaded model |
+| **Visualize** | Clone distribution, clone-killing lollipop, ROC curve, response boxplot, model performance, and UMAP/t-SNE overlays |
+| **Help** | In-app documentation |
+
+## 7.3 Interactive plots
+
+All figures are rendered as **interactive SVG** (via `ggiraph`): hover any point
+or bar to see a tooltip (clone id, killing score, proportion, FPR/TPR, ...).
+Because the original `ggplot` object is rendered directly — never converted to
+`plotly` — facet layouts and legends stay exactly as designed: no re-flow, no
+overlapping labels. Static downloads are publication-quality:
+
+| Format | Resolution |
+|--------|------------|
+| PNG    | 600 dpi, Cairo anti-aliased (6000 × 4200 px at default size) |
+| PDF / SVG | Vector — infinitely zoomable, recommended for papers |
+
+## 7.4 Caching & cleanup
+
+- Downloaded DepMap data and pre-trained models are written to the R session's
+  `tempdir()`, so caches are **released automatically when the app closes** —
+  nothing persists on disk between sessions.
+- The app cache-busts its own stylesheet on every start, so you always see the
+  newest UI without manually clearing the browser cache.
+
+# 8. Complete Pipeline Script
 
 A ready-to-run pipeline script is included in the package. After installing, run:
 
@@ -314,7 +385,7 @@ source(system.file("tests", "test_pipeline.R", package = "PERCEPTION"))
 
 This script executes the full workflow (train -> predict -> plot) and saves all output figures to a local directory.
 
-# 8. Citation
+# 9. Citation
 
 If you use this package, please cite:
 
