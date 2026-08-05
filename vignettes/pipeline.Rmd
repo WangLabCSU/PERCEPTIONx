@@ -10,13 +10,17 @@ vignette: >
 ---
 
 ```{r setup, include = FALSE}
+# eval = FALSE: code is shown as a tutorial but never executed at build time
+# (the pipeline requires large downloads / training, which would time out
+# during package checking). Run the code yourself in an interactive session.
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
   fig.width = 7,
   fig.height = 5,
   warning = FALSE,
-  message = FALSE
+  message = FALSE,
+  eval = FALSE
 )
 ```
 
