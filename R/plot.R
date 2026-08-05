@@ -7,15 +7,18 @@
 #'
 #' @name plot_perception
 #' @keywords internal
-#' @importFrom ggplot2 ggplot aes geom_point geom_segment geom_boxplot geom_violin geom_bar geom_hline geom_line geom_vline coord_cartesian coord_equal theme theme_bw labs element_text element_rect element_line element_blank facet_grid facet_wrap vars scale_colour_gradientn scale_colour_gradient2 scale_fill_manual scale_color_manual scale_x_discrete scale_size margin unit guide_colourbar guides guide_legend ggtitle annotate rel
+#' @importFrom ggplot2 ggplot aes geom_point geom_segment geom_boxplot geom_violin geom_bar geom_hline geom_line geom_vline geom_jitter geom_text coord_cartesian coord_equal theme theme_bw theme_void labs element_text element_rect element_line element_blank facet_grid facet_wrap vars scale_colour_gradientn scale_colour_gradient2 scale_fill_manual scale_color_manual scale_x_discrete scale_size margin unit guide_colourbar guides guide_legend ggtitle annotate rel
 #' @importFrom rlang .data
 #' @importFrom pROC ggroc roc auc smooth
+#' @importFrom stats t.test wilcox.test
 NULL
 
 # Column names used in aes() - declare as global variables to suppress R CMD check notes
 utils::globalVariables(c("X", "Y", "clones", "weights", "patients",
                          "clone_id", "Predictability", "drugsCount", "dataused",
-                         "pred_viab", "expression"))
+                         "pred_viab", "expression",
+                         "tooltip_text", "data_id", "fpr", "tpr",
+                         "x", "y", "label", "yintercept"))
 
 # ---------------------------------------------------------------------------
 # Design system

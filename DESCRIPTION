@@ -11,7 +11,6 @@ RoxygenNote: 8.0.0
 VignetteBuilder: knitr
 Imports:
     ggplot2,
-    ggpubr,
     gridExtra,
     glmnet,
     caret,
@@ -20,15 +19,17 @@ Imports:
     rlang,
     Seurat,
     shiny,
-    bslib,
-    DT,
-    plotly,
-    waiter,
-    thematic
+    ggiraph
 URL: https://github.com/SunPast/PERCEPTION
 BugReports: https://github.com/SunPast/PERCEPTION/issues
 Suggests:
     testthat (>= 3.0.0),
     knitr,
-    rmarkdown
+    rmarkdown,
+    ggpubr,
+    bslib,
+    DT,
+    plotly,
+    waiter,
+    thematic
 Config/testthat/edition: 3

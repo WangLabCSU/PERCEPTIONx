@@ -103,14 +103,15 @@ strsplit_customv0 <- function(infunc_list=pred_viab$cellLines_mapping$cellLine_I
   sapply(strsplit(infunc_list, split = infunc_split_by), function(x) x[retreving_onject_id])
 }
 
-# Parse clone keys in "Patient@@Clone" format
-#
-# Splits a character vector of clone identifiers (e.g. "PAT_001@@0")
-# into a data frame with `patient` and `clone_id` columns.
-#
-# @param x Character vector of clone keys.
-# @return A data frame with columns \code{patient} and \code{clone_id}.
-##' @keywords internal
+#' Parse clone keys in "Patient@@Clone" format
+#'
+#' Splits a character vector of clone identifiers (e.g. "PAT_001@@0") into a
+#' data frame with \code{patient} and \code{clone_id} columns.
+#'
+#' @param x Character vector of clone keys in \code{"patient@@clone_id"} format.
+#' @return A data frame with columns \code{patient} and \code{clone_id}.
+#'
+#' @seealso [build_clone_key()] for the inverse operation.
 #' @export
 parse_clone_keys <- function(x) {
   parts <- strsplit(as.character(x), "@@")
@@ -121,12 +122,17 @@ parse_clone_keys <- function(x) {
   )
 }
 
-# Build clone key from patient and clone_id
-#
-# @param patient Character vector of patient IDs.
-# @param clone_id Character vector of clone IDs.
-# @return Character vector of \code{"patient@@clone_id"} keys.
-##' @keywords internal
+#' Build a clone key from patient and clone id
+#'
+#' The inverse of [parse_clone_keys()]: pastes patient and clone identifiers
+#' into a single \code{"patient@@clone_id"} key. The \code{"@@"} separator is
+#' the canonical clone-key format used throughout PERCEPTION.
+#'
+#' @param patient Character vector of patient IDs.
+#' @param clone_id Character vector of clone IDs.
+#' @return Character vector of \code{"patient@@clone_id"} keys.
+#'
+#' @seealso [parse_clone_keys()] for splitting keys back apart.
 #' @export
 build_clone_key <- function(patient, clone_id) {
   paste(as.character(patient), as.character(clone_id), sep = "@@")
