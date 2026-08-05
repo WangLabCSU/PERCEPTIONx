@@ -110,7 +110,8 @@ strsplit_customv0 <- function(infunc_list=pred_viab$cellLines_mapping$cellLine_I
 #
 # @param x Character vector of clone keys.
 # @return A data frame with columns \code{patient} and \code{clone_id}.
-# @keywords internal
+##' @keywords internal
+#' @export
 parse_clone_keys <- function(x) {
   parts <- strsplit(as.character(x), "@@")
   data.frame(
@@ -125,7 +126,8 @@ parse_clone_keys <- function(x) {
 # @param patient Character vector of patient IDs.
 # @param clone_id Character vector of clone IDs.
 # @return Character vector of \code{"patient@@clone_id"} keys.
-# @keywords internal
+##' @keywords internal
+#' @export
 build_clone_key <- function(patient, clone_id) {
   paste(as.character(patient), as.character(clone_id), sep = "@@")
 }

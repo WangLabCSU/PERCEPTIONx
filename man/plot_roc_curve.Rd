@@ -10,7 +10,8 @@ plot_roc_curve(
   smooth_curve = TRUE,
   base_size = 15,
   auc_digits = 3,
-  title = NULL
+  title = NULL,
+  tooltip = TRUE
 )
 }
 \arguments{
@@ -25,6 +26,9 @@ plot_roc_curve(
 \item{auc_digits}{Integer. Number of digits for AUC display. Default = 3.}
 
 \item{title}{Character. Plot title. Default = NULL.}
+
+\item{tooltip}{Logical. If TRUE (default) and \pkg{ggiraph} is installed,
+curve points get hover tooltips (FPR / TPR).}
 }
 \value{
 A ggplot object.

@@ -2,9 +2,10 @@
 % Please edit documentation in R/plot.R
 \name{plot_seurat_clustering}
 \alias{plot_seurat_clustering}
-\title{Run Seurat clustering and plot UMAP}
+\title{Run Seurat clustering and plot 2D embedding}
 \usage{
 plot_seurat_clustering(
+  method = c("umap", "tsne"),
   expression_matrix,
   min_cells = 3,
   min_features = 200,
@@ -15,6 +16,9 @@ plot_seurat_clustering(
 )
 }
 \arguments{
+\item{method}{Character. Dimensionality reduction method. One of \code{"umap"}
+(default) or \code{"tsne"}.}
+
 \item{expression_matrix}{Matrix. Gene expression matrix (genes as rows, cells as columns).}
 
 \item{min_cells}{Integer. Minimum cells per feature. Default = 3.}
@@ -32,17 +36,18 @@ plot_seurat_clustering(
 \value{
 A list containing:
 \item{seurat_object}{Seurat object with clustering results}
-\item{umap_plot}{ggplot UMAP visualization}
+\item{embedding_plot}{ggplot 2D embedding visualization}
 \item{cluster_ids}{Named vector of cluster IDs per cell}
 }
 \description{
-Performs Seurat clustering on an expression matrix and generates UMAP visualization.
+Performs Seurat clustering on an expression matrix and generates a 2D
+embedding visualization (UMAP or t-SNE).
 Useful for identifying subclones within patient tumor samples.
 }
 \examples{
 \dontrun{
   result <- plot_seurat_clustering(patient_expression)
-  result$umap_plot
+  result$embedding_plot
   result$cluster_ids
 }
 

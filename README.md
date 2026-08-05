@@ -235,6 +235,30 @@ Patient scRNA ──► Preprocessing ──► Clone Prediction ──► Patie
 - **Patient data**: Single-cell RNA expression matrix (genes as rows, cells as columns), rank-normalized via `rank_normalization_mat()`.
 - **Clone annotations**: Mapping from cells to clones/patients, with clone proportions per patient.
 
+### 6.1 Testing with real (large-scale) data
+
+The built-in Shiny demo ("Load Demo" in the Data tab) only generates a small
+synthetic dataset (50 genes x 400 cells x ~25 patients) for smoke-testing the UI.
+For a meaningful large-scale test, use:
+
+1. **DepMap reference data** — click **Load DepMap** in the Data tab (or run
+   `load_depmap()`), which downloads the full reference set (~567 MB, 15k+ genes
+   x 1,000+ cell lines). This is the standard training/reference input and the
+   most demanding step for memory and disk.
+2. **Real patient scRNA-seq** — upload a rank-normalized gene x cell matrix
+   (must call `rank_normalization_mat()` first). A widely used public example is
+   **GSE176078** (breast cancer scRNA-seq, 44 patients, Wu et al. 2021); the
+   original PERCEPTION study also reports results on patient cohorts derived
+   from DepMap-adjacent bulk RNA data (TCGA). Any dataset with 10,000+ cells and
+   multiple patients will exercise the Seurat clustering, prediction, and
+   visualization steps at realistic scale.
+3. **Pre-trained models** — `load_model("abemaciclib")` (or any of the 44 FDA
+   drugs) avoids the cost of training and lets you go straight to prediction.
+
+Expected runtime: with DepMap + a 44-patient scRNA cohort, Seurat clustering and
+clone-level prediction take several minutes and several GB of RAM. The demo data
+can be used first to verify the whole pipeline works end-to-end.
+
 ## 7. Citation
 
 If you use this package, please cite the original PERCEPTION study:

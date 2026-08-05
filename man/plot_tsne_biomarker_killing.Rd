@@ -2,7 +2,7 @@
 % Please edit documentation in R/plot.R
 \name{plot_tsne_biomarker_killing}
 \alias{plot_tsne_biomarker_killing}
-\title{Plot t-SNE/UMAP side-by-side for biomarker and killing}
+\title{Plot UMAP side-by-side for biomarker and killing}
 \usage{
 plot_tsne_biomarker_killing(
   tsne_data,
@@ -34,7 +34,7 @@ A gtable object from grid.arrange.
 }
 \description{
 Creates a side-by-side comparison of biomarker expression and predicted killing
-in t-SNE/UMAP space. Useful for visualizing correlation between marker and response.
+in UMAP space. Useful for visualizing correlation between marker and response.
 }
 \examples{
 \dontrun{

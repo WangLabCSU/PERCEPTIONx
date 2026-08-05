@@ -7,7 +7,9 @@
 plot_clone_distribution(
   clone_distribution,
   response_var = NULL,
-  base_size = 15
+  base_size = 15,
+  tooltip = TRUE,
+  tooltip_col = NULL
 )
 }
 \arguments{
@@ -17,6 +19,12 @@ plot_clone_distribution(
 If provided, facets by response. Default = NULL.}
 
 \item{base_size}{Numeric. Base font size. Default = 15.}
+
+\item{tooltip}{Logical. If TRUE (default) and \pkg{ggiraph} is installed,
+bar segments get hover tooltips (clone + proportion).}
+
+\item{tooltip_col}{Character. Optional existing column used as the tooltip
+text. Default = NULL (auto-builds a rich tooltip).}
 }
 \value{
 A ggplot object.
