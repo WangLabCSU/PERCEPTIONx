@@ -5,7 +5,7 @@
 \title{PERCEPTION Visualization Functions}
 \description{
 This module provides visualization functions for PERCEPTION model results,
-including t-SNE/UMAP plots, clone distribution plots, ROC curves, and more.
+including UMAP plots, clone distribution plots, ROC curves, and more.
 These functions are designed to work seamlessly with trained PERCEPTION models
 and patient/single-cell expression data.
 }

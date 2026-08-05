@@ -95,7 +95,7 @@ mod_data_ui <- function(id) {
                              options = list(placeholder = "Select one or more drugs...", maxOptions = 50)),
               actionButton(ns("load_model"), "Download & Load",
                            class = "btn-primary", icon = icon("download")),
-              checkboxInput(ns("model_mirror"), "Mirror", value = TRUE)
+              checkboxInput(ns("model_mirror"), "Use mirror", value = TRUE)
             ),
             div(style = "margin-top: 0.6rem; border-top: 1px dashed var(--border); padding-top: 0.6rem;",
               tags$small(class = "text-muted", "Or load a pre-downloaded model .RDS:"),
@@ -529,7 +529,6 @@ mod_data_server <- function(id, shared) {
         DepMap <- readRDS(file$datapath)
         depmap_env <- getFromNamespace(".depmap_env", "PERCEPTION")
         assign("DepMap", DepMap, envir = depmap_env)
-        do.call("assign", list("DepMap", DepMap, envir = .GlobalEnv))
         shared$depmap <- DepMap
         w$hide()
         showNotification(paste("DepMap loaded from file:", length(DepMap), "datasets"), type = "message")

@@ -5,18 +5,29 @@
 \title{Prepare patient data for PERCEPTION prediction}
 \usage{
 prepare_data(
+  method = c("umap", "tsne"),
   expression_matrix,
   patient_mapping = NULL,
   cell_col = "cell_id",
   patient_col = "patient_id",
+  parse_patient = FALSE,
+  patient_sep = "_",
+  patient_pos = 1,
   genes_to_use = NULL,
   seurat_resolution = 0.8,
   seurat_dims = 10,
   seurat_nfeatures = 2000,
+  seurat_min_cells = 3,
+  seurat_min_features = 200,
   seurat_seed = 42
 )
 }
 \arguments{
+\item{method}{Character. Dimensionality reduction method passed to
+\code{\link{annotate_clones}()}. One of \code{"umap"} (default) or
+\code{"tsne"}. UMAP is faster and preserves global structure;
+t-SNE emphasizes local neighborhoods.}
+
 \item{expression_matrix}{Matrix. Gene expression matrix with genes as rows
 and cells as columns.}
 
@@ -37,6 +48,16 @@ Default = "cell_id". Only used when patient_mapping is a data frame.}
 \item{patient_col}{Character. Patient ID column name in patient_mapping data frame.
 Default = "patient_id". Only used when patient_mapping is a data frame.}
 
+\item{parse_patient}{Logical. If TRUE, parse patient ID from cell_col using separator.
+Default = FALSE. Auto-enabled if patient_sep or patient_pos is provided.
+Useful when cell names contain patient info (e.g., "P11_M_Barcode").}
+
+\item{patient_sep}{Character. Separator to split cell_col for parsing patient ID.
+Default = "_". Providing this parameter auto-enables parse_patient.}
+
+\item{patient_pos}{Integer. Position of patient ID after splitting.
+Default = 1 (first element). Providing this parameter auto-enables parse_patient.}
+
 \item{genes_to_use}{Character vector. Genes to retain in the output matrix.
 If NULL, all genes in the expression matrix are used.}
 
@@ -45,6 +66,11 @@ If NULL, all genes in the expression matrix are used.}
 \item{seurat_dims}{Integer. PCA dimensions for clustering. Default = 10.}
 
 \item{seurat_nfeatures}{Integer. Variable features count. Default = 2000.}
+
+\item{seurat_min_cells}{Integer. Minimum cells per feature. Default = 3.}
+
+\item{seurat_min_features}{Integer. Minimum features per cell. Default = 200.
+Auto-adjusted to 10\% of gene count if the expression matrix has fewer genes.}
 
 \item{seurat_seed}{Integer. Random seed. Default = 42.}
 }
@@ -56,9 +82,13 @@ A named list with:
 \item{clone_counts}{Data frame. Clone abundance per patient. Ready for
 \code{predict_patients()}.}
 \item{cell_clone_map}{Data frame. Cell-to-clone mapping with columns
-cell_id, clone_id, patient.}
+cell_id, clone_id, patient, dim_1, dim_2.}
 \item{clone_killing_df_template}{Data frame. Template with patient and clone_id
 columns, ready to merge with \code{predict_drugs()} output.}
+\item{umap_coords}{Data frame. 2D embedding coordinates per cell
+(cell_id, dim_1, dim_2). Ready for \code{plot_tsne_response()}.}
+\item{reduction_method}{Character. The method used (\code{"umap"} or
+\code{"tsne"}).}
 }
 }
 \description{
@@ -89,6 +119,17 @@ The pipeline performs:
   # Or data frame format (from metadata)
   metadata <- data.frame(cell_id = colnames(patient_scRNA), patient_id = patient_ids)
   prepared <- prepare_data(patient_scRNA, metadata)
+
+  # Parse patient ID from cell names (e.g., "P11_M_Barcode" -> "P11")
+  metadata <- data.frame(Cell = c("P11_M_Barcode1", "P12_M_Barcode2"))
+  prepared <- prepare_data(
+    patient_scRNA, metadata,
+    cell_col = "Cell",           # Custom column name
+    parse_patient = TRUE,        # Parse from Cell column
+    patient_sep = "_",           # Split by "_"
+    patient_pos = 1              # Take first element
+  )
+  # Result: Patient IDs = "P11", "P12"
 
   # Use directly with prediction functions
   clone_pred <- predict_drugs(models, prepared$clone_expression_rnorm)

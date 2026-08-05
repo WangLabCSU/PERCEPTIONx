@@ -39,11 +39,11 @@ mod_visualize_ui <- function(id) {
             conditionalPanel(
               condition = paste0("input['", ns("plot_type"), "'] == 'clone_kill' || input['", ns("plot_type"), "'] == 'boxplot' || input['", ns("plot_type"), "'] == 'roc'"),
               selectizeInput(ns("drug_name_common"), "Drug Name",
-                             choices = NULL, selected = NULL,
+                             choices = NULL, selected = NULL, width = "100%",
                              options = list(maxItems = 1, placeholder = "Select a drug"))
             ),
 
-            actionButton(ns("generate"), "Generate Plot",
+            actionButton(ns("generate"), "Generate Plot", width = "100%",
                          class = "btn-primary btn-sm", icon = icon("wand-magic-sparkles")),
 
             # Plot size controls
@@ -80,18 +80,18 @@ mod_visualize_ui <- function(id) {
               conditionalPanel(
                 condition = paste0("input['", ns("plot_type_advanced"), "'] == 'umap_gene'"),
                 selectizeInput(ns("umap_gene"), "Gene",
-                               choices = NULL, selected = NULL,
+                               choices = NULL, selected = NULL, width = "100%",
                                options = list(maxItems = 1, placeholder = "Select a gene"))
               ),
               conditionalPanel(
                 condition = paste0("input['", ns("plot_type_advanced"), "'] == 'umap_killing'"),
                 selectizeInput(ns("umap_drug"), "Drug",
-                               choices = NULL, selected = NULL,
+                               choices = NULL, selected = NULL, width = "100%",
                                options = list(maxItems = 1, placeholder = "Select a drug"))
               ),
               conditionalPanel(
                 condition = paste0("input['", ns("plot_type_advanced"), "'] == 'umap_gene' || input['", ns("plot_type_advanced"), "'] == 'umap_killing'"),
-                actionButton(ns("generate_advanced"), "Generate Spatial Plot",
+                actionButton(ns("generate_advanced"), "Generate Spatial Plot", width = "100%",
                              class = "btn-primary btn-sm", icon = icon("wand-magic-sparkles"))
               )
             )
@@ -123,46 +123,7 @@ mod_visualize_ui <- function(id) {
           ),
           div(class = "card-body",
             uiOutput(ns("plot_status")),
-            plotlyOutput(ns("main_plot"), height = "750px"),
-            tags$script(HTML(sprintf("
-              (function() {
-                var plotId = '%s';
-                // Height handler
-                var hName = '%s';
-                if (!window[hName]) {
-                  window[hName] = true;
-                  Shiny.addCustomMessageHandler(hName, function(h) {
-                    var el = document.getElementById(plotId);
-                    if (el) {
-                      el.style.height = h + 'px';
-                      var widgets = el.querySelectorAll('.html-widget, .plotly.html-widget');
-                      widgets.forEach(function(w) {
-                        w.style.height = h + 'px';
-                        w.style.maxHeight = h + 'px';
-                      });
-                      window.dispatchEvent(new Event('resize'));
-                    }
-                  });
-                }
-                // Width handler
-                var wName = '%s';
-                if (!window[wName]) {
-                  window[wName] = true;
-                  Shiny.addCustomMessageHandler(wName, function(w) {
-                    var el = document.getElementById(plotId);
-                    if (el) {
-                      el.style.width = w + '%%';
-                      var widgets = el.querySelectorAll('.html-widget, .plotly.html-widget');
-                      widgets.forEach(function(wd) {
-                        wd.style.width = w + '%%';
-                        wd.style.maxWidth = w + '%%';
-                      });
-                      window.dispatchEvent(new Event('resize'));
-                    }
-                  });
-                }
-              })();
-            ", ns("main_plot"), ns("viz_update_plot_height"), ns("viz_update_plot_width"))))
+            ggiraph::girafeOutput(ns("main_plot"))
           )
         ),
         # Plot explanation card
@@ -177,19 +138,13 @@ mod_visualize_server <- function(id, shared, main_session) {
     ns <- session$ns
     current_plot <- reactiveVal(NULL)
 
-    # Reactive plot height (in px) — driven by user's Width/Height size controls
-    # Apply via session$sendCustomMessage + JS handler (no widget re-render)
-    observeEvent(input$plot_height, {
-      h_pct <- if (is.null(input$plot_height)) 100 else as.numeric(input$plot_height)
-      h <- round(750 * h_pct / 100)
-      session$sendCustomMessage(ns("viz_update_plot_height"), as.character(h))
-    }, ignoreInit = TRUE)
-
-    # Reactive plot width (in %) — driven by user's Width size control
-    observeEvent(input$plot_width, {
+    # Reactive plot size (px) — driven by user's Width/Height size controls.
+    # Used by the static renderPlot (crisp original ggplot, no plotly overlap).
+    plot_size <- reactive({
       w_pct <- if (is.null(input$plot_width)) 100 else as.numeric(input$plot_width)
-      session$sendCustomMessage(ns("viz_update_plot_width"), as.character(w_pct))
-    }, ignoreInit = TRUE)
+      h_pct <- if (is.null(input$plot_height)) 100 else as.numeric(input$plot_height)
+      list(w = round(1000 * w_pct / 100), h = round(750 * h_pct / 100))
+    })
 
     # Reactive text size scale (50-160%)
     text_scale <- reactive({
@@ -562,8 +517,9 @@ mod_visualize_server <- function(id, shared, main_session) {
                   row.names = common_cells
                 )
                 PERCEPTION::plot_tsne_response(umap_data, color_var = "expression",
-                                                title = gene, color_label = "Expression",
-                                                point_size = 0.8, base_size = 11)
+                                                title = gene, color_label = "Expression (z-score)",
+                                                palette = "diverging", midpoint = 0,
+                                                base_size = 11)
               }
             }
           },
@@ -603,8 +559,7 @@ mod_visualize_server <- function(id, shared, main_session) {
                 )
                 PERCEPTION::plot_tsne_response(umap_data, color_var = "killing_scaled",
                                                 title = drug, color_label = "Predicted Killing",
-                                                point_size = 0.8, base_size = 11,
-                                                colors = c("#440154", "#3B528B", "#21908C", "#5DC863", "#FDE725"))
+                                                palette = "viridis", base_size = 11)
               }
             }
           },
@@ -626,45 +581,71 @@ mod_visualize_server <- function(id, shared, main_session) {
       })
     })
 
-    output$main_plot <- renderPlotly({
+    # --- Interactive rendering via ggiraph (hover tooltips) ---
+    # Renders the ORIGINAL ggplot as an SVG widget. Because the plot is never
+    # converted to plotly, facet/strip layouts stay exactly as designed (no
+    # re-flow, no overlap). Hovering a point shows a rich tooltip. Canvas is
+    # controlled with CSS (.girafe.html-widget) so it grows with the actual
+    # plot height, is centred, and can never overflow the card.
+    output$main_plot <- ggiraph::renderGirafe({
       req(current_plot())
       p_obj <- current_plot()
       scale <- text_scale()
-      # If already a plotly object (e.g. combined UMAP plots), return as-is
-      if (inherits(p_obj, "plotly") || inherits(p_obj, "htmlwidget")) {
-        p_obj
-      } else {
-        # Apply text size scale to ggplot's base font size
-        # Use theme() addition (not theme_bw()) to preserve existing title/legend customization
-        p_scaled <- if (scale != 1) {
-          p_obj +
-            theme(text = element_text(size = 11 * scale),
-                  plot.title = element_text(size = 12 * scale, hjust = 0, vjust = 0, face = "plain",
-                                            margin = margin(b = 6)),
-                  plot.subtitle = element_text(size = 11 * scale),
-                  axis.title = element_text(size = 11 * scale),
-                  axis.text = element_text(size = 10 * scale),
-                  legend.text = element_text(size = 9 * scale),
-                  legend.title = element_text(size = 10 * scale),
-                  strip.text = element_text(size = 10 * scale))
-        } else {
-          p_obj
-        }
-        ggplotly(p_scaled, tooltip = c("x", "y", "label")) %>%
-          layout(
-            font = list(family = "Inter, sans-serif", size = 12 * scale, color = "#1e2a4a"),
-            paper_bgcolor = "transparent",
-            plot_bgcolor = "transparent",
-            xaxis = list(gridcolor = "#eef0f6", zerolinecolor = "#dfe3ee"),
-            yaxis = list(gridcolor = "#eef0f6", zerolinecolor = "#dfe3ee"),
-            legend = list(
-              bgcolor = "rgba(255,255,255,0.8)",
-              bordercolor = "#dfe3ee",
-              borderwidth = 1,
-              font = list(size = 11, color = "#1e2a4a")
-            )
-          )
+      sz <- plot_size()
+
+      # Lollipop: stretch the canvas height so every facet gets more vertical
+      # room (many panels sharing one row otherwise squeeze text/ticks).
+      if (identical(current_plot_type(), "clone_kill")) {
+        sz$h <- round(sz$h * 1.3)
       }
+
+      # Objects ggiraph cannot render (grid.arrange gtable / plotly widget):
+      # fall back to an explanatory static-looking panel.
+      if (inherits(p_obj, "gtable") || inherits(p_obj, "grob") || inherits(p_obj, "gTree") ||
+          inherits(p_obj, "plotly") || inherits(p_obj, "htmlwidget")) {
+        p_fallback <- ggplot2::ggplot() +
+          ggplot2::annotate("text", x = 0.5, y = 0.5,
+                            label = "This plot type cannot be shown interactively.",
+                            size = 5, color = "#5a6a8a") +
+          ggplot2::theme_void()
+        p_obj <- p_fallback
+      }
+
+      # Apply text size scale to ggplot's base font size
+      p_scaled <- if (scale != 1) {
+        p_obj +
+          theme(text = element_text(size = 11 * scale),
+                plot.title = element_text(size = 12 * scale, hjust = 0, vjust = 0, face = "plain",
+                                          margin = margin(b = 6)),
+                plot.subtitle = element_text(size = 11 * scale),
+                axis.title = element_text(size = 11 * scale),
+                axis.text = element_text(size = 10 * scale),
+                legend.text = element_text(size = 9 * scale),
+                legend.title = element_text(size = 10 * scale),
+                strip.text = element_text(size = 10 * scale))
+      } else {
+        p_obj
+      }
+
+      # width_svg/height_svg set the SVG viewBox aspect ratio (canvas shape).
+      ggiraph::girafe(
+        ggobj = p_scaled,
+        width_svg = max(sz$w / 100, 4),
+        height_svg = max(sz$h / 100, 3),
+        options = list(
+          ggiraph::opts_sizing(rescale = TRUE, width = 1),
+          ggiraph::opts_tooltip(
+            use_cursor = TRUE, opacity = 0.92, offx = 14, offy = 14,
+            css = "background-color:#1e2a4a;color:#ffffff;border-radius:5px;
+                   padding:7px 11px;font-size:12px;line-height:1.45;
+                   box-shadow:0 3px 10px rgba(0,0,0,0.30);"
+          ),
+          ggiraph::opts_hover(
+            css = "cursor:pointer;fill-opacity:1;stroke:#1e2a4a;stroke-width:1.5px;"
+          ),
+          ggiraph::opts_zoom(min = 1, max = 1)
+        )
+      )
     })
 
     output$plot_status <- renderUI({
@@ -789,7 +770,7 @@ mod_visualize_server <- function(id, shared, main_session) {
             }
           )
         } else {
-          PERCEPTION::export_plot_cairo(file, p_obj, format = "png", width = 10, height = 7, res = 300)
+          PERCEPTION::export_plot_cairo(file, p_obj, format = "png", width = 10, height = 7, res = 600)
         }
       }
     )

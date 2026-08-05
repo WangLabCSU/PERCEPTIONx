@@ -2,16 +2,20 @@
 % Please edit documentation in R/plot.R
 \name{plot_tsne_response}
 \alias{plot_tsne_response}
-\title{Plot t-SNE/UMAP with drug response overlay}
+\title{Plot UMAP with drug response overlay}
 \usage{
 plot_tsne_response(
   tsne_data,
   color_var = "killing_scaled",
   title = NULL,
   color_label = "Predicted Killing",
-  point_size = 0.5,
-  colors = c("#F8766D", "lightgrey", "#00BFC4"),
-  base_size = 8
+  point_size = NULL,
+  colors = NULL,
+  palette = c("viridis", "diverging"),
+  midpoint = 0,
+  base_size = 11,
+  tooltip = TRUE,
+  tooltip_col = NULL
 )
 }
 \arguments{
@@ -21,22 +25,34 @@ biomarker/killing columns.}
 \item{color_var}{Character. Name of the column to use for color mapping.
 Default = "killing_scaled".}
 
-\item{title}{Character. Plot title. Default = "Drug Killing".}
+\item{title}{Character. Plot title. Default = NULL.}
 
 \item{color_label}{Character. Legend label for color. Default = "Predicted Killing".}
 
-\item{point_size}{Numeric. Size of points. Default = 0.5.}
+\item{point_size}{Numeric. Point size. If NULL (default), auto-adapts to
+the number of cells to avoid overplotting.}
 
-\item{colors}{Character vector. Gradient colors (low, mid, high).
-Default = c("#F8766D", "lightgrey", "#00BFC4").}
+\item{colors}{Character vector. Custom gradient colors (low, mid, high)
+for the sequential palette. Default = NULL (uses built-in viridis).}
 
-\item{base_size}{Numeric. Base font size for theme. Default = 8.}
+\item{palette}{Character. One of \code{"viridis"} (sequential, default) or
+\code{"diverging"} (blue-white-red centered at \code{midpoint}).}
+
+\item{midpoint}{Numeric. Center value for diverging palette. Default = 0.}
+
+\item{base_size}{Numeric. Base font size for theme. Default = 11.}
+
+\item{tooltip}{Logical. If TRUE (default) and \pkg{ggiraph} is installed,
+points get hover tooltips (cell id if present, else the colored value).}
+
+\item{tooltip_col}{Character. Optional existing column used as the tooltip
+text (e.g. "cell_id"). Default = NULL (auto-builds from color_var).}
 }
 \value{
 A ggplot object.
 }
 \description{
-Visualizes single cells in t-SNE/UMAP space with color overlay representing
+Visualizes single cells in UMAP space with color overlay representing
 either biomarker expression or predicted drug sensitivity.
 }
 \examples{

@@ -9,9 +9,12 @@ plot_clone_killing(
   killing_var = "comb_killing",
   weights_var = NULL,
   response_var = NULL,
-  base_size = 15,
+  drug = NULL,
+  base_size = 11,
   y_limits = c(-3, 1.2),
-  viridis_scale = TRUE
+  viridis_scale = TRUE,
+  tooltip = TRUE,
+  tooltip_col = NULL
 )
 }
 \arguments{
@@ -25,11 +28,21 @@ Default = NULL.}
 \item{response_var}{Character. Optional column for response annotation.
 Default = NULL.}
 
-\item{base_size}{Numeric. Base font size. Default = 15.}
+\item{drug}{Character. Drug name, used as plot title. Default = NULL.}
+
+\item{base_size}{Numeric. Base font size. Default = 11.}
 
 \item{y_limits}{Numeric vector. Y-axis limits. Default = c(-3, 1.2).}
 
-\item{viridis_scale}{Logical. Use viridis color scale. Default = TRUE.}
+\item{viridis_scale}{Logical. If TRUE (default), uses the standard PERCEPTION
+diverging scale (blue = resistant, red = sensitive) centred at 0.
+If FALSE, uses a plain viridis sequential scale.}
+
+\item{tooltip}{Logical. If TRUE (default) and \pkg{ggiraph} is installed,
+points get hover tooltips (clone + killing + proportion).}
+
+\item{tooltip_col}{Character. Optional existing column used as the tooltip
+text. Default = NULL (auto-builds a rich tooltip).}
 }
 \value{
 A ggplot object.
@@ -38,6 +51,13 @@ A ggplot object.
 Visualizes predicted drug sensitivity for each clone within patients.
 Each clone is represented as a point with a stem (lollipop style).
 Useful for identifying resistant clones within heterogeneous tumors.
+}
+\details{
+Facet strategy is adaptive:
+\itemize{
+\item <= 12 patients: single-row grid, strips on the bottom (45 deg).
+\item > 12 patients: \code{facet_wrap} grid, one compact panel per patient.
+}
 }
 \examples{
 \dontrun{

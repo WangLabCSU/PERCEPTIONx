@@ -2647,6 +2647,86 @@ table.dataTable thead th {
   margin-top: 0.3rem;
 }
 
+/* Interactive output (ggiraph girafe): canvas grows with the plot height,
+   is always horizontally centred, and can never overflow the card.
+   CSS !important beats the htmlwidget JS inline sizing. */
+.viz-output-card .shiny-html-output {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  text-align: center !important;
+}
+.viz-output-card div.girafe.html-widget {
+  width: 100% !important;
+  height: auto !important;
+  margin: 0 auto !important;
+}
+.viz-output-card div.girafe.html-widget svg.ggiraph-svg {
+  display: block !important;
+  max-width: 100% !important;
+  height: auto !important;
+  margin: 0 auto !important;
+}
+/* Keep legacy plotOutput rule (harmless if unused) */
+.viz-output-card .shiny-plot-output {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 300px;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+}
+.viz-output-card .shiny-plot-output img {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block;
+  border-radius: 0.35rem;
+}
+
+/* --- conditionalPanel + actionButton equal-length  ---
+   Every control inside the Plot Type sidebar must span the full card width
+   so that selectize dropdowns, sliders, and Generate buttons all share the
+   same right edge.  This targets the conditionalPanel wrapper AND the
+   intermediate BS5 divs that Shiny inserts. */
+.viz-plot-type .shiny-conditional-panel,
+.viz-plot-type .shiny-conditional-panel > div,
+.viz-plot-type .shiny-conditional-panel > div > .form-group,
+.viz-plot-type .shiny-conditional-panel > div > .shiny-input-container,
+.viz-plot-type .shiny-input-container,
+.viz-plot-type .shiny-input-selectize,
+.viz-plot-type .selectize-control,
+.viz-plot-type .selectize-input {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+/* actionButton inside the Plot Type card: same full-width + fixed height,
+   identical to the selectize controls sitting above it. */
+.viz-plot-type > .btn,
+.viz-plot-type .card-body > .btn,
+.viz-plot-type .btn.action-button {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-height: 34px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem;
+  box-sizing: border-box;
+}
+.viz-plot-type .selectize-control.single .selectize-input {
+  min-height: 34px !important;
+  padding: 0.35rem 0.6rem !important;
+  font-size: 0.82rem !important;
+  border-color: rgba(22, 92, 145, 0.25) !important;
+  border-radius: 0.5rem !important;
+  background-color: #fff !important;
+}
+.viz-plot-type .selectize-control.single .selectize-input.focus {
+  border-color: var(--primary, #165C91) !important;
+  box-shadow: 0 0 0 0.15rem rgba(22, 92, 145, 0.15) !important;
+}
+
 /* Advanced visualization section (Spatial: UMAP/t-SNE) — separated by hr() above */
 .viz-advanced-section {
   margin-top: 0.3rem;

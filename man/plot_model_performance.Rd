@@ -8,7 +8,8 @@ plot_model_performance(
   performance_list,
   threshold_range = seq(0.1, 0.6, 0.01),
   base_size = 20,
-  highlight_threshold = 0.3
+  highlight_threshold = 0.3,
+  tooltip = TRUE
 )
 }
 \arguments{
@@ -21,6 +22,9 @@ Default = seq(0.1, 0.6, 0.01).}
 
 \item{highlight_threshold}{Numeric. Threshold to highlight with vertical line.
 Default = 0.3.}
+
+\item{tooltip}{Logical. If TRUE (default) and \pkg{ggiraph} is installed,
+points get hover tooltips (dataset, threshold, drug count).}
 }
 \value{
 A ggplot object.

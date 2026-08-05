@@ -5,6 +5,7 @@
 \title{PERCEPTION Patient Data Annotation Functions}
 \usage{
 annotate_clones(
+  method = c("umap", "tsne"),
   expression_matrix,
   min_cells = 3,
   min_features = 200,
@@ -15,6 +16,10 @@ annotate_clones(
 )
 }
 \arguments{
+\item{method}{Character. Dimensionality reduction method. One of \code{"umap"}
+(default) or \code{"tsne"}. UMAP is faster and preserves global structure
+better; t-SNE emphasizes local neighborhoods.}
+
 \item{expression_matrix}{Matrix. Gene expression matrix with genes as rows
 and cells as columns. Raw counts or normalized values are both accepted.}
 
@@ -31,7 +36,8 @@ and cells as columns. Raw counts or normalized values are both accepted.}
 \item{seed}{Integer. Random seed for reproducibility. Default = 42.}
 }
 \value{
-A data frame with columns: \code{cell_id} and \code{clone_id}.
+A data frame with columns: \code{cell_id}, \code{clone_id}, and
+\code{dim_1}, \code{dim_2} (2D embedding coordinates for visualization).
 }
 \description{
 Functions for annotating single-cell data with clone and patient information,
@@ -46,6 +52,7 @@ PERCEPTION pipeline where Seurat clusters define transcriptional subclones.
 \examples{
 \dontrun{
   cell_clone_map <- annotate_clones(patient_expression)
+  cell_clone_map <- annotate_clones("tsne", patient_expression)
 }
 
 }

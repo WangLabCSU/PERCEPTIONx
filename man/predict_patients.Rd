@@ -8,7 +8,7 @@ predict_patients(
   clone_pred,
   prepared_data,
   clone_counts = NULL,
-  mode = "max",
+  mode = "weighted_max",
   zscore = TRUE
 )
 }
@@ -27,10 +27,11 @@ as columns. Only needed if \code{prepared_data} is not a list from
 
 \item{mode}{Character. Aggregation method:
 \describe{
-\item{"max"}{Maximum killing across clones (most resistant clone). Default.}
+\item{"weighted_max"}{Maximum of weighted killing across clones. Default.}
+\item{"max"}{Maximum killing across clones (most resistant clone)}
 \item{"weighted_average"}{Weighted average of clone killing by clone abundance}
 \item{"min"}{Minimum killing across clones (most sensitive clone)}
-\item{"weighted_max"}{Maximum of weighted killing across clones}
+\item{"average"}{Average of clone killing}
 }}
 
 \item{zscore}{Logical. Whether to z-score scale drug columns across patients

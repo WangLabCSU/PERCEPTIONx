@@ -11,7 +11,8 @@ plot_response_boxplot(
   y_label = "Predicted Viability (z-score)",
   base_size = 15,
   compare_method = "wilcox.test",
-  alternative = "greater"
+  alternative = "greater",
+  tooltip = TRUE
 )
 }
 \arguments{
@@ -25,16 +26,21 @@ plot_response_boxplot(
 
 \item{base_size}{Numeric. Base font size. Default = 15.}
 
-\item{compare_method}{Character. Statistical test method. Default = "wilcox.test".}
+\item{compare_method}{Character. Statistical test method. One of
+\code{"wilcox.test"} (default) or \code{"t.test"}.}
 
 \item{alternative}{Character. Alternative hypothesis direction. Default = "greater".}
+
+\item{tooltip}{Logical. If TRUE (default) and \pkg{ggiraph} is installed,
+jittered points get hover tooltips.}
 }
 \value{
 A ggplot object.
 }
 \description{
-Creates a boxplot comparing predicted viability between response groups
-(e.g., Responders vs Non-Responders) with statistical annotation.
+Creates a combined violin + box + jitter plot comparing predicted viability
+between response groups (e.g., Responders vs Non-Responders) with a
+statistical significance bracket.
 }
 \examples{
 \dontrun{

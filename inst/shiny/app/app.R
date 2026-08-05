@@ -9,15 +9,19 @@ library(waiter)
 library(thematic)
 library(ggplot2)
 
-# Use devtools::load_all() so the app always uses the latest R/ source code
-# without requiring manual reinstall. Fall back to library(PERCEPTION) if
-# devtools is not available (e.g. in production builds).
-if (requireNamespace("devtools", quietly = TRUE)) {
-  suppressMessages(devtools::load_all("c:/Users/Lenovo/Desktop/PERCEPTION", quiet = TRUE))
+# Auto-detect package root: works from inst/shiny/app/ -> repo root
+# Falls back to installed PERCEPTION package if devtools not available.
+pkg_root <- if (requireNamespace("devtools", quietly = TRUE)) {
+  normalizePath(file.path(getwd(), "..", "..", ".."), mustWork = FALSE)
+} else {
+  NULL
+}
+if (!is.null(pkg_root) && file.exists(file.path(pkg_root, "DESCRIPTION"))) {
+  suppressMessages(devtools::load_all(pkg_root, quiet = TRUE))
 } else if (requireNamespace("PERCEPTION", quietly = TRUE)) {
   library(PERCEPTION)
 } else {
-  stop("Neither devtools nor PERCEPTION is available. Please install PERCEPTION.")
+  stop("Neither devtools (with repo) nor PERCEPTION is available. Please install PERCEPTION.")
 }
 
 # Source modules
@@ -57,7 +61,10 @@ ui <- page_navbar(
   fillable = FALSE,
   header = tagList(
     use_waiter(),
-    tags$head(tags$link(rel = "stylesheet", href = "styles.css")),
+    # Cache-busting: version the CSS with the app start time so browsers
+    # always fetch the newest stylesheet after a restart (no stale cache).
+    tags$head(tags$link(rel = "stylesheet",
+                        href = paste0("styles.css?v=", format(Sys.time(), "%Y%m%d%H%M%S")))),
     tags$head(tags$link(rel = "icon", href = "favicon.svg", type = "image/svg+xml")),
     tags$head(tags$script(HTML("
       Shiny.addCustomMessageHandler('scroll-to', function(id) {
