@@ -271,7 +271,7 @@ load_model <- function(..., dest = "./models", read = FALSE, mirror = FALSE,
     file_path <- file.path(dest, paste0(drug, ".RDS"))
 
     if (!file.exists(file_path)) {
-      urls <- paste0(base_urls, "/SunPast/PERCEPTIONx/releases/download/models-v1/", drug, ".RDS")
+      urls <- paste0(base_urls, "/WangLabCSU/PERCEPTIONx/releases/download/models-v1/", drug, ".RDS")
       message("Downloading model for: ", drug)
 
       if(!download_with_mirrors(urls, file_path, quiet = FALSE,
@@ -348,7 +348,7 @@ load_depmap <- function(dest = ".", read = FALSE, mirror = FALSE, mirror_url = N
     } else {
       "https://github.com"
     }
-    urls <- paste0(base_urls, "/SunPast/PERCEPTIONx/releases/download/depmap/DepMap.RDS")
+    urls <- paste0(base_urls, "/WangLabCSU/PERCEPTIONx/releases/download/depmap/DepMap.RDS")
 
     message("Downloading DepMap.RDS (~567 MB). This may take several minutes...")
 
@@ -356,7 +356,7 @@ load_depmap <- function(dest = ".", read = FALSE, mirror = FALSE, mirror_url = N
                                timeout_seconds = timeout_seconds,
                                retries = retries)) {
       message("\nAutomatic download failed. Please try manual download:")
-      message("  1. Download from: https://github.com/SunPast/PERCEPTIONx/releases/tag/depmap")
+      message("  1. Download from: https://github.com/WangLabCSU/PERCEPTIONx/releases/tag/depmap")
       message("  2. Save the file to: ", destfile)
       message("  3. Then run load_depmap(read = TRUE) again")
       stop("Manual download required", call. = FALSE)

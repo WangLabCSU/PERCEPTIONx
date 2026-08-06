@@ -23,5 +23,5 @@ and clone IDs as columns, with mean expression values.
 \description{
 For each patient, groups cells by clone_id and computes the mean
 expression of each gene within each clone. This reduces single-cell
-resolution to subclone resolution, matching the original PERCEPTIONx pipeline.
+resolution to subclone resolution, matching the original PERCEPTION pipeline.
 }

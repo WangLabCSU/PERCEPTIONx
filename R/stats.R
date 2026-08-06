@@ -118,7 +118,7 @@ range01 <- function(x){
 #'
 #' For each patient, groups cells by clone_id and computes the mean
 #' expression of each gene within each clone. This reduces single-cell
-#' resolution to subclone resolution, matching the original PERCEPTIONx pipeline.
+#' resolution to subclone resolution, matching the original PERCEPTION pipeline.
 #'
 #' @param expression_matrix Matrix or data frame. Gene expression matrix
 #'        with genes as rows and cells as columns.
@@ -201,7 +201,7 @@ clone_mean_expression <- function(expression_matrix, cell_clone_map, patient_ids
 #' Applies base R \code{scale()} to each drug column across all patients,
 #' centering to mean 0 and standard deviation 1. This ensures comparability
 #' of predicted viability scores between different drugs before patient-level
-#' aggregation. Matches the original PERCEPTIONx pipeline.
+#' aggregation. Matches the original PERCEPTION pipeline.
 #'
 #' @param clone_killing_df Data frame. Must have columns 'patient' and 'clone_id',
 #'        plus one or more drug columns with predicted viability values.

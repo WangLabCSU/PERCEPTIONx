@@ -1,4 +1,53 @@
 # Data Loading Module
+
+# ---- Upload helpers: flexible table reading + column name normalization ----
+
+# Read an uploaded table by file extension. Supported: rds, csv, tsv/txt, xlsx.
+read_uploaded_table <- function(file) {
+  ext <- tolower(tools::file_ext(file$name))
+  switch(ext,
+    rds = readRDS(file$datapath),
+    csv = read.csv(file$datapath, stringsAsFactors = FALSE, check.names = FALSE),
+    tsv = read.delim(file$datapath, stringsAsFactors = FALSE, check.names = FALSE),
+    txt = read.table(file$datapath, header = TRUE, sep = NULL,
+                     stringsAsFactors = FALSE, check.names = FALSE),
+    xlsx = {
+      if (!requireNamespace("readxl", quietly = TRUE)) {
+        stop("Excel upload requires the 'readxl' package. Please run: install.packages('readxl')")
+      }
+      readxl::read_excel(file$datapath)
+    },
+    xls = {
+      if (!requireNamespace("readxl", quietly = TRUE)) {
+        stop("Excel upload requires the 'readxl' package. Please run: install.packages('readxl')")
+      }
+      readxl::read_excel(file$datapath)
+    },
+    stop("Unsupported file type: .", ext, ". Please use .csv, .tsv, .txt, .xlsx or .rds.")
+  )
+}
+
+# Case-insensitive column matching to standard names (renames matched columns in place).
+standardize_columns <- function(df, std_cols) {
+  nms <- names(df)
+  for (std in std_cols) {
+    hit <- which(tolower(trimws(nms)) == tolower(std))
+    if (length(hit) > 0) nms[hit[1]] <- std
+  }
+  names(df) <- nms
+  df
+}
+
+# Map common response spellings to the canonical two-class labels.
+normalize_response_labels <- function(x) {
+  y <- tolower(trimws(as.character(x)))
+  y[y %in% c("responder", "response", "responsive", "r", "sensitive", "sensitivity")] <- "Responder"
+  y[y %in% c("non-responder", "nonresponder", "non responder", "non-responsive",
+             "nonresponsive", "nr", "resistant", "resistance", "progressor",
+             "progression", "non")] <- "Non-responder"
+  y
+}
+
 mod_data_ui <- function(id) {
   ns <- NS(id)
   tagList(
@@ -34,10 +83,10 @@ mod_data_ui <- function(id) {
           ),
           div(class = "card-body",
             p(class = "text-muted", style = "font-size: 0.86rem;",
-              "Load DepMap reference datasets including bulk expression, single-cell expression, drug response (AUC), and cell line annotations. This is a filtered version derived from the original DepMap release used in the PERCEPTIONx article, with unused tables and objects removed for efficiency."),
+              "Load DepMap reference datasets including bulk expression, single-cell expression, drug response (AUC), and cell line annotations. This is a filtered version derived from the original DepMap release used in the PERCEPTION article, with unused tables and objects removed for efficiency."),
             tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
               "To download manually, visit ",
-              tags$a(href = "https://github.com/SunPast/PERCEPTIONx/releases/tag/depmap",
+              tags$a(href = "https://github.com/WangLabCSU/PERCEPTIONx/releases/tag/depmap",
                      target = "_blank", "GitHub Release", style = "color: var(--primary); text-decoration: underline;"),
               "."
             ),
@@ -73,7 +122,7 @@ mod_data_ui <- function(id) {
               "Load pre-trained drug response models from the PERCEPTIONx GitHub Release repository. 44 models are available, each trained on DepMap bulk expression with Elastic Net regression and 5-fold cross-validation. Models are cached locally after first download."),
             tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
               "To download manually, visit ",
-              tags$a(href = "https://github.com/SunPast/PERCEPTIONx/releases/tag/models-v1",
+              tags$a(href = "https://github.com/WangLabCSU/PERCEPTIONx/releases/tag/models-v1",
                      target = "_blank", "GitHub Release", style = "color: var(--primary); text-decoration: underline;"),
               "."
             ),
@@ -150,17 +199,17 @@ mod_data_ui <- function(id) {
           ),
           div(class = "card-body",
             p(class = "text-muted", style = "font-size: 0.82rem;",
-              "Single-cell expression matrix (genes × cells). Raw counts or normalized values. CSV or RDS format."),
+              "Single-cell expression matrix (genes × cells). Raw counts or normalized values. CSV / TSV / TXT / Excel / RDS format."),
             div(class = "data-format-hint",
               icon("table"), " Format: rows = genes, columns = cells",
               tags$pre(class = "data-format-example", 
-              "        CELL_001  CELL_002  CELL_003
-              TP53      2.1       0.0       5.3
-              BRCA1     0.0       1.8       3.2
-              EGFR      4.7       2.1       0.0")
+              "CELL_001  CELL_002  CELL_003
+TP53      2.1       0.0       5.3
+BRCA1     0.0       1.8       3.2
+EGFR      4.7       2.1       0.0")
             ),
             fileInput(ns("expr_file"), "Upload Expression",
-                      accept = c(".csv", ".rds", ".RDS"), width = "100%"),
+                      accept = c(".csv", ".tsv", ".txt", ".xlsx", ".rds", ".RDS"), width = "100%"),
             uiOutput(ns("expr_status"))
           )
         )
@@ -174,8 +223,8 @@ mod_data_ui <- function(id) {
           ),
           div(class = "card-body",
             p(class = "text-muted", style = "font-size: 0.82rem;",
-              "CSV with columns: ", tags$code("cell_id"), " and ", tags$code("patient_id"),
-              ". Maps each cell to its patient. Clones will be auto-detected via Seurat clustering."),
+              "File with columns: ", tags$code("cell_id"), " and ", tags$code("patient_id"),
+              " (case-insensitive). Maps each cell to its patient. Clones will be auto-detected via Seurat clustering. CSV / TSV / TXT / Excel / RDS."),
             div(class = "data-format-hint",
               icon("users"), " Format: cell_id + patient_id",
               tags$pre(class = "data-format-example", 
@@ -185,7 +234,7 @@ CELL_002   PAT_001
 CELL_003   PAT_002")
             ),
             fileInput(ns("mapping_file"), "Upload Mapping",
-                      accept = c(".csv"), width = "100%"),
+                      accept = c(".csv", ".tsv", ".txt", ".xlsx", ".rds", ".RDS"), width = "100%"),
             uiOutput(ns("mapping_status"))
           )
         )
@@ -199,7 +248,7 @@ CELL_003   PAT_002")
           ),
           div(class = "card-body",
             p(class = "text-muted", style = "font-size: 0.82rem;",
-              "Patient response data for evaluation. CSV with columns: patient, response (Responder/Non-responder)."),
+              "Patient response data for evaluation. File with columns: patient, response (Responder/Non-responder, case-insensitive). CSV / TSV / TXT / Excel / RDS."),
             div(class = "data-format-hint",
               icon("heartbeat"), " Format: patient + response",
               tags$pre(class = "data-format-example", "patient    response
@@ -208,7 +257,7 @@ PAT_002    Non-responder
 PAT_003    Responder")
             ),
             fileInput(ns("response_file"), "Upload Response",
-                      accept = c(".csv"), width = "100%"),
+                      accept = c(".csv", ".tsv", ".txt", ".xlsx", ".rds", ".RDS"), width = "100%"),
             uiOutput(ns("response_status"))
           )
         )
@@ -713,14 +762,21 @@ mod_data_server <- function(id, shared) {
     observeEvent(input$expr_file, {
       file <- input$expr_file
       tryCatch({
-        if (grepl("\\.rds$|\\.RDS$|\\.Rds$", file$name)) {
-          mat <- readRDS(file$datapath)
-        } else {
-          mat <- as.matrix(read.csv(file$datapath, row.names = 1, check.names = FALSE))
+        mat <- read_uploaded_table(file)
+        # RDS may be a matrix; text/Excel uploads come in as a data.frame
+        if (!is.matrix(mat)) {
+          mat <- as.matrix(mat)
+          # First column holding gene names (e.g. from Excel/csv export) -> rownames
+          if (ncol(mat) > 1 && is.character(mat[, 1]) &&
+              anyNA(suppressWarnings(as.numeric(mat[, 1])))) {
+            rownames(mat) <- mat[, 1]
+            mat <- mat[, -1, drop = FALSE]
+          }
         }
         # Ensure numeric (Seurat LogMap requires numeric, not integer)
         if (is.integer(mat)) mat <- matrix(as.numeric(mat), nrow = nrow(mat), ncol = ncol(mat),
                                            dimnames = dimnames(mat))
+        storage.mode(mat) <- "numeric"
         shared$user_expr <- mat
         shared$prepared_data <- NULL  # Reset prepared data when expression changes
         showNotification(paste("Expression matrix loaded:", nrow(mat), "genes x", ncol(mat), "cells"), type = "message")
@@ -743,7 +799,13 @@ mod_data_server <- function(id, shared) {
     observeEvent(input$mapping_file, {
       file <- input$mapping_file
       tryCatch({
-        shared$user_mapping <- read.csv(file$datapath, stringsAsFactors = FALSE)
+        df <- read_uploaded_table(file)
+        df <- standardize_columns(df, c("cell_id", "patient_id"))
+        if (!all(c("cell_id", "patient_id") %in% names(df))) {
+          stop("Mapping must contain columns 'cell_id' and 'patient_id' (case-insensitive). Found: ",
+               paste(names(df), collapse = ", "))
+        }
+        shared$user_mapping <- df
         shared$prepared_data <- NULL  # Reset prepared data when mapping changes
         showNotification(paste("Patient-cell mapping loaded:", nrow(shared$user_mapping), "cells"), type = "message")
       }, error = function(e) {
@@ -818,7 +880,22 @@ mod_data_server <- function(id, shared) {
     observeEvent(input$response_file, {
       file <- input$response_file
       tryCatch({
-        shared$user_response <- read.csv(file$datapath, stringsAsFactors = FALSE)
+        df <- read_uploaded_table(file)
+        df <- standardize_columns(df, c("patient", "response"))
+        if (!all(c("patient", "response") %in% names(df))) {
+          stop("Response file must contain columns 'patient' and 'response' (case-insensitive). Found: ",
+               paste(names(df), collapse = ", "))
+        }
+        df$response <- normalize_response_labels(df$response)
+        shared$user_response <- df
+        # Warn if patient IDs do not overlap with the loaded mapping
+        if (!is.null(shared$user_mapping)) {
+          mapped_patients <- unique(as.character(shared$user_mapping$patient_id))
+          overlap <- intersect(as.character(df$patient), mapped_patients)
+          if (length(overlap) == 0) {
+            showNotification("Warning: no patient IDs in the response file match the mapping's patient_id. Predictions cannot be validated.", type = "warning", duration = 10)
+          }
+        }
         showNotification(paste("Clinical response loaded:", nrow(shared$user_response), "patients"), type = "message")
       }, error = function(e) {
         showNotification(paste("Error:", e$message), type = "error")

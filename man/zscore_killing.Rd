@@ -17,5 +17,5 @@ A data frame with the same structure, but drug columns z-score scaled.
 Applies base R \code{scale()} to each drug column across all patients,
 centering to mean 0 and standard deviation 1. This ensures comparability
 of predicted viability scores between different drugs before patient-level
-aggregation. Matches the original PERCEPTIONx pipeline.
+aggregation. Matches the original PERCEPTION pipeline.
 }

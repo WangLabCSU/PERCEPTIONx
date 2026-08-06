@@ -26,8 +26,8 @@ Imports:
     Seurat,
     shiny,
     ggiraph
-URL: https://github.com/SunPast/PERCEPTIONx
-BugReports: https://github.com/SunPast/PERCEPTIONx/issues
+URL: https://github.com/WangLabCSU/PERCEPTIONx
+BugReports: https://github.com/WangLabCSU/PERCEPTIONx/issues
 Suggests:
     testthat (>= 3.0.0),
     knitr,
@@ -37,5 +37,6 @@ Suggests:
     DT,
     plotly,
     waiter,
-    thematic
+    thematic,
+    readxl
 Config/testthat/edition: 3

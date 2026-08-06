@@ -62,13 +62,13 @@ mod_help_ui <- function(id) {
             div(class = "help-data-card",
               div(class = "help-data-icon", style = "color: var(--success);", icon("users")),
               strong("Patient-Cell Mapping"),
-              p("CSV with columns: ", code("cell_id"), " and ", code("patient_id"), ". Maps each cell to its patient. Clones are auto-detected via Seurat clustering."),
+              p("File with columns: ", code("cell_id"), " and ", code("patient_id"), " (case-insensitive). Maps each cell to its patient. Clones are auto-detected via Seurat clustering. Accepts CSV / TSV / TXT / Excel / RDS."),
               tags$span(class = "status-badge unloaded", "User upload")
             ),
             div(class = "help-data-card",
               div(class = "help-data-icon", style = "color: var(--primary-light);", icon("stethoscope")),
               strong("Clinical Response"),
-              p("(Optional) CSV with columns: ", code("patient"), ", ", code("response"), " (Responder/Non-responder). Required for ROC curves and boxplots."),
+              p("(Optional) File with columns: ", code("patient"), ", ", code("response"), " (Responder/Non-responder, case-insensitive). Required for ROC curves and boxplots. Accepts CSV / TSV / TXT / Excel / RDS."),
               tags$span(class = "status-badge unloaded", "Optional")
             )
           )
@@ -288,8 +288,8 @@ mod_help_ui <- function(id) {
               target = "_blank"),
             br(), br(),
             icon("github"),
-            a(" github.com/SunPast/PERCEPTIONx",
-              href = "https://github.com/SunPast/PERCEPTIONx",
+            a(" github.com/WangLabCSU/PERCEPTIONx",
+              href = "https://github.com/WangLabCSU/PERCEPTIONx",
               target = "_blank")
           )
         )

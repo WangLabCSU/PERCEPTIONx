@@ -189,11 +189,11 @@ mod_home_ui <- function(id) {
               p(
                 icon("github"),
                 " ",
-                a("github.com/SunPast/PERCEPTIONx",
-                  href = "https://github.com/SunPast/PERCEPTIONx",
+                a("github.com/WangLabCSU/PERCEPTIONx",
+                  href = "https://github.com/WangLabCSU/PERCEPTIONx",
                   target = "_blank"),
                 br(),
-                tags$small("Install with: ", code("devtools::install_github('SunPast/PERCEPTIONx')"),
+                tags$small("Install with: ", code("devtools::install_github('WangLabCSU/PERCEPTIONx')"),
                            class = "text-muted")
               )
             )
