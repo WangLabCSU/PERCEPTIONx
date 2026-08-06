@@ -91,12 +91,15 @@ clone_killing_df <- data.frame(
   check.names = FALSE
 )
 
-# Patient-level aggregation
+# Patient-level aggregation (legacy: prepared_data = clone_counts data.frame)
 patient_pred <- predict_patients(
-  clone_killing_matrix = clone_killing_df,
-  clone_counts = clone_counts,
+  clone_pred = clone_killing_df,
+  prepared_data = clone_counts,
   mode = "weighted_max"
 )
+
+# Recommended workflow instead: pass the prepare_data() result directly
+# patient_pred <- predict_patients(clone_pred, prepared)
 ```
 
 ### 3.4 🎨 Visualize Results
@@ -240,20 +243,25 @@ Patient scRNA ──► Preprocessing ──► Clone Prediction ──► Patie
 ### 6.1 Testing with real (large-scale) data
 
 The built-in Shiny demo ("Load Demo" in the Data tab) only generates a small
-synthetic dataset (50 genes x 400 cells x ~25 patients) for smoke-testing the UI.
+synthetic dataset (49 genes x 400 cells x 20 patients) for smoke-testing the UI.
 For a meaningful large-scale test, use:
 
 1. **DepMap reference data** — click **Load DepMap** in the Data tab (or run
    `load_depmap()`), which downloads the full reference set (~567 MB, 15k+ genes
    x 1,000+ cell lines). This is the standard training/reference input and the
    most demanding step for memory and disk.
-2. **Real patient scRNA-seq** — upload a rank-normalized gene x cell matrix
-   (must call `rank_normalization_mat()` first). A widely used public example is
-   **GSE176078** (breast cancer scRNA-seq, 44 patients, Wu et al. 2021); the
-   original PERCEPTION study also reports results on patient cohorts derived
-   from DepMap-adjacent bulk RNA data (TCGA). Any dataset with 10,000+ cells and
-   multiple patients will exercise the Seurat clustering, prediction, and
-   visualization steps at realistic scale.
+2. **Real patient scRNA-seq** — upload a gene x cell expression matrix. Accepted
+   formats: CSV / TSV / TXT / Excel / RDS (a matrix, data.frame, or Seurat object).
+   **Rank-normalize first** — either call `rank_normalization_mat()` on the matrix
+   or upload raw counts and let the app normalize them during `prepare_data()`.
+   The closest public example is the PERCEPTION paper's own demo: **PRJNA591860**
+   (lung cancer EGFR-TKI cohort, 24 patients, Maynard et al. 2020; Zenodo
+   doi:10.5281/zenodo.7860559), which ships a matching expression matrix
+   (`PRJNA591860.RDS`), a cell-to-patient map, and clinical responses
+   (`Sample_data_response.xlsx`). A widely used alternative is **GSE176078**
+   (breast cancer scRNA-seq, 44 patients, Wu et al. 2021). Any dataset with
+   10,000+ cells and multiple patients will exercise the Seurat clustering,
+   prediction, and visualization steps at realistic scale.
 3. **Pre-trained models** — `load_model("abemaciclib")` (or any of the 44 FDA
    drugs) avoids the cost of training and lets you go straight to prediction.
 
