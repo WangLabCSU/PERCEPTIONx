@@ -27,7 +27,8 @@ devtools::install_github("WangLabCSU/PERCEPTIONx")
 PERCEPTIONx relies on DepMap reference data and optional pre-trained models. Both can be downloaded automatically with the built-in loading functions.
 
 ```r
-library(PERCEPTIONx)
+# From the package source tree (development mode):
+devtools::load_all()
 
 # Load pre-trained models
 models <- load_model("abemaciclib")
@@ -278,7 +279,8 @@ visualization — in a point-and-click interface.
 ### 7.1 Launch
 
 ```r
-library(PERCEPTIONx)
+# From the package source tree (development mode):
+devtools::load_all()
 run_perception_app()          # starts the app in your browser
 ```
 
@@ -293,7 +295,7 @@ shiny::runApp(system.file("shiny", "app", package = "PERCEPTIONx"))
 | Tab | What you can do |
 |-----|-----------------|
 | **Data** | Load the synthetic demo data (smoke-test), load the full DepMap reference (~567 MB), or upload your own rank-normalized single-cell matrix + clinical responses |
-| **Train** | Train drug-response models (`glmnet` / random forest) with tunable parameters |
+| **Train** | Train drug-response models (`glmnet` / `random forest`) with tunable parameters |
 | **Predict** | Score clone-level and patient-level drug sensitivity for any loaded model |
 | **Visualize** | Clone distribution, clone-killing lollipop, ROC curve, response boxplot, model performance, and UMAP/t-SNE overlays |
 | **Help** | In-app documentation |
