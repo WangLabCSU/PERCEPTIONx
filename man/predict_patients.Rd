@@ -35,7 +35,7 @@ as columns. Only needed if \code{prepared_data} is not a list from
 }}
 
 \item{zscore}{Logical. Whether to z-score scale drug columns across patients
-before aggregation. Default = TRUE. Matches the original PERCEPTIONx pipeline.}
+before aggregation. Default = TRUE. Matches the original PERCEPTION pipeline.}
 }
 \value{
 A data frame with patients as rows and drugs as columns,

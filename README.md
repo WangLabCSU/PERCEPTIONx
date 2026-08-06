@@ -17,7 +17,7 @@ Install the development version from GitHub using devtools.
 
 ```r
 # install.packages("devtools")
-devtools::install_github("SunPast/PERCEPTIONx")
+devtools::install_github("WangLabCSU/PERCEPTIONx")
 ```
 
 ## 3. Quick Start

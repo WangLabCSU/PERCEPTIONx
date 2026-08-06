@@ -76,7 +76,7 @@ ui <- page_navbar(
   nav_spacer(),
   nav_item(tagList(
     tags$a(
-      href = "https://github.com/SunPast/PERCEPTIONx",
+      href = "https://github.com/WangLabCSU/PERCEPTIONx",
       target = "_blank",
       icon("github", class = "nav-icon")
     )
