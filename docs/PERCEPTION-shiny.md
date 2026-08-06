@@ -1,0 +1,286 @@
+# PERCEPTION-shiny User Guide
+
+**PERCEPTION-shiny** is the interactive web application (Shiny) of the **PERCEPTIONx** R package. It wraps the complete analysis pipeline — data loading, model training, drug-sensitivity prediction, and result visualization — into a point-and-click interface, so you can go from a patient single-cell expression matrix to clone-level killing scores and patient-level response stratification without writing code.
+
+> Methodological basis: PERCEPTION (PERsonalized single-Cell Expression-based Planning for Treatments In ONcology), which trains elastic-net models on DepMap cell-line data to predict patient response and resistance to drug treatment.
+
+---
+
+## Contents
+
+- [0. Requirements & Launch](#0-requirements--launch)
+- [1. Interface Overview](#1-interface-overview)
+- [2. Data Tab: Loading Data](#2-data-tab-loading-data)
+- [3. Train Tab: Training Models (Optional)](#3-train-tab-training-models-optional)
+- [4. Predict Tab: Predicting Killing Scores](#4-predict-tab-predicting-killing-scores)
+- [5. Visualize Tab](#5-visualize-tab)
+- [6. Help Tab](#6-help-tab)
+- [7. FAQ](#7-faq)
+- [8. Citation & Contact](#8-citation--contact)
+
+---
+
+## 0. Requirements & Launch
+
+### 0.1 Requirements
+
+- **R** ≥ 4.1.0
+- Main dependencies: `devtools`, `shiny`, `bslib`, `Seurat`, `ggplot2`, `ggiraph`, `glmnet`, `caret` (the app prompts you to install any that are missing when a feature needs them)
+
+### 0.2 Launch
+
+From the package source root, run:
+
+```r
+devtools::load_all()          # load PERCEPTIONx from source
+run_perception_app()          # launch the app (opens your browser)
+```
+
+Or run the app directory directly:
+
+```r
+shiny::runApp("inst/shiny/app")
+```
+
+### 0.3 Overall Flow
+
+```
+DepMap reference data ──► Model training ──► Clone/patient prediction ──► Visualization & validation
+          ▲                      ▲                    ▲                        ▲
+      Data tab              Train tab          Predict tab               Visualize tab
+ (or load pre-trained   (or skip training —
+   models directly)       use the 44 pre-
+                          trained models)
+```
+
+> For the fastest result, follow **Load Demo → Predict → Visualize**. No training needed.
+
+---
+
+## 1. Interface Overview
+
+![PERCEPTION-shiny home page](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrqVqdGKkjlcuARJe5YzI5KXXCeDMvgACfjQAAtsboFcyiuFv_R2_bj0E.png)
+
+The top navbar has 6 tabs: **Home, Data, Train, Predict, Visualize, Help**. Data flows left to right: load data (Data), train/load models (Train), predict (Predict), then visualize and validate (Visualize).
+
+The **Home** page includes: an introduction, a four-step guide (Load Data → Train Model → Predict → Visualize; click any step to jump to the corresponding tab), a live data-status overview, key features, and citation info. The **Quick Start** and **Load Demo** buttons load the demo data in one click.
+
+---
+
+## 2. Data Tab: Loading Data
+
+The Data tab is the entry point. It loads four kinds of data: **demo data / DepMap reference data / your expression matrix / clinical responses**. Each item turns its status badge green once loaded.
+
+> **Load Demo**
+>
+> Click **Load Demo** to generate a synthetic demo dataset on the fly: **49 genes × 400 cells × 20 patients**, automatically clustered (Seurat), rank-normalized, and then used to train demo models. Great for smoke-testing the whole flow and getting familiar with the interactions.
+
+### 2.1 Loading DepMap Reference Data (required for training)
+
+Two ways:
+
+1. **Download & Load**: downloads the DepMap reference set (~567 MB, 15k+ genes × 1,000+ cell lines) from the official mirror and loads it automatically. This is the standard training input and the most memory/disk-demanding step.
+2. **Upload a local .RDS**: if you already have the DepMap file (`DepMap.RDS`), browse and select it — it loads automatically.
+
+### 2.2 Loading Models
+
+Two ways:
+
+1. **Download & Load**: one-click download of the 44 FDA-approved drug pre-trained models (e.g. `abemaciclib`, `erlotinib`, `osimertinib`). Multi-selected items each show an × to remove individually
+2. **Upload a local .RDS**: select a trained model file (from `train_models()` or exported from the Train tab) — loads automatically
+
+### 2.3 Uploading an Expression Matrix (patient scRNA-seq)
+
+- **Accepted formats**: CSV / TSV / TXT / Excel (.xlsx/.xls) / RDS
+- **Accepted R objects** (RDS): numeric matrix, data.frame, or Seurat object
+- **Orientation**: genes × cells (rows = genes, columns = cells). If the first column is a character column of gene names (common in Excel/CSV exports), it is converted to row names automatically
+- **Normalization**: expression should be **rank-normalized**. If you upload raw counts, the app can normalize them automatically during clustering
+
+### 2.4 Uploading the Cell-to-Patient Map (Mapping)
+
+- **Accepted formats**: CSV / TSV / TXT / Excel / RDS
+- **Required columns**: `cell_id` (cell names, matching the expression matrix column names) and `patient_id` (the patient each cell belongs to). Column names are case-insensitive (`Patient`, `PATIENT` all work)
+- **Named list RDS**: if the RDS is a named list of "patient → cell-name vector" (e.g. the paper demo's `PRJNA591860_sample_cell_names.RDS`), it is converted to long format automatically; empty samples are dropped
+
+### 2.5 Uploading Clinical Responses (Response, optional but recommended)
+
+- **Accepted formats**: CSV / TSV / TXT / Excel / RDS
+- **Required columns**: `patient` (must exactly match `patient_id` in the Mapping) and `response` (the patient's true clinical outcome for the drug)
+- **Labels are normalized automatically**: `responder` / `responsive` / `r` / `sensitive` → **Responder**; `non-responder` / `nr` / `resistant` → **Non-responder**
+- A check runs on upload: if the patient IDs do not overlap with the Mapping at all, a warning is shown
+- **Why it's needed**: only with true outcomes can you validate predictions (ROC curves, responder vs. non-responder boxplots). Skip it if you only want prediction scores
+
+> **Example** (paper demo lung cohort PRJNA591860): label by treatment timepoint — baseline (TN) → `Responder`, resistant disease (RD) / progressive disease (PD) → `Non-responder`.
+
+### 2.6 Clustering (Seurat)
+
+> **Don't Forget to Run Seurat!**
+>
+> Clustering (Seurat) defines the cell subpopulations ("clones") for downstream prediction and visualization. If you skip it, clone-level prediction and clone-level figures will have no input.
+
+**Choose a clustering method**: UMAP / tSNE.
+
+| Parameter | Description | Suggested |
+|---|---|---|
+| Seurat Resolution | clustering resolution; higher = finer clusters | 0.5–1.0 |
+| Seurat Dims | number of PCA dimensions used | 10–30 |
+| Seurat NFeatures | number of highly variable genes for clustering | 1000–3000, default 2000 |
+
+![Clustering in the Data tab](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrrpqdGNtTytttAcxi0NLh0PzdHU_SQAClTQAAtsboFfopMIK8x6Grz0E.png)
+
+> Notes: clustering only defines "clones"; downstream prediction is done at the clone level (the clone's expression is the mean expression of its cells).
+
+---
+
+## 3. Train Tab: Training Models (Optional)
+
+**Prerequisite**: DepMap reference data must be loaded first (the top of the page tells you what's missing).
+
+> If you only want to predict, **you don't need to train** — just use the 44 pre-trained models from the Data tab. The Train tab is for: other drugs, other cancer types, custom gene sets, or inspecting model performance on the three validation datasets.
+
+### 3.1 Parameters
+
+| Parameter | Description |
+|---|---|
+| **Drug Name** | multi-select drugs (combination regimens supported); each item has an × to remove |
+| **Cancer Type (include)** | cancer types to include, default PanCan (pan-cancer) |
+| **Cancer Type (exclude)** | cancer types to exclude (to avoid self-validation) |
+| **Gene Symbols** | gene list; leave empty = use all DepMap genes (recommended); paste text or upload .txt/.csv |
+| **Top k Features** | keep the top-k ranked features in the model |
+| **Algorithm** | elastic net `glmnet` (recommended) or random forest `rf` |
+| **CPU Cores** | number of parallel cores |
+
+### 3.2 Interpreting the Results
+
+- **Model Summary**: model type and hyperparameters per drug (glmnet alpha/lambda, or rf ntree/RMSE)
+- **Performance Plot**: model performance curve (threshold vs. correlation)
+- **Performance Metrics**: prediction–truth Pearson correlation and p-value on **Bulk / Pseudo-bulk / Single-cell** levels. Higher correlation + lower p-value = better model
+- **Download Model (.RDS)**: export the trained model; re-upload it later on the Data tab
+
+> Note: Performance Plot and Metrics rely on validation metrics produced during training and are only available for models from the Train tab / `train_models()`. Pre-trained models (`load_model()`) do not carry these fields; the app will tell you they're not applicable.
+
+---
+
+## 4. Predict Tab: Predicting Killing Scores
+
+Select the loaded models (pre-trained from the Data tab or trained on the Train tab) and click predict:
+
+1. **Clone-level**: killing score for every clone × every drug. Semantics: the model outputs **viability (survival)**, where lower = more sensitive; the app shows `killing_scaled`, already rank-inverted and normalized to [0, 1] — **closer to 1 = predicted more sensitive** to that drug
+2. **Patient-level**: clone scores are aggregated to patients by clone proportion (default `weighted_max`), giving each patient's drug-sensitivity stratification
+
+Outputs include an interactive heatmap (clones × drugs, plotly) and downloadable prediction tables.
+
+![Predict tab clones×drugs heatmap](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrr1qdGOEsPafeye9qfPgBPkIPFAL_gACmDQAAtsboFdiPjfKVPqPXD0E.png)
+
+---
+
+## 5. Visualize Tab
+
+This module visualizes the prediction results, so **you must run a prediction first**.
+
+All figures are **interactive SVG** (built on ggiraph): hover any point or bar to see details (clone id, killing score, proportion, FPR/TPR, ...). The toolbar supports zoom, pan, and download.
+
+### 5.1 Clone Distribution (stacked bar chart)
+
+![Clone distribution stacked bar chart](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrsRqdGOsyEvZKa-hX56p8XZe9MdfBAACnzQAAtsboFciL8mgr8EQBT0E.png)
+
+Shows the clone composition within each patient; one color band = one clone (a curated palette is used for ≤ 15 clones).
+
+### 5.2 Clone Killing (lollipop plot)
+
+![Clone killing lollipop plot](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrtRqdGQW8zkwfYWQ_VN994k_iZJH8gACsDQAAtsboFe7I7H3sbW6sz0E.png)
+
+- **Rules**: all samples, all clones, one facet per patient, one lollipop per clone
+- **Color**: blue-white-red diverging — blue = predicted resistant (low killing), red = predicted sensitive (high killing)
+- **Point size**: clone proportion (larger clones get bigger points)
+- **Ordering**: within a patient, by proportion descending; responders come first when response data is present
+- **Y-axis**: Predicted Viability (z-score), with a zero line as the reference
+
+### 5.3 ROC Curve
+
+![ROC curve](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrtlqdGQvuGR0iVJf_0IC3FrHl2wx2gACtTQAAtsboFdEeKvbpn7yAT0E.png)
+
+Uses true clinical responses (uploaded on the Data tab) against patient-level prediction scores. AUC closer to 1 = stronger stratification. If you predicted with multiple models, you can pick a specific model to view.
+
+### 5.4 Response Boxplot (responders vs. non-responders)
+
+![Response boxplot (R vs NR)](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYruFqdGRmVjR7z6AiKJZrmoSvML7-BgACvTQAAtsboFcaROROGDpEdj0E.png)
+
+Shows the distribution of prediction scores for Responder vs. Non-responder groups, with a significance test.
+
+### 5.5 Model Performance
+
+![Model performance plot](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYruZqdGSFqhl8FAYozOIa3fcN_FgDUgACwjQAAtsboFd6-2EPyhNE6D0E.png)
+
+Validation performance curves for trained models (requires models from the Train tab; not applicable to pre-trained models — the app will tell you).
+
+### 5.6 Spatial Plots (UMAP / t-SNE)
+
+![Gene expression on UMAP (SLC2A1)](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYru1qdGSiWp9UYiS0DlsprEKVOud1_AACyTQAAtsboFfwQwHtvh_32z0E.png)
+
+![Drug killing on UMAP (erlotinib)](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrvNqdGS9_DCHZMgsGZFMcIhxBlsf_wACzzQAAtsboFerQBd3_vv2kz0E.png)
+
+Choose a dimensionality-reduction method and a color variable:
+
+- **Gene Expression**: per-cell expression of a single gene (z-score), continuous scale — see which cell groups express the gene highly
+- **Drug Killing**: each cell colored by its clone's predicted killing score ("patchwork" blocks) — see which clones are predicted sensitive
+- **Clone / Cluster**: color by clone (cluster) — see the population structure
+
+> **How to read them together**
+>
+> If the cells with high Gene Expression are also warm on the Drug Killing plot, the gene's high expression is positively associated with predicted sensitivity; if not, negatively. The two plots use different color scales — compare spatial patterns only, not values.
+>
+> For example, the two figures above give preliminary insight:
+>
+> 1. **Resistance-marker clue**: the clone in the bottom-right region shows high SLC2A1 expression, which overlaps exactly with the region of low predicted erlotinib killing — suggesting SLC2A1 overexpression may mark this resistant clone.
+> 2. **Sensitive main population**: the major cell groups at the top barely express SLC2A1, yet are precisely the region with the highest predicted drug killing.
+>
+> So in the PRJNA591860 dataset, locally abnormal SLC2A1 overexpression strongly points to erlotinib resistance, while most non-SLC2A1-expressing cells are highly drug-sensitive — preliminary single-cell evidence that **SLC2A1 may be a resistance target**.
+
+### 5.7 High-Resolution Download
+
+| Format | Resolution |
+|---|---|
+| PNG | 600 dpi (Cairo anti-aliased), ~6000 × 4200 px at default size |
+| PDF / SVG | Vector, infinitely zoomable, **recommended for publication** |
+
+---
+
+## 6. Help Tab
+
+Built-in documentation covering every tab, the FAQ, and usage tips. Check it first when you get stuck.
+
+---
+
+## 7. FAQ
+
+**Q1: "Maximum upload size exceeded"?**
+The upload limit is 1 GB. For larger data, preprocess locally (e.g. subset genes) first; for DepMap, prefer the "Download & Load" button (server-side download, not via the browser).
+
+**Q2: Model Performance says performance fields are missing?**
+That plot needs validation metrics produced during training; pre-trained models (`load_model()`) don't carry them. Train on the Train tab first, or load the demo models on the Data tab.
+
+**Q3: How do I construct the response labels?**
+Build a two-column table `patient` / `response`. `patient` must exactly match `patient_id` in the Mapping; `response` values are normalized automatically (responder → Responder, etc.). Without outcome data, use treatment timepoints instead (baseline → Responder, resistant progression → Non-responder).
+
+**Q4: Why is a killing score lower than I expected?**
+Scores are relative ranks learned from DepMap (normalized to 0–1): "1" means the most sensitive clone in this batch, not an absolute killing percentage. Clonal heterogeneity and activated resistance pathways both lower the score.
+
+**Q5: Does data persist after I close the app?**
+No. Downloaded DepMap data and pre-trained models are written to the R session's `tempdir()` and are cleaned up automatically when the app closes — nothing remains on disk.
+
+---
+
+## 8. Citation & Contact
+
+**If you use this app/package, please cite the original methodology paper:**
+
+> Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts patient response and resistance to treatment using single-cell transcriptomics of their tumors. *Nature Cancer* 5, 938–952 (2024). DOI: [10.1038/s43018-024-00756-7](https://doi.org/10.1038/s43018-024-00756-7)
+
+**Repository**: [github.com/WangLabCSU/PERCEPTIONx](https://github.com/WangLabCSU/PERCEPTIONx)
+
+**Feedback**: jiading682@qq.com
+
+---
+
+*PERCEPTION-shiny © PERCEPTIONx authors. Screens may vary from the version you are using.*

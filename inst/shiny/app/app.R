@@ -95,6 +95,14 @@ ui <- page_navbar(
   nav_spacer(),
   nav_item(tagList(
     tags$a(
+      href = "https://github.com/WangLabCSU/PERCEPTIONx/blob/main/docs/PERCEPTION-shiny.md",
+      target = "_blank",
+      icon("book-open", class = "nav-icon"),
+      title = "Tutorial"
+    )
+  )),
+  nav_item(tagList(
+    tags$a(
       href = "https://github.com/WangLabCSU/PERCEPTIONx",
       target = "_blank",
       icon("github", class = "nav-icon")

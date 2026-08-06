@@ -900,6 +900,9 @@ body {
   color: #fff;
   border-color: var(--primary);
 }
+.hero-actions a.btn-hero-secondary {
+  text-decoration: none;
+}
 .btn-hero-secondary:hover {
   background: var(--primary-light);
   border-color: var(--primary-light);
