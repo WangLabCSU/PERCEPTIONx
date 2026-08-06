@@ -225,7 +225,7 @@ mod_train_server <- function(id, shared, main_session) {
       w$show()
 
       tryCatch({
-        result <- PERCEPTION::train_models(
+        result <- PERCEPTIONx::train_models(
           drug_list = input$drug,
           cancer_type = input$cancer_type,
           exclude_cancer = input$exclude_cancer,

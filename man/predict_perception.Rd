@@ -2,7 +2,7 @@
 % Please edit documentation in R/predict.R
 \name{predict_perception}
 \alias{predict_perception}
-\title{PERCEPTION Prediction Functions}
+\title{PERCEPTIONx Prediction Functions}
 \description{
 Functions for predicting drug response at cell/clone level and patient level.
 }

@@ -1,5 +1,5 @@
 # =============================================================================
-# PERCEPTION Test Pipeline v2 - Simplified Workflow
+# PERCEPTIONx Test Pipeline v2 - Simplified Workflow
 # =============================================================================
 # End-to-end test using the new simplified 5-step workflow:
 #   1. load_depmap()       - Load DepMap reference data
@@ -14,7 +14,7 @@
 # NOTE: This script downloads DepMap data (~567MB). Run it manually only when needed.
 # =============================================================================
 
-# Load the development version of the package (use this instead of library(PERCEPTION))
+# Load the development version of the package (use this instead of library(PERCEPTIONx))
 devtools::load_all(".")
 
 # -- Parameter Settings -------------------------------------------------------

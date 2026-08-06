@@ -2,8 +2,8 @@
 % Please edit documentation in R/load.R
 \name{load_perception}
 \alias{load_perception}
-\title{PERCEPTION Data Loading}
+\title{PERCEPTIONx Data Loading}
 \description{
-PERCEPTION Data Loading
+PERCEPTIONx Data Loading
 }
 \keyword{internal}

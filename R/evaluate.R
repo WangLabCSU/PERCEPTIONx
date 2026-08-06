@@ -1,4 +1,4 @@
-#' PERCEPTION Model Evaluation Functions
+#' PERCEPTIONx Model Evaluation Functions
 #'
 #' Functions for evaluating and comparing performance of trained drug response models.
 #'
@@ -155,10 +155,10 @@ compare_performance <- function(model_list, threshold = 0.3, verbose = TRUE) {
 #' @examples
 #' \dontrun{
 #'   # Load performance from a single model file
-#'   perf <- get_performance("models/PERCEPTION_models_PanCan_exPanCan_20240101_120000.RDS")
+#'   perf <- get_performance("models/PERCEPTIONx_models_PanCan_exPanCan_20240101_120000.RDS")
 #'
 #'   # Or use compare_performance on the result
-#'   models <- readRDS("models/PERCEPTION_models_PanCan_exPanCan_20240101_120000.RDS")
+#'   models <- readRDS("models/PERCEPTIONx_models_PanCan_exPanCan_20240101_120000.RDS")
 #'   perf <- compare_performance(models)
 #' }
 #'

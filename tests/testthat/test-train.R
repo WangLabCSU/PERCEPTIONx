@@ -1,7 +1,7 @@
 # =============================================================================
-# PERCEPTION Unit Tests: Model Training
+# PERCEPTIONx Unit Tests: Model Training
 # =============================================================================
-library(PERCEPTION)
+library(PERCEPTIONx)
 library(testthat)
 
 test_that("train_models returns a list with expected structure", {

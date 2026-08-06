@@ -17,7 +17,7 @@ Character vector of \code{"patient@clone_id"} keys.
 \description{
 The inverse of \code{\link[=parse_clone_keys]{parse_clone_keys()}}: pastes patient and clone identifiers
 into a single \code{"patient@clone_id"} key. The \code{"@"} separator is
-the canonical clone-key format used throughout PERCEPTION.
+the canonical clone-key format used throughout PERCEPTIONx.
 }
 \seealso{
 \code{\link[=parse_clone_keys]{parse_clone_keys()}} for splitting keys back apart.

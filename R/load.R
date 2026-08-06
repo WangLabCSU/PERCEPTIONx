@@ -1,4 +1,4 @@
-#' PERCEPTION Data Loading
+#' PERCEPTIONx Data Loading
 #'
 #' @name load_perception
 #' @keywords internal
@@ -122,7 +122,7 @@ download_with_mirrors <- function(urls, destfile, quiet = FALSE,
 #' @examples
 #' get_mirrors()
 get_mirrors <- function() {
-  getOption("PERCEPTION.download_mirrors", get_default_perception_mirrors())
+  getOption("PERCEPTIONx.download_mirrors", get_default_perception_mirrors())
 }
 
 #' Get default download mirrors (excluding GitHub primary)
@@ -167,7 +167,7 @@ add_mirrors <- function(urls, position = c("first", "last")) {
     stop("All URLs must start with http:// or https://")
   }
 
-  current_mirrors <- getOption("PERCEPTION.download_mirrors", get_default_perception_mirrors())
+  current_mirrors <- getOption("PERCEPTIONx.download_mirrors", get_default_perception_mirrors())
   urls <- sub("/$", "", urls)
 
   # Remove duplicates (both against current and within input)
@@ -183,7 +183,7 @@ add_mirrors <- function(urls, position = c("first", "last")) {
                         "first" = c(urls, current_mirrors),
                         "last" = c(current_mirrors, urls))
 
-  options(PERCEPTION.download_mirrors = new_mirrors)
+  options(PERCEPTIONx.download_mirrors = new_mirrors)
   message("Added ", length(urls), " mirror(s)")
   invisible(new_mirrors)
 }
@@ -207,7 +207,7 @@ list_mirrors <- function() {
 #'
 #' @export
 reset_mirrors <- function() {
-  options(PERCEPTION.download_mirrors = NULL)
+  options(PERCEPTIONx.download_mirrors = NULL)
   message("Mirrors reset to default")
   invisible(get_default_perception_mirrors())
 }
@@ -271,7 +271,7 @@ load_model <- function(..., dest = "./models", read = FALSE, mirror = FALSE,
     file_path <- file.path(dest, paste0(drug, ".RDS"))
 
     if (!file.exists(file_path)) {
-      urls <- paste0(base_urls, "/SunPast/PERCEPTION/releases/download/models-v1/", drug, ".RDS")
+      urls <- paste0(base_urls, "/SunPast/PERCEPTIONx/releases/download/models-v1/", drug, ".RDS")
       message("Downloading model for: ", drug)
 
       if(!download_with_mirrors(urls, file_path, quiet = FALSE,
@@ -305,7 +305,7 @@ load_model <- function(..., dest = "./models", read = FALSE, mirror = FALSE,
 #'
 #' Downloads the filtered DepMap RDS file for training models from GitHub Release.
 #' The file contains bulk expression, scRNA expression, drug response annotations,
-#' and cell line metadata required for PERCEPTION model training.
+#' and cell line metadata required for PERCEPTIONx model training.
 #' Supports automatic mirror fallback for users in different regions.
 #'
 #' @param dest Directory to save the downloaded file. Default = ".".
@@ -348,7 +348,7 @@ load_depmap <- function(dest = ".", read = FALSE, mirror = FALSE, mirror_url = N
     } else {
       "https://github.com"
     }
-    urls <- paste0(base_urls, "/SunPast/PERCEPTION/releases/download/depmap/DepMap.RDS")
+    urls <- paste0(base_urls, "/SunPast/PERCEPTIONx/releases/download/depmap/DepMap.RDS")
 
     message("Downloading DepMap.RDS (~567 MB). This may take several minutes...")
 
@@ -356,7 +356,7 @@ load_depmap <- function(dest = ".", read = FALSE, mirror = FALSE, mirror_url = N
                                timeout_seconds = timeout_seconds,
                                retries = retries)) {
       message("\nAutomatic download failed. Please try manual download:")
-      message("  1. Download from: https://github.com/SunPast/PERCEPTION/releases/tag/depmap")
+      message("  1. Download from: https://github.com/SunPast/PERCEPTIONx/releases/tag/depmap")
       message("  2. Save the file to: ", destfile)
       message("  3. Then run load_depmap(read = TRUE) again")
       stop("Manual download required", call. = FALSE)

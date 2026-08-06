@@ -16,11 +16,11 @@ between 0 and 1.
 \description{
 Converts each column to ranks divided by column length, producing values in
 the range 0 to 1 (exclusive of 0, inclusive of 1). This is a \strong{crucial preprocessing step} when using your
-own expression data with PERCEPTION.
+own expression data with PERCEPTIONx.
 }
 \section{Why rank normalization?}{
 
-PERCEPTION models are trained on DepMap expression data that has been
+PERCEPTIONx models are trained on DepMap expression data that has been
 rank-normalized. The model coefficients capture the relationship between
 \strong{relative gene expression ranks} and drug response, not absolute expression
 values. Therefore, any new expression data fed into the model must undergo

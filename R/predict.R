@@ -1,4 +1,4 @@
-#' PERCEPTION Prediction Functions
+#' PERCEPTIONx Prediction Functions
 #'
 #' Functions for predicting drug response at cell/clone level and patient level.
 #'
@@ -175,7 +175,7 @@ viability_from_model_internal <- function(drug_name, model, dataset) {
 #'     \item{"average"}{Average of clone killing}
 #'   }
 #' @param zscore Logical. Whether to z-score scale drug columns across patients
-#'        before aggregation. Default = TRUE. Matches the original PERCEPTION pipeline.
+#'        before aggregation. Default = TRUE. Matches the original PERCEPTIONx pipeline.
 #'
 #' @return A data frame with patients as rows and drugs as columns,
 #'         containing aggregated killing scores.

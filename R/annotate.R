@@ -1,4 +1,4 @@
-#' PERCEPTION Patient Data Annotation Functions
+#' PERCEPTIONx Patient Data Annotation Functions
 #'
 #' Functions for annotating single-cell data with clone and patient information,
 #' and preparing patient data for the prediction pipeline.
@@ -8,7 +8,7 @@
 #'
 #' Performs Seurat clustering on a single-cell expression matrix and returns
 #' a mapping of each cell to its cluster (clone) ID. This matches the original
-#' PERCEPTION pipeline where Seurat clusters define transcriptional subclones.
+#' PERCEPTIONx pipeline where Seurat clusters define transcriptional subclones.
 #'
 #' @param method Character. Dimensionality reduction method. One of \code{"umap"}
 #'        (default) or \code{"tsne"}. UMAP is faster and preserves global structure
@@ -51,7 +51,7 @@ annotate_clones <- function(method = c("umap", "tsne"),
   set.seed(seed)
 
   so <- Seurat::CreateSeuratObject(counts = expression_matrix,
-                                   project = "PERCEPTION",
+                                   project = "PERCEPTIONx",
                                    min.cells = min_cells,
                                    min.features = min_features)
   so <- Seurat::NormalizeData(so, normalization.method = "LogNormalize",
@@ -139,7 +139,7 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 }
 
 
-#' Prepare patient data for PERCEPTION prediction
+#' Prepare patient data for PERCEPTIONx prediction
 #'
 #' End-to-end preprocessing pipeline that takes raw single-cell expression data
 #' and produces a rank-normalized subclone expression matrix and clone counts
@@ -256,7 +256,7 @@ prepare_data <- function(method = c("umap", "tsne"),
                           seurat_seed = 42) {
 
   method <- match.arg(method)
-  message("=== PERCEPTION Patient Data Preparation ===")
+  message("=== PERCEPTIONx Patient Data Preparation ===")
   message("  Reduction method: ", toupper(method))
 
   # --- Auto-enable parse_patient if patient_sep or patient_pos is provided ---

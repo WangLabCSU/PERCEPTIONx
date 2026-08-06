@@ -245,7 +245,7 @@ mod_predict_server <- function(id, shared, main_session) {
           }
         }
 
-        result <- PERCEPTION::predict_drugs(
+        result <- PERCEPTIONx::predict_drugs(
           model_list = model,
           expr = expr
         )
@@ -267,7 +267,7 @@ mod_predict_server <- function(id, shared, main_session) {
 
         if (!is.null(shared$prepared_data)) {
           # Standard path: use prepare_data() output directly
-          result <- PERCEPTION::predict_patients(
+          result <- PERCEPTIONx::predict_patients(
             clone_pred_mat,
             shared$prepared_data,
             mode = input$agg_mode
@@ -305,7 +305,7 @@ mod_predict_server <- function(id, shared, main_session) {
           )
           clone_counts$patients <- rownames(clone_counts)
 
-          result <- PERCEPTION::predict_patients(
+          result <- PERCEPTIONx::predict_patients(
             clone_killing_df,
             clone_counts,
             mode = input$agg_mode

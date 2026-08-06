@@ -1,7 +1,7 @@
 # =============================================================================
-# PERCEPTION Unit Tests: Plotting Functions
+# PERCEPTIONx Unit Tests: Plotting Functions
 # =============================================================================
-library(PERCEPTION)
+library(PERCEPTIONx)
 library(testthat)
 library(ggplot2)
 

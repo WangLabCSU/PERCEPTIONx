@@ -23,10 +23,10 @@ Useful when evaluating many models without loading full model objects (memory ef
 \examples{
 \dontrun{
   # Load performance from a single model file
-  perf <- get_performance("models/PERCEPTION_models_PanCan_exPanCan_20240101_120000.RDS")
+  perf <- get_performance("models/PERCEPTIONx_models_PanCan_exPanCan_20240101_120000.RDS")
 
   # Or use compare_performance on the result
-  models <- readRDS("models/PERCEPTION_models_PanCan_exPanCan_20240101_120000.RDS")
+  models <- readRDS("models/PERCEPTIONx_models_PanCan_exPanCan_20240101_120000.RDS")
   perf <- compare_performance(models)
 }
 

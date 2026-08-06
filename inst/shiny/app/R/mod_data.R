@@ -34,10 +34,10 @@ mod_data_ui <- function(id) {
           ),
           div(class = "card-body",
             p(class = "text-muted", style = "font-size: 0.86rem;",
-              "Load DepMap reference datasets including bulk expression, single-cell expression, drug response (AUC), and cell line annotations. This is a filtered version derived from the original DepMap release used in the PERCEPTION article, with unused tables and objects removed for efficiency."),
+              "Load DepMap reference datasets including bulk expression, single-cell expression, drug response (AUC), and cell line annotations. This is a filtered version derived from the original DepMap release used in the PERCEPTIONx article, with unused tables and objects removed for efficiency."),
             tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
               "To download manually, visit ",
-              tags$a(href = "https://github.com/SunPast/PERCEPTION/releases/tag/depmap",
+              tags$a(href = "https://github.com/SunPast/PERCEPTIONx/releases/tag/depmap",
                      target = "_blank", "GitHub Release", style = "color: var(--primary); text-decoration: underline;"),
               "."
             ),
@@ -70,10 +70,10 @@ mod_data_ui <- function(id) {
           ),
           div(class = "card-body",
             p(class = "text-muted", style = "font-size: 0.86rem;",
-              "Load pre-trained drug response models from the PERCEPTION GitHub Release repository. 44 models are available, each trained on DepMap bulk expression with Elastic Net regression and 5-fold cross-validation. Models are cached locally after first download."),
+              "Load pre-trained drug response models from the PERCEPTIONx GitHub Release repository. 44 models are available, each trained on DepMap bulk expression with Elastic Net regression and 5-fold cross-validation. Models are cached locally after first download."),
             tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
               "To download manually, visit ",
-              tags$a(href = "https://github.com/SunPast/PERCEPTION/releases/tag/models-v1",
+              tags$a(href = "https://github.com/SunPast/PERCEPTIONx/releases/tag/models-v1",
                      target = "_blank", "GitHub Release", style = "color: var(--primary); text-decoration: underline;"),
               "."
             ),
@@ -399,7 +399,7 @@ mod_data_server <- function(id, shared) {
       )
       w$show()
       tryCatch({
-        prepared <- PERCEPTION::prepare_data(
+        prepared <- PERCEPTIONx::prepare_data(
           method = "umap",
           expression_matrix = expr_matrix,
           patient_mapping = patient_mapping,
@@ -501,7 +501,7 @@ mod_data_server <- function(id, shared) {
       )
       w$show()
       tryCatch({
-        shared$depmap <- PERCEPTION::load_depmap(dest = tempdir(), read = TRUE, mirror = use_mirror,
+        shared$depmap <- PERCEPTIONx::load_depmap(dest = tempdir(), read = TRUE, mirror = use_mirror,
                                                    timeout_seconds = 600, retries = 2)
         w$hide()
         showNotification("DepMap data loaded successfully", type = "message")
@@ -527,7 +527,7 @@ mod_data_server <- function(id, shared) {
       w$show()
       tryCatch({
         DepMap <- readRDS(file$datapath)
-        depmap_env <- getFromNamespace(".depmap_env", "PERCEPTION")
+        depmap_env <- getFromNamespace(".depmap_env", "PERCEPTIONx")
         assign("DepMap", DepMap, envir = depmap_env)
         shared$depmap <- DepMap
         w$hide()
@@ -573,7 +573,7 @@ mod_data_server <- function(id, shared) {
         failed_drugs <- c()
         for (drug in drug_list) {
           tryCatch({
-            new_model <- PERCEPTION::load_model(drug, dest = tempdir(), read = TRUE, mirror = use_mirror,
+            new_model <- PERCEPTIONx::load_model(drug, dest = tempdir(), read = TRUE, mirror = use_mirror,
                                                  timeout_seconds = 120, retries = 2)
             shared$models[[drug]] <- new_model[[drug]]
             shared$model_cache[[drug]] <- new_model[[drug]]
@@ -775,7 +775,7 @@ mod_data_server <- function(id, shared) {
       )
       w$show()
       tryCatch({
-        prepared <- PERCEPTION::prepare_data(
+        prepared <- PERCEPTIONx::prepare_data(
           method = input$seurat_method,
           expression_matrix = shared$user_expr,
           patient_mapping = shared$user_mapping,

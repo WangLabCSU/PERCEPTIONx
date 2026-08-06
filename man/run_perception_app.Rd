@@ -2,7 +2,7 @@
 % Please edit documentation in R/app.R
 \name{run_perception_app}
 \alias{run_perception_app}
-\title{Launch PERCEPTION Shiny Dashboard}
+\title{Launch PERCEPTIONx Shiny Dashboard}
 \usage{
 run_perception_app()
 }
@@ -11,13 +11,13 @@ A Shiny app object (invisibly). The function is called for its side effect
 of launching the app in the user's browser.
 }
 \description{
-Starts the interactive PERCEPTION dashboard for drug response prediction.
+Starts the interactive PERCEPTIONx dashboard for drug response prediction.
 The dashboard provides a graphical interface for data loading, model training,
 prediction, and visualization.
 }
 \examples{
 \dontrun{
-library(PERCEPTION)
+library(PERCEPTIONx)
 run_perception_app()
 }
 

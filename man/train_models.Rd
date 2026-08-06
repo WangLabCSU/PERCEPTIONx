@@ -2,7 +2,7 @@
 % Please edit documentation in R/train.R
 \name{train_models}
 \alias{train_models}
-\title{Train PERCEPTION models for multiple drugs}
+\title{Train PERCEPTIONx models for multiple drugs}
 \usage{
 train_models(
   drug_list = NULL,
@@ -59,7 +59,7 @@ If NULL, automatically calculated from expression_rnorm dimensions.}
 A named list of trained model objects, one per drug. Also saved as a single RDS file.
 }
 \description{
-This function runs the complete PERCEPTION training pipeline for a list of drugs.
+This function runs the complete PERCEPTIONx training pipeline for a list of drugs.
 It performs feature ranking, model training with hyperparameter tuning across
 different k_features values, and selects the best model per drug based on
 single-cell test performance.

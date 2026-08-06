@@ -1,10 +1,10 @@
 ---
-title: "PERCEPTION: Complete Pipeline Tutorial"
+title: "PERCEPTIONx: Complete Pipeline Tutorial"
 author: "Jia Ding"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{PERCEPTION: Complete Pipeline Tutorial}
+  %\VignetteIndexEntry{PERCEPTIONx: Complete Pipeline Tutorial}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -26,7 +26,7 @@ knitr::opts_chunk$set(
 
 # 1. Overview
 
-PERCEPTION (PERsonalized single-Cell Expression-based Planning for Treatments In ONcology) predicts how individual patients respond to drug treatments by leveraging both bulk and single-cell RNA sequencing data. This vignette walks through the complete pipeline:
+PERCEPTIONx implements the PERCEPTION approach (PERsonalized single-Cell Expression-based Planning for Treatments In ONcology), which predicts how individual patients respond to drug treatments by leveraging both bulk and single-cell RNA sequencing data. This vignette walks through the complete pipeline:
 
 1. **Load Data** — Download DepMap reference data and pre-trained models
 2. **Train Models** — Build drug response models from cell line data
@@ -35,14 +35,14 @@ PERCEPTION (PERsonalized single-Cell Expression-based Planning for Treatments In
 5. **Visualize** — Generate publication-quality figures
 
 ```r
-library(PERCEPTION)
+library(PERCEPTIONx)
 ```
 
 # 2. Load Data
 
 ## 2.1 DepMap Reference Data
 
-PERCEPTION relies on DepMap bulk expression, single-cell expression, and drug response (AUC) data. The `load_depmap()` function downloads and caches these datasets automatically.
+PERCEPTIONx relies on DepMap bulk expression, single-cell expression, and drug response (AUC) data. The `load_depmap()` function downloads and caches these datasets automatically.
 
 ```r
 # Load DepMap data (first run downloads ~500MB)
@@ -52,7 +52,7 @@ load_depmap(read = TRUE, mirror = TRUE)
 The `mirror = TRUE` argument attempts GitHub mirrors for faster downloads in regions with limited connectivity. You can also add custom mirrors:
 
 ```r
-add_mirrors("https://my-mirror.example.com/PERCEPTION")
+add_mirrors("https://my-mirror.example.com/PERCEPTIONx")
 ```
 
 ## 2.2 Pre-trained Models
@@ -118,7 +118,7 @@ models <- train_models(
 
 > **Important: Rank Normalization**
 >
-> PERCEPTION models are trained on **rank-normalized** expression data. If you
+> PERCEPTIONx models are trained on **rank-normalized** expression data. If you
 > provide your own expression data (e.g., from scRNA-seq), you **must**
 > normalize it first using `rank_normalization_mat()`, or predictions will be
 > unreliable.
@@ -226,7 +226,7 @@ pseudo_bulk <- each_patient_pseudo_bulk(
 
 # 6. Visualize Results
 
-PERCEPTION provides a comprehensive suite of plotting functions:
+PERCEPTIONx provides a comprehensive suite of plotting functions:
 
 ## 6.1 t-SNE / UMAP with Drug Response
 
@@ -331,21 +331,21 @@ with the `tooltip_col` argument when a custom text column already exists.
 
 # 7. Shiny Web Application
 
-PERCEPTION also ships with an interactive web dashboard (built with Shiny) that
+PERCEPTION-shiny is the interactive web dashboard (built with Shiny) that
 wraps the whole pipeline — data loading, model training, prediction, and
 visualization — in a point-and-click interface.
 
 ## 7.1 Launch
 
 ```r
-library(PERCEPTION)
+library(PERCEPTIONx)
 run_perception_app()          # starts the app in your browser
 ```
 
 or directly from the source tree:
 
 ```r
-shiny::runApp(system.file("shiny", "app", package = "PERCEPTION"))
+shiny::runApp(system.file("shiny", "app", package = "PERCEPTIONx"))
 ```
 
 ## 7.2 Tabs
@@ -384,7 +384,7 @@ overlapping labels. Static downloads are publication-quality:
 A ready-to-run pipeline script is included in the package. After installing, run:
 
 ```r
-source(system.file("tests", "test_pipeline.R", package = "PERCEPTION"))
+source(system.file("tests", "test_pipeline.R", package = "PERCEPTIONx"))
 ```
 
 This script executes the full workflow (train -> predict -> plot) and saves all output figures to a local directory.

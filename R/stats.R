@@ -1,4 +1,4 @@
-#' PERCEPTION Statistical Utilities
+#' PERCEPTIONx Statistical Utilities
 #'
 #' @name stats_perception
 #' @keywords internal
@@ -54,10 +54,10 @@ fdrcorr <- function(test_list) {
 #'
 #' Converts each column to ranks divided by column length, producing values in
 #' the range 0 to 1 (exclusive of 0, inclusive of 1). This is a **crucial preprocessing step** when using your
-#' own expression data with PERCEPTION.
+#' own expression data with PERCEPTIONx.
 #'
 #' @section Why rank normalization?:
-#' PERCEPTION models are trained on DepMap expression data that has been
+#' PERCEPTIONx models are trained on DepMap expression data that has been
 #' rank-normalized. The model coefficients capture the relationship between
 #' **relative gene expression ranks** and drug response, not absolute expression
 #' values. Therefore, any new expression data fed into the model must undergo
@@ -118,7 +118,7 @@ range01 <- function(x){
 #'
 #' For each patient, groups cells by clone_id and computes the mean
 #' expression of each gene within each clone. This reduces single-cell
-#' resolution to subclone resolution, matching the original PERCEPTION pipeline.
+#' resolution to subclone resolution, matching the original PERCEPTIONx pipeline.
 #'
 #' @param expression_matrix Matrix or data frame. Gene expression matrix
 #'        with genes as rows and cells as columns.
@@ -201,7 +201,7 @@ clone_mean_expression <- function(expression_matrix, cell_clone_map, patient_ids
 #' Applies base R \code{scale()} to each drug column across all patients,
 #' centering to mean 0 and standard deviation 1. This ensures comparability
 #' of predicted viability scores between different drugs before patient-level
-#' aggregation. Matches the original PERCEPTION pipeline.
+#' aggregation. Matches the original PERCEPTIONx pipeline.
 #'
 #' @param clone_killing_df Data frame. Must have columns 'patient' and 'clone_id',
 #'        plus one or more drug columns with predicted viability values.

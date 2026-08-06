@@ -1,8 +1,8 @@
-#' PERCEPTION Visualization Functions
+#' PERCEPTIONx Visualization Functions
 #'
-#' This module provides visualization functions for PERCEPTION model results,
+#' This module provides visualization functions for PERCEPTIONx model results,
 #' including UMAP plots, clone distribution plots, ROC curves, and more.
-#' These functions are designed to work seamlessly with trained PERCEPTION models
+#' These functions are designed to work seamlessly with trained PERCEPTIONx models
 #' and patient/single-cell expression data.
 #'
 #' @name plot_perception
@@ -24,7 +24,7 @@ utils::globalVariables(c("X", "Y", "clones", "weights", "patients",
 # Design system
 # ---------------------------------------------------------------------------
 
-# Unified theme for all PERCEPTION plots: white background, subtle grid,
+# Unified theme for all PERCEPTIONx plots: white background, subtle grid,
 # consistent font hierarchy and legend styling.
 theme_perception <- function(base_size = 11, base_family = "") {
   ggplot2::theme_bw(base_size = base_size, base_family = base_family) +
@@ -343,7 +343,7 @@ plot_clone_distribution <- function(clone_distribution,
 #' @param drug Character. Drug name, used as plot title. Default = NULL.
 #' @param base_size Numeric. Base font size. Default = 11.
 #' @param y_limits Numeric vector. Y-axis limits. Default = c(-3, 1.2).
-#' @param viridis_scale Logical. If TRUE (default), uses the standard PERCEPTION
+#' @param viridis_scale Logical. If TRUE (default), uses the standard PERCEPTIONx
 #'        diverging scale (blue = resistant, red = sensitive) centred at 0.
 #'        If FALSE, uses a plain viridis sequential scale.
 #' @param tooltip Logical. If TRUE (default) and \pkg{ggiraph} is installed,
@@ -922,7 +922,7 @@ plot_seurat_clustering <- function(method = c("umap", "tsne"),
 
   # Create Seurat object
   so <- Seurat::CreateSeuratObject(counts = expression_matrix,
-                                   project = "PERCEPTION",
+                                   project = "PERCEPTIONx",
                                    min.cells = min_cells,
                                    min.features = min_features)
 
