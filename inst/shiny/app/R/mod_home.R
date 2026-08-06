@@ -7,8 +7,7 @@ mod_home_ui <- function(id) {
       div(class = "hero-inner",
         div(class = "hero-text",
           div(class = "hero-title-row",
-            h1(class = "hero-title", "PERCEPTION-shiny"),
-            tags$span(class = "hero-badge", "R Package")
+            h1(class = "hero-title", "PERCEPTION-shiny")
           ),
           p(class = "hero-tagline",
             "Precision oncology from single-cell transcriptomics \u2014 ",
@@ -22,7 +21,10 @@ mod_home_ui <- function(id) {
           ),
           div(class = "hero-actions",
             actionButton(ns("go_data"), "Quick Start", class = "btn-hero-primary", icon = icon("rocket")),
-            actionButton(ns("go_demo"), "Load Demo", class = "btn-hero-secondary", icon = icon("flask"))
+            actionButton(ns("go_demo"), "Load Demo", class = "btn-hero-secondary", icon = icon("flask")),
+            tags$a(href = "https://github.com/WangLabCSU/PERCEPTIONx/blob/main/docs/PERCEPTION-shiny.md",
+                   target = "_blank", class = "btn-hero-secondary",
+                   icon("book-open"), " Tutorial")
           )
         ),
         div(class = "hero-brand",

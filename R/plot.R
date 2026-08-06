@@ -302,13 +302,12 @@ plot_clone_distribution <- function(clone_distribution,
     theme(axis.text.x = element_text(angle = x_angle, hjust = x_hjust, vjust = x_vjust,
                                      size = rel(0.8), margin = margin(t = 4)),
           legend.position = "bottom",
-          legend.title = element_blank(),
           legend.text = element_text(size = rel(0.7)),
           legend.key.height = unit(0.7, "lines"),
           strip.placement = "outside",
           strip.text = element_text(angle = 0, hjust = 0.5, vjust = 0.5,
                                     size = rel(0.8))) +
-    labs(y = "Clone Proportion", x = "Patients")
+    labs(y = "Clone Proportion", x = "Patients", fill = "Clone")
 
   # Facet by response group (R/NR) — Y axis kept fixed (0-1) so proportions
   # are directly comparable across facets; only X is free.
