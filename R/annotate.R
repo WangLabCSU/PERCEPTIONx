@@ -58,7 +58,7 @@ annotate_clones <- function(method = c("umap", "tsne"),
                               scale.factor = 10000)
   so <- Seurat::FindVariableFeatures(so, selection.method = "vst",
                                      nfeatures = nfeatures)
-  so <- Seurat::ScaleData(so)
+  so <- Seurat::ScaleData(so, features = Seurat::VariableFeatures(object = so))
 
   # Adjust PCA dimensions based on available cells/features
   # PCA requires npcs < min(nrow, ncol) of the scaled matrix

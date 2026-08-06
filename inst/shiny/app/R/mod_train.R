@@ -37,7 +37,8 @@ mod_train_ui <- function(id) {
               h6(class = "param-section-title", icon("tag"), " Drug & Cancer Type"),
               selectizeInput(ns("drug"), "Drug Name (select one or more for combination)",
                              choices = NULL, selected = "abemaciclib", multiple = TRUE,
-                             options = list(maxItems = NULL, placeholder = "Select drug(s)")),
+                             options = list(maxItems = NULL, placeholder = "Select drug(s)",
+                                            plugins = list("remove_button"))),
               selectizeInput(ns("cancer_type"), "Cancer Type (include)",
                              choices = NULL, selected = "PanCan",
                              options = list(maxItems = 1, placeholder = "Select cancer type")),
@@ -321,7 +322,7 @@ mod_train_server <- function(id, shared, main_session) {
     output$perf_plot <- renderPlotly({
       req(trained())
       models <- trained()
-      p <- plot_model_performance(models)
+      p <- plot_model_performance(models, base_size = 13)
       ggplotly(p, tooltip = c("x", "y", "colour")) %>%
         layout(font = list(family = "Inter, sans-serif", size = 12))
     })

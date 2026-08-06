@@ -9,6 +9,10 @@ library(waiter)
 library(thematic)
 library(ggplot2)
 
+# Allow large uploads: single-cell matrices / RDS reference files can far
+# exceed Shiny's default 5 MB limit.
+options(shiny.maxRequestSize = 1 * 1024^3)  # 1 GB (DepMap.RDS is ~567 MB)
+
 # Auto-detect package root: works from inst/shiny/app/ -> repo root
 # Falls back to installed PERCEPTIONx package if devtools not available.
 pkg_root <- if (requireNamespace("devtools", quietly = TRUE)) {
@@ -70,6 +74,21 @@ ui <- page_navbar(
       Shiny.addCustomMessageHandler('scroll-to', function(id) {
         var el = document.getElementById(id);
         if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+      });
+
+      // Keep the viewport still when the hidden file input receives focus on
+      // 'Browse...' click (Shiny positions it at top:-1e6px, so the browser
+      // would otherwise scroll the page to the top). We must NOT
+      // preventDefault() here: Shiny relies on the <label> default action to
+      // open the file dialog. Restoring the scroll position instead.
+      $(document).on('mousedown', '.btn-file', function() {
+        window.__perceptionScrollY = window.pageYOffset || document.documentElement.scrollTop;
+      });
+      $(document).on('click', '.btn-file', function() {
+        var y = window.__perceptionScrollY || 0;
+        [0, 50, 200, 500].forEach(function(ms) {
+          setTimeout(function() { window.scrollTo(0, y); }, ms);
+        });
       });
     ")))
   ),
