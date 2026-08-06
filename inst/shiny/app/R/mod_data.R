@@ -48,6 +48,48 @@ normalize_response_labels <- function(x) {
   y
 }
 
+# Coerce various R object shapes into a long-format mapping data.frame.
+# Accepts: data.frame (cell_id/patient_id), named list (patient -> cell ids),
+#          named character vector (cell id -> patient id), or a 2-column matrix.
+coerce_mapping_df <- function(x) {
+  if (is.data.frame(x)) return(x)
+  if (is.list(x)) {
+    # Named list: names = patients, elements = cell-id vectors (empty entries dropped)
+    if (!is.null(names(x))) {
+      len <- lengths(x)
+      if (sum(len) > 0) {
+        return(data.frame(
+          cell_id    = unlist(x, use.names = FALSE),
+          patient_id = rep(names(x), len),
+          stringsAsFactors = FALSE
+        ))
+      }
+    }
+    stop("Mapping list must be named, with cell-id vectors per patient.")
+  }
+  if (is.matrix(x)) {
+    if (ncol(x) == 2) return(as.data.frame(x, stringsAsFactors = FALSE))
+    stop("Mapping matrix must have 2 columns (cell_id, patient_id).")
+  }
+  if (is.atomic(x) && !is.null(names(x))) {
+    # Named vector: names = cell ids, values = patient ids
+    return(data.frame(cell_id = names(x), patient_id = as.character(x),
+                      stringsAsFactors = FALSE))
+  }
+  stop("Unrecognized mapping format. Upload a table with 'cell_id' and 'patient_id' columns.")
+}
+
+# Coerce response input to a patient/response data.frame.
+# Accepts a data.frame or a named vector (names = patients, values = labels).
+coerce_response_df <- function(x) {
+  if (is.data.frame(x)) return(x)
+  if (is.atomic(x) && !is.null(names(x))) {
+    return(data.frame(patient = names(x), response = as.character(x),
+                      stringsAsFactors = FALSE))
+  }
+  stop("Unrecognized response format. Upload a table with 'patient' and 'response' columns.")
+}
+
 mod_data_ui <- function(id) {
   ns <- NS(id)
   tagList(
@@ -99,9 +141,8 @@ mod_data_ui <- function(id) {
             div(style = "margin-top: 0.6rem; border-top: 1px dashed var(--border); padding-top: 0.6rem;",
               tags$small(class = "text-muted", "Or load a pre-downloaded DepMap.RDS:"),
               div(style = "display: flex; gap: 0.5rem; align-items: center; margin-top: 0.3rem;",
-                fileInput(ns("depmap_file"), NULL, accept = c(".RDS", ".rds"), width = "100%"),
-                actionButton(ns("load_depmap_local"), "Load",
-                             class = "btn-sm", style = "background:#869791; color:#fff; border-color:#869791; white-space:nowrap;")
+                fileInput(ns("depmap_file"), NULL, accept = c(".RDS", ".rds"), width = "100%",
+                          placeholder = "Select a .RDS file - loads automatically")
               )
             ),
             div(style = "margin-top: 0.75rem;",
@@ -141,7 +182,8 @@ mod_data_ui <- function(id) {
                                          "vincristine", "vindesine", "vinflunine", "vinorelbine"),
                              selected = "abemaciclib",
                              multiple = TRUE,
-                             options = list(placeholder = "Select one or more drugs...", maxOptions = 50)),
+                             options = list(placeholder = "Select one or more drugs...", maxOptions = 50,
+                                            plugins = list("remove_button"))),
               actionButton(ns("load_model"), "Download & Load",
                            class = "btn-primary", icon = icon("download")),
               checkboxInput(ns("model_mirror"), "Use mirror", value = TRUE)
@@ -149,9 +191,8 @@ mod_data_ui <- function(id) {
             div(style = "margin-top: 0.6rem; border-top: 1px dashed var(--border); padding-top: 0.6rem;",
               tags$small(class = "text-muted", "Or load a pre-downloaded model .RDS:"),
               div(style = "display: flex; gap: 0.5rem; align-items: center; margin-top: 0.3rem;",
-                fileInput(ns("model_file"), NULL, accept = c(".RDS", ".rds"), width = "100%"),
-                actionButton(ns("load_model_local"), "Load",
-                             class = "btn-sm", style = "background:#869791; color:#fff; border-color:#869791; white-space:nowrap;")
+                fileInput(ns("model_file"), NULL, accept = c(".RDS", ".rds"), width = "100%",
+                          placeholder = "Select a .RDS file - loads automatically")
               )
             ),
             div(style = "margin-top: 0.75rem;",
@@ -562,7 +603,7 @@ mod_data_server <- function(id, shared) {
     })
 
     # --- Load DepMap (local file) ---
-    observeEvent(input$load_depmap_local, {
+    observeEvent(input$depmap_file, {
       req(input$depmap_file)
       file <- input$depmap_file
       w <- Waiter$new(
@@ -649,7 +690,7 @@ mod_data_server <- function(id, shared) {
     })
 
     # --- Load Model (local file) ---
-    observeEvent(input$load_model_local, {
+    observeEvent(input$model_file, {
       req(input$model_file)
       file <- input$model_file
       w <- Waiter$new(
@@ -799,12 +840,14 @@ mod_data_server <- function(id, shared) {
     observeEvent(input$mapping_file, {
       file <- input$mapping_file
       tryCatch({
-        df <- read_uploaded_table(file)
+        df <- coerce_mapping_df(read_uploaded_table(file))
         df <- standardize_columns(df, c("cell_id", "patient_id"))
         if (!all(c("cell_id", "patient_id") %in% names(df))) {
           stop("Mapping must contain columns 'cell_id' and 'patient_id' (case-insensitive). Found: ",
                paste(names(df), collapse = ", "))
         }
+        df$cell_id    <- as.character(df$cell_id)
+        df$patient_id <- as.character(df$patient_id)
         shared$user_mapping <- df
         shared$prepared_data <- NULL  # Reset prepared data when mapping changes
         showNotification(paste("Patient-cell mapping loaded:", nrow(shared$user_mapping), "cells"), type = "message")
@@ -880,12 +923,13 @@ mod_data_server <- function(id, shared) {
     observeEvent(input$response_file, {
       file <- input$response_file
       tryCatch({
-        df <- read_uploaded_table(file)
+        df <- coerce_response_df(read_uploaded_table(file))
         df <- standardize_columns(df, c("patient", "response"))
         if (!all(c("patient", "response") %in% names(df))) {
           stop("Response file must contain columns 'patient' and 'response' (case-insensitive). Found: ",
                paste(names(df), collapse = ", "))
         }
+        df$patient  <- as.character(df$patient)
         df$response <- normalize_response_labels(df$response)
         shared$user_response <- df
         # Warn if patient IDs do not overlap with the loaded mapping

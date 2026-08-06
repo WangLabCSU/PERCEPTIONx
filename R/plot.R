@@ -53,20 +53,23 @@ theme_perception <- function(base_size = 11, base_family = "") {
 }
 
 # Qualitative palette for many clones, zero extra dependencies.
-# Uses base-R grDevices::palette.colors (R >= 4.0), falls back to hcl rainbow.
+# Base of 15 curated colors (blue -> purple -> pink -> coral -> orange ->
+# yellow -> green -> teal -> indigo -> slate), kept at moderate saturation
+# so neighboring clones stay distinguishable without clashing.
+clone_palette_base <- c(
+  "#c1dc55ff", "#20bb3dff", "#28a5dfff", "#2c6a9dff", "#5C6BC0",
+  "#764BA2", "#AB47BC", "#c977d2ff", "#910013ff", "#d42e2bff",
+  "#FF7043", "#FFCA28", "#18861dff", "#23acbeff", "#7e645bff"
+)
 clone_palette <- function(n) {
-  if (exists("palette.colors", envir = asNamespace("grDevices"))) {
-    if (n <= 10) {
-      unname(grDevices::palette.colors(n, "Tableau 10"))
-    } else if (n <= 36) {
-      unname(grDevices::palette.colors(n, "Polychrome 36"))
-    } else {
-      rep(unname(grDevices::palette.colors(36, "Polychrome 36")), length.out = n)
-    }
-  } else {
-    unname(grDevices::hcl(h = seq(15, 375, length.out = n + 1)[seq_len(n)],
-                          c = 80, l = 60))
+  if (n <= length(clone_palette_base)) {
+    return(clone_palette_base[seq_len(n)])
   }
+  # More clones: evenly space hues around the wheel, anchored on the deep
+  # blue of the first curated color (hue ~214 deg), with moderate chroma and
+  # high-ish lightness for a soft, harmonious look.
+  hues <- (214 + seq(0, n - 1) * 360 / n) %% 360
+  unname(grDevices::hcl(h = hues, c = 65, l = 70))
 }
 
 # Diverging scale for z-score style values: blue = low, white = neutral, red = high
@@ -809,8 +812,16 @@ plot_model_performance <- function(performance_list,
   extract_col <- function(lst, what, col) {
     vals <- lapply(lst, function(x) {
       el <- x[[what]]
-      if (is.null(el) || !(col %in% colnames(el))) return(NULL)
-      el[[col]]
+      if (is.null(el)) return(NULL)
+      # Training output is a named vector (unlist(cor.test(...))), while the
+      # built-in demo models use a one-row data.frame — support both.
+      if (is.data.frame(el)) {
+        if (!(col %in% colnames(el))) return(NULL)
+        el[[col]]
+      } else {
+        if (is.null(names(el)) || !(col %in% names(el))) return(NULL)
+        el[[col]]
+      }
     })
     vals <- vals[!sapply(vals, is.null)]
     if (length(vals) == 0) stop("No performance metrics found in performance_list (missing ", what, ").")
