@@ -322,7 +322,9 @@ mod_train_server <- function(id, shared, main_session) {
     output$perf_plot <- renderPlotly({
       req(trained())
       models <- trained()
-      p <- plot_model_performance(models, base_size = 13)
+      # tooltip = FALSE: return a plain ggplot (ggiraph geoms are not
+      # convertible by ggplotly and would drop the point layers with warnings)
+      p <- plot_model_performance(models, base_size = 13, tooltip = FALSE)
       ggplotly(p, tooltip = c("x", "y", "colour")) %>%
         layout(font = list(family = "Inter, sans-serif", size = 12))
     })
