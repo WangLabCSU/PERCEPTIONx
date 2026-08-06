@@ -180,7 +180,7 @@ mod_visualize_server <- function(id, shared, main_session) {
     # Safe scale: 0—1 using percentiles. Falls back to min-max if range01 fails.
     safe_range01 <- function(x) {
       if (length(x) == 0L) stop("empty input to safe_range01")
-      r <- tryCatch(PERCEPTION::range01(x), error = function(e) NULL)
+      r <- tryCatch(PERCEPTIONx::range01(x), error = function(e) NULL)
       if (is.null(r) || length(r) != length(x)) {
         rng <- range(x, na.rm = TRUE)
         if (rng[2] == rng[1]) return(rep(0.5, length(x)))
@@ -340,7 +340,7 @@ mod_visualize_server <- function(id, shared, main_session) {
                 match(clone_distribution$patients, shared$user_response$patient)
               ]
             }
-            plot_clone_distribution <- PERCEPTION::plot_clone_distribution
+            plot_clone_distribution <- PERCEPTIONx::plot_clone_distribution
             p <- plot_clone_distribution(clone_distribution, response_var = "response")
           },
 
@@ -361,7 +361,7 @@ mod_visualize_server <- function(id, shared, main_session) {
               )
             } else {
               # Fallback: parse rownames
-              parsed <- PERCEPTION::parse_clone_keys(rownames(pred_mat))
+              parsed <- PERCEPTIONx::parse_clone_keys(rownames(pred_mat))
               pred_clone_ids <- parsed$clone_id
               pred_patients  <- parsed$patient
 
@@ -392,7 +392,7 @@ mod_visualize_server <- function(id, shared, main_session) {
                 match(clone_killing_df$patient, shared$user_response$patient)
               ]
             }
-            p_result <- PERCEPTION::plot_clone_killing(clone_killing_df, killing_var = "comb_killing",
+            p_result <- PERCEPTIONx::plot_clone_killing(clone_killing_df, killing_var = "comb_killing",
                                           weights_var = "weights", response_var = "response",
                                           drug = drug)
             p_result
@@ -411,7 +411,7 @@ mod_visualize_server <- function(id, shared, main_session) {
             # Auto-disable smoothing when sample size is small (< 10 patients)
             n_pts <- sum(!is.na(response_vec) & !is.na(predictor_vec))
             smooth <- n_pts >= 10
-            PERCEPTION::plot_roc_curve(response = response_vec, predictor = predictor_vec,
+            PERCEPTIONx::plot_roc_curve(response = response_vec, predictor = predictor_vec,
                            smooth_curve = smooth, title = drug)
           },
 
@@ -428,13 +428,13 @@ mod_visualize_server <- function(id, shared, main_session) {
               stringsAsFactors = FALSE
             )
             # plot_response_boxplot has no 'title' parameter — use ggplot2::labs() after
-            p <- PERCEPTION::plot_response_boxplot(exp_vs_pred)
+            p <- PERCEPTIONx::plot_response_boxplot(exp_vs_pred)
             p <- p + ggplot2::ggtitle(drug)
             p
           },
 
           "model_perf" = {
-            PERCEPTION::plot_model_performance(shared$models)
+            PERCEPTIONx::plot_model_performance(shared$models)
           }
         )
 
@@ -516,7 +516,7 @@ mod_visualize_server <- function(id, shared, main_session) {
                   expression = scale(cell_expr)[, 1],
                   row.names = common_cells
                 )
-                PERCEPTION::plot_tsne_response(umap_data, color_var = "expression",
+                PERCEPTIONx::plot_tsne_response(umap_data, color_var = "expression",
                                                 title = gene, color_label = "Expression (z-score)",
                                                 palette = "diverging", midpoint = 0,
                                                 base_size = 11)
@@ -534,7 +534,7 @@ mod_visualize_server <- function(id, shared, main_session) {
 
               # Build Patient@@CloneID key for each cell to look up its
               # clone-level killing value (correct per-patient-per-clone)
-              cell_keys <- PERCEPTION::build_clone_key(clone_data$patient, clone_data$clone_id)
+              cell_keys <- PERCEPTIONx::build_clone_key(clone_data$patient, clone_data$clone_id)
               pred_keys <- rownames(pred_mat)
               cell_killing <- setNames(pred_mat[match(cell_keys, pred_keys), drug],
                                        clone_data$cell_id)
@@ -557,7 +557,7 @@ mod_visualize_server <- function(id, shared, main_session) {
                   killing_scaled = scaled_vals,
                   row.names = kill_common
                 )
-                PERCEPTION::plot_tsne_response(umap_data, color_var = "killing_scaled",
+                PERCEPTIONx::plot_tsne_response(umap_data, color_var = "killing_scaled",
                                                 title = drug, color_label = "Predicted Killing",
                                                 palette = "viridis", base_size = 11)
               }
@@ -770,7 +770,7 @@ mod_visualize_server <- function(id, shared, main_session) {
             }
           )
         } else {
-          PERCEPTION::export_plot_cairo(file, p_obj, format = "png", width = 10, height = 7, res = 600)
+          PERCEPTIONx::export_plot_cairo(file, p_obj, format = "png", width = 10, height = 7, res = 600)
         }
       }
     )
@@ -787,7 +787,7 @@ mod_visualize_server <- function(id, shared, main_session) {
             }
           )
         } else {
-          PERCEPTION::export_plot_cairo(file, p_obj, format = "pdf", width = 10, height = 7)
+          PERCEPTIONx::export_plot_cairo(file, p_obj, format = "pdf", width = 10, height = 7)
         }
       }
     )

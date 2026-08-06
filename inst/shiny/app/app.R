@@ -1,4 +1,4 @@
-# PERCEPTION Shiny App — Embedded in R Package
+# PERCEPTION-shiny — Shiny Web Application of the PERCEPTIONx R Package
 # Theme: Deep Indigo + Warm Amber
 
 library(shiny)
@@ -10,7 +10,7 @@ library(thematic)
 library(ggplot2)
 
 # Auto-detect package root: works from inst/shiny/app/ -> repo root
-# Falls back to installed PERCEPTION package if devtools not available.
+# Falls back to installed PERCEPTIONx package if devtools not available.
 pkg_root <- if (requireNamespace("devtools", quietly = TRUE)) {
   normalizePath(file.path(getwd(), "..", "..", ".."), mustWork = FALSE)
 } else {
@@ -18,10 +18,10 @@ pkg_root <- if (requireNamespace("devtools", quietly = TRUE)) {
 }
 if (!is.null(pkg_root) && file.exists(file.path(pkg_root, "DESCRIPTION"))) {
   suppressMessages(devtools::load_all(pkg_root, quiet = TRUE))
-} else if (requireNamespace("PERCEPTION", quietly = TRUE)) {
-  library(PERCEPTION)
+} else if (requireNamespace("PERCEPTIONx", quietly = TRUE)) {
+  library(PERCEPTIONx)
 } else {
-  stop("Neither devtools (with repo) nor PERCEPTION is available. Please install PERCEPTION.")
+  stop("Neither devtools (with repo) nor PERCEPTIONx is available. Please install PERCEPTIONx.")
 }
 
 # Source modules
@@ -51,10 +51,10 @@ ui <- page_navbar(
   theme = perception_theme,
   title = tagList(
     tags$span(class = "brand-icon",
-      tags$img(src = "favicon.svg", height = "28", alt = "PERCEPTION",
+      tags$img(src = "favicon.svg", height = "28", alt = "PERCEPTION-shiny",
                style = "vertical-align: middle; margin-right: 0.3rem;")
     ),
-    tags$span(class = "brand-text", "PERCEPTION")
+    tags$span(class = "brand-text", "PERCEPTION-shiny")
   ),
   id = "navbar",
   selected = "home",
@@ -76,7 +76,7 @@ ui <- page_navbar(
   nav_spacer(),
   nav_item(tagList(
     tags$a(
-      href = "https://github.com/SunPast/PERCEPTION",
+      href = "https://github.com/SunPast/PERCEPTIONx",
       target = "_blank",
       icon("github", class = "nav-icon")
     )

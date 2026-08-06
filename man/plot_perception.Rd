@@ -2,11 +2,11 @@
 % Please edit documentation in R/plot.R
 \name{plot_perception}
 \alias{plot_perception}
-\title{PERCEPTION Visualization Functions}
+\title{PERCEPTIONx Visualization Functions}
 \description{
-This module provides visualization functions for PERCEPTION model results,
+This module provides visualization functions for PERCEPTIONx model results,
 including UMAP plots, clone distribution plots, ROC curves, and more.
-These functions are designed to work seamlessly with trained PERCEPTION models
+These functions are designed to work seamlessly with trained PERCEPTIONx models
 and patient/single-cell expression data.
 }
 \keyword{internal}

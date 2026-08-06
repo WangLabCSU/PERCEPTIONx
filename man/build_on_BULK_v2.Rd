@@ -2,7 +2,7 @@
 % Please edit documentation in R/train.R
 \name{build_on_BULK_v2}
 \alias{build_on_BULK_v2}
-\title{Build PERCEPTION model on bulk expression data}
+\title{Build PERCEPTIONx model on bulk expression data}
 \usage{
 build_on_BULK_v2(
   infunc_drugName,

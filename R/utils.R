@@ -126,7 +126,7 @@ parse_clone_keys <- function(x) {
 #'
 #' The inverse of [parse_clone_keys()]: pastes patient and clone identifiers
 #' into a single \code{"patient@@clone_id"} key. The \code{"@@"} separator is
-#' the canonical clone-key format used throughout PERCEPTION.
+#' the canonical clone-key format used throughout PERCEPTIONx.
 #'
 #' @param patient Character vector of patient IDs.
 #' @param clone_id Character vector of clone IDs.

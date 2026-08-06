@@ -1,7 +1,7 @@
 # =============================================================================
-# PERCEPTION Unit Tests: Utility Functions
+# PERCEPTIONx Unit Tests: Utility Functions
 # =============================================================================
-library(PERCEPTION)
+library(PERCEPTIONx)
 library(testthat)
 
 test_that("rank_normalization_mat works on a simple matrix", {

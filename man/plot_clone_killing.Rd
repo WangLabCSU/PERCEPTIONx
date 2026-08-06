@@ -34,7 +34,7 @@ Default = NULL.}
 
 \item{y_limits}{Numeric vector. Y-axis limits. Default = c(-3, 1.2).}
 
-\item{viridis_scale}{Logical. If TRUE (default), uses the standard PERCEPTION
+\item{viridis_scale}{Logical. If TRUE (default), uses the standard PERCEPTIONx
 diverging scale (blue = resistant, red = sensitive) centred at 0.
 If FALSE, uses a plain viridis sequential scale.}
 

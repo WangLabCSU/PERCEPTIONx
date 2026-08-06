@@ -3,4 +3,4 @@
 library(testthat)
 library(ggplot2)
 
-test_check("PERCEPTION")
+test_check("PERCEPTIONx")

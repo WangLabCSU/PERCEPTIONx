@@ -1,4 +1,4 @@
-#' PERCEPTION Model Training
+#' PERCEPTIONx Model Training
 #'
 #' @name train_perception
 #' @keywords internal
@@ -213,7 +213,7 @@ run_parallel_feature_ranking_bulk <- function(infunc_DrugsToUse,
 }
 
 
-#' Build PERCEPTION model on bulk expression data
+#' Build PERCEPTIONx model on bulk expression data
 #'
 #' Core training function that builds a glmnet model using bulk expression,
 #' then evaluates on pseudo-bulk, bulk test, and single-cell test data.
@@ -407,9 +407,9 @@ build_on_BULK_v2 <- function(infunc_drugName,
 }
 
 
-#' Train PERCEPTION models for multiple drugs
+#' Train PERCEPTIONx models for multiple drugs
 #'
-#' This function runs the complete PERCEPTION training pipeline for a list of drugs.
+#' This function runs the complete PERCEPTIONx training pipeline for a list of drugs.
 #' It performs feature ranking, model training with hyperparameter tuning across
 #' different k_features values, and selects the best model per drug based on
 #' single-cell test performance.
@@ -625,7 +625,7 @@ train_models <- function(drug_list = NULL,
   # 8. Save all models to a single RDS file
   # ============================================================================
   timestamp <- format(training_start, "%Y%m%d_%H%M%S")
-  save_filename <- paste0("PERCEPTION_models_", cancer_type,
+  save_filename <- paste0("PERCEPTIONx_models_", cancer_type,
                           "_ex", exclude_cancer, "_", timestamp, ".RDS")
   save_path <- file.path(output_dir, save_filename)
 

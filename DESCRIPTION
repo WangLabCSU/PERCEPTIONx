@@ -1,11 +1,17 @@
-Package: PERCEPTION
-Title: The R Package version of the PERCEPTION Project
-Version: 0.0.0.9000
+Package: PERCEPTIONx
+Title: Personalized Drug Response Prediction from Single-Cell Transcriptomics
+Version: 0.1.0
 Authors@R: 
-    person("Jia", "Ding", , "jiading682@gmail.com", role = c("aut", "cre"))
-Description: This package aims to provide a convenient way to better adopt the PERCEPTION(https://github.com/ruppinlab/PERCEPTION), which is a prediction tool to assess the function of certain drugs against certain cancers on provided patients.
+    person("Jia", "Ding", , "jiading682@qq.com", role = c("aut", "cre"))
+Description: An R implementation of the PERCEPTION approach (Sinha et al., 2024)
+    for predicting personalized drug response from single-cell tumor
+    transcriptomics. It trains drug-response models on large-scale cell-line
+    screens, predicts sensitivity at clone and patient level, and ships an
+    interactive visualization suite plus a Shiny web application.
 License: MIT + file LICENSE
 Encoding: UTF-8
+Depends:
+    R (>= 4.1.0)
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 8.0.0
 VignetteBuilder: knitr
@@ -20,8 +26,8 @@ Imports:
     Seurat,
     shiny,
     ggiraph
-URL: https://github.com/SunPast/PERCEPTION
-BugReports: https://github.com/SunPast/PERCEPTION/issues
+URL: https://github.com/SunPast/PERCEPTIONx
+BugReports: https://github.com/SunPast/PERCEPTIONx/issues
 Suggests:
     testthat (>= 3.0.0),
     knitr,

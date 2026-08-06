@@ -241,7 +241,7 @@ mod_help_ui <- function(id) {
             div(class = "help-faq-item",
               div(class = "help-faq-q", icon("question-circle"), " Can I use my own bulk expression data?"),
               div(class = "help-faq-a",
-                "Currently, PERCEPTION trains on DepMap data. You can use the trained model to predict on your own single-cell data after rank normalization."
+                "Currently, PERCEPTIONx trains on DepMap data. You can use the trained model to predict on your own single-cell data after rank normalization."
               )
             ),
             div(class = "help-faq-item",
@@ -277,7 +277,7 @@ mod_help_ui <- function(id) {
             div(class = "help-section-icon", icon("book-open")),
             div(
               h5("Citation"),
-              p(class = "help-subtitle", "If you use PERCEPTION, please cite")
+              p(class = "help-subtitle", "If you use PERCEPTIONx, please cite")
             )
           ),
           div(class = "citation-box",
@@ -288,8 +288,8 @@ mod_help_ui <- function(id) {
               target = "_blank"),
             br(), br(),
             icon("github"),
-            a(" github.com/SunPast/PERCEPTION",
-              href = "https://github.com/SunPast/PERCEPTION",
+            a(" github.com/SunPast/PERCEPTIONx",
+              href = "https://github.com/SunPast/PERCEPTIONx",
               target = "_blank")
           )
         )

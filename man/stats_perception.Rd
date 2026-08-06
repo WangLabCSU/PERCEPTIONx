@@ -2,8 +2,8 @@
 % Please edit documentation in R/stats.R
 \name{stats_perception}
 \alias{stats_perception}
-\title{PERCEPTION Statistical Utilities}
+\title{PERCEPTIONx Statistical Utilities}
 \description{
-PERCEPTION Statistical Utilities
+PERCEPTIONx Statistical Utilities
 }
 \keyword{internal}

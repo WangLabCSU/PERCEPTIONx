@@ -2,7 +2,7 @@
 % Please edit documentation in R/annotate.R
 \name{prepare_data}
 \alias{prepare_data}
-\title{Prepare patient data for PERCEPTION prediction}
+\title{Prepare patient data for PERCEPTIONx prediction}
 \usage{
 prepare_data(
   method = c("umap", "tsne"),

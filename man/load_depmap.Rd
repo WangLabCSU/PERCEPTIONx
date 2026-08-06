@@ -35,7 +35,7 @@ Invisibly returns the DepMap object if read = TRUE, otherwise NULL.
 \description{
 Downloads the filtered DepMap RDS file for training models from GitHub Release.
 The file contains bulk expression, scRNA expression, drug response annotations,
-and cell line metadata required for PERCEPTION model training.
+and cell line metadata required for PERCEPTIONx model training.
 Supports automatic mirror fallback for users in different regions.
 }
 \examples{

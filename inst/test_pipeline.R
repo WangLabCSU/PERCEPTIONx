@@ -1,10 +1,10 @@
 # =============================================================================
-# PERCEPTION Test Pipeline
+# PERCEPTIONx Test Pipeline
 # =============================================================================
 # End-to-end test script: Train -> Predict (cell + patient) -> Plot (all)
 #
 # Usage:
-#   1. Make sure PERCEPTION package is loaded (devtools::load_all())
+#   1. Make sure PERCEPTIONx package is loaded (devtools::load_all())
 #   2. Modify parameters below as needed
 #   3. source("test_pipeline.R")
 #
@@ -12,7 +12,7 @@
 #       testthat::test_dir(). Run it manually only when needed.
 # =============================================================================
 
-# library(PERCEPTION)
+# library(PERCEPTIONx)
 
 # -- Parameter Settings -------------------------------------------------------
 
@@ -47,7 +47,7 @@ load_depmap(read = TRUE, mirror = TRUE)
 # -- Step 1: Train Models -----------------------------------------------------
 
 message("\n", strrep("=", 60))
-message("Step 1: Training PERCEPTION models")
+message("Step 1: Training PERCEPTIONx models")
 message(strrep("=", 60))
 
 models <- train_models(

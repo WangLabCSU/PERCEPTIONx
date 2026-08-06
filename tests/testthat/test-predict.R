@@ -1,7 +1,7 @@
 # =============================================================================
-# PERCEPTION Unit Tests: Prediction Functions
+# PERCEPTIONx Unit Tests: Prediction Functions
 # =============================================================================
-library(PERCEPTION)
+library(PERCEPTIONx)
 library(testthat)
 
 test_that("predict_drugs returns matrix with correct dimensions", {

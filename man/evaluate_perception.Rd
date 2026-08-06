@@ -2,7 +2,7 @@
 % Please edit documentation in R/evaluate.R
 \name{evaluate_perception}
 \alias{evaluate_perception}
-\title{PERCEPTION Model Evaluation Functions}
+\title{PERCEPTIONx Model Evaluation Functions}
 \description{
 Functions for evaluating and comparing performance of trained drug response models.
 }

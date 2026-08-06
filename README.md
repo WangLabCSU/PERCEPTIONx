@@ -1,4 +1,4 @@
-# PERCEPTION
+# PERCEPTIONx
 <!-- badges: start -->
 
 <!-- badges: end -->
@@ -7,13 +7,9 @@ An R package for predicting patient response and resistance to cancer treatment 
 
 ## 1. Overview
 
-PERCEPTION (PERsonalized single-Cell Expression-based Planning for Treatments In ONcology) is a computational framework that predicts how individual patients respond to drug treatments by leveraging both bulk and single-cell RNA sequencing data. It trains models on DepMap cell line data and applies them to patient single-cell expression profiles, enabling clone-level drug sensitivity prediction and patient-level response stratification.
-
-This package is an R implementation of the original PERCEPTION pipeline, providing a unified and reproducible interface for model training, prediction, evaluation, and visualization.
+PERCEPTIONx implements the PERCEPTION approach (PERsonalized single-Cell Expression-based Planning for Treatments In ONcology), a computational framework that predicts how individual patients respond to drug treatments by leveraging both bulk and single-cell RNA sequencing data. It trains models on DepMap cell line data and applies them to patient single-cell expression profiles, enabling clone-level drug sensitivity prediction and patient-level response stratification, together with an interactive visualization suite and a Shiny web application.
 
 > **Reference**: Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts patient response and resistance to treatment using single-cell transcriptomics of their tumors. *Nat Cancer* 5, 938–952 (2024). [https://doi.org/10.1038/s43018-024-00756-7](https://doi.org/10.1038/s43018-024-00756-7)
->
-> **Original repository**: [https://github.com/ruppinlab/PERCEPTION](https://github.com/ruppinlab/PERCEPTION)
 
 ## 2. Installation
 
@@ -21,17 +17,17 @@ Install the development version from GitHub using devtools.
 
 ```r
 # install.packages("devtools")
-devtools::install_github("SunPast/PERCEPTION")
+devtools::install_github("SunPast/PERCEPTIONx")
 ```
 
 ## 3. Quick Start
 
 ### 3.1 💾 Load Data
 
-PERCEPTION relies on DepMap reference data and optional pre-trained models. Both can be downloaded automatically with the built-in loading functions.
+PERCEPTIONx relies on DepMap reference data and optional pre-trained models. Both can be downloaded automatically with the built-in loading functions.
 
 ```r
-library(PERCEPTION)
+library(PERCEPTIONx)
 
 # Load pre-trained models
 models <- load_model("abemaciclib")
@@ -67,7 +63,7 @@ models <- train_models(
 
 > **Important: Rank Normalization**
 >
-> PERCEPTION models are trained on **rank-normalized** expression data. If you provide your own expression data (e.g., from scRNA-seq), you **must** normalize it first using `rank_normalization_mat()`, or predictions will be unreliable.
+> PERCEPTIONx models are trained on **rank-normalized** expression data. If you provide your own expression data (e.g., from scRNA-seq), you **must** normalize it first using `rank_normalization_mat()`, or predictions will be unreliable.
 >
 > **How rank normalization works**: For each cell (column), every gene's expression value is replaced by its rank within that column, divided by the total number of genes: `x_norm = rank(x) / n`. This transforms each column into a uniform distribution over (0, 1], making the data robust to batch effects, library size differences, and outliers. Since the model coefficients capture the relationship between **relative gene expression ranks** and drug response (not absolute values), the same normalization must be applied to any new data.
 >
@@ -105,7 +101,7 @@ patient_pred <- predict_patients(
 
 ### 3.4 🎨 Visualize Results
 
-PERCEPTION provides a suite of plotting functions to inspect model predictions from different perspectives: spatial (t-SNE), clonal (distribution and killing), and clinical (ROC and response stratification).
+PERCEPTIONx provides a suite of plotting functions to inspect model predictions from different perspectives: spatial (t-SNE), clonal (distribution and killing), and clinical (ROC and response stratification).
 
 ```r
 # t-SNE with drug response overlay
@@ -267,21 +263,21 @@ can be used first to verify the whole pipeline works end-to-end.
 
 ## 7. Shiny Web Application
 
-PERCEPTION ships with an interactive web dashboard (built with Shiny) that wraps
+PERCEPTION-shiny ships with an interactive web dashboard (built with Shiny) that wraps
 the whole pipeline — data loading, model training, prediction, and
 visualization — in a point-and-click interface.
 
 ### 7.1 Launch
 
 ```r
-library(PERCEPTION)
+library(PERCEPTIONx)
 run_perception_app()          # starts the app in your browser
 ```
 
 or directly from the source tree:
 
 ```r
-shiny::runApp(system.file("shiny", "app", package = "PERCEPTION"))
+shiny::runApp(system.file("shiny", "app", package = "PERCEPTIONx"))
 ```
 
 ### 7.2 Tabs
@@ -323,4 +319,4 @@ Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts patient respo
 
 ## 9. License
 
-MIT © PERCEPTION authors
+MIT © PERCEPTIONx authors

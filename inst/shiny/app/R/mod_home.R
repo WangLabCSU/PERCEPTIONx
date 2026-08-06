@@ -7,7 +7,7 @@ mod_home_ui <- function(id) {
       div(class = "hero-inner",
         div(class = "hero-text",
           div(class = "hero-title-row",
-            h1(class = "hero-title", "PERCEPTION"),
+            h1(class = "hero-title", "PERCEPTION-shiny"),
             tags$span(class = "hero-badge", "R Package")
           ),
           p(class = "hero-tagline",
@@ -27,7 +27,7 @@ mod_home_ui <- function(id) {
         ),
         div(class = "hero-brand",
           div(class = "hero-logo",
-            tags$img(src = "favicon.svg", alt = "PERCEPTION logo")
+            tags$img(src = "favicon.svg", alt = "PERCEPTION-shiny logo")
           )
         )
       )
@@ -189,11 +189,11 @@ mod_home_ui <- function(id) {
               p(
                 icon("github"),
                 " ",
-                a("github.com/SunPast/PERCEPTION",
-                  href = "https://github.com/SunPast/PERCEPTION",
+                a("github.com/SunPast/PERCEPTIONx",
+                  href = "https://github.com/SunPast/PERCEPTIONx",
                   target = "_blank"),
                 br(),
-                tags$small("Install with: ", code("devtools::install_github('SunPast/PERCEPTION')"),
+                tags$small("Install with: ", code("devtools::install_github('SunPast/PERCEPTIONx')"),
                            class = "text-muted")
               )
             )
@@ -282,7 +282,7 @@ mod_home_server <- function(id, shared, main_session) {
       )
       w$show()
       tryCatch({
-        prepared <- PERCEPTION::prepare_data(
+        prepared <- PERCEPTIONx::prepare_data(
           method = "umap",
           expression_matrix = expr_matrix,
           patient_mapping = patient_mapping,

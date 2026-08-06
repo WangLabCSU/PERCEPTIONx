@@ -2,8 +2,8 @@
 % Please edit documentation in R/train.R
 \name{train_perception}
 \alias{train_perception}
-\title{PERCEPTION Model Training}
+\title{PERCEPTIONx Model Training}
 \description{
-PERCEPTION Model Training
+PERCEPTIONx Model Training
 }
 \keyword{internal}
