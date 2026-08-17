@@ -381,10 +381,11 @@ overlapping labels. Static downloads are publication-quality:
 
 # 8. Complete Pipeline Script
 
-A ready-to-run pipeline script is included in the package. After installing, run:
+A ready-to-run end-to-end pipeline script lives in the source repository under
+`tools/` (it is not shipped with the installed package). After cloning the repo, run:
 
 ```r
-source(system.file("tests", "test_pipeline.R", package = "PERCEPTIONx"))
+source("tools/test_pipeline.R")
 ```
 
 This script executes the full workflow (train -> predict -> plot) and saves all output figures to a local directory.

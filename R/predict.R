@@ -39,18 +39,17 @@ NULL
 #' @export
 predict_drugs <- function(model_list, expr) {
 
-  # Normalize input: if single model object (not a list of models), wrap it
-  if (!is.list(model_list) || is.null(names(model_list)) ||
-      (!is.null(model_list$model) && !is.list(model_list[[1]]))) {
-    # Single model object: wrap into a named list
-    if (!is.null(model_list$model)) {
-      drug_name <- attr(model_list, "drug_name")
-      if (is.null(drug_name)) drug_name <- "drug1"
-      model_list <- setNames(list(model_list), drug_name)
-    } else {
-      stop("model_list must be a named list of model objects (each with $model element), ",
-           "or a single model object.")
-    }
+  # Normalize input: wrap a single model object (one with a $model element)
+  # into a named list so the rest of the function treats both cases uniformly.
+  if (!is.null(model_list$model)) {
+    drug_name <- attr(model_list, "drug_name")
+    if (is.null(drug_name)) drug_name <- "drug1"
+    model_list <- setNames(list(model_list), drug_name)
+  }
+
+  if (!is.list(model_list) || is.null(names(model_list))) {
+    stop("model_list must be a named list of model objects (each with $model element), ",
+         "or a single model object.")
   }
 
   # Validate expression matrix

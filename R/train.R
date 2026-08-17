@@ -201,12 +201,18 @@ run_parallel_feature_ranking_bulk <- function(infunc_DrugsToUse,
                                               infunc_GOI,
                                               ncores = 4) {
 
-  featuresRank_fromBulk <- parallel::mclapply(1:length(infunc_DrugsToUse), function(x)
-    err_handle(feature_ranking_bulk(infunc_drugName = infunc_DrugsToUse[x],
-                                    infunc_cancerType = id_cancerType,
-                                    infunc_GOI = infunc_GOI,
-                                    exclude_cancer = infunc_exclude_cancer)),
-    mc.cores = ncores)
+  idx <- seq_along(infunc_DrugsToUse)
+
+  featuresRank_fromBulk <- run_parallel(
+    idx,
+    function(x)
+      err_handle(feature_ranking_bulk(infunc_drugName = infunc_DrugsToUse[x],
+                                      infunc_cancerType = id_cancerType,
+                                      infunc_GOI = infunc_GOI,
+                                      exclude_cancer = infunc_exclude_cancer)),
+    ncores = ncores,
+    export = "DepMap"
+  )
 
   names(featuresRank_fromBulk) <- infunc_DrugsToUse
   featuresRank_fromBulk
@@ -603,13 +609,27 @@ train_models <- function(drug_list = NULL,
       next
     }
 
-    # Print and store the performance
-    print(sapply(Raw_models_output, function(x) x$performance_in_scRNA))
-    Performance_by_features[[i]] <- lapply(Raw_models_output, function(x) x$performance_in_scRNA)
+    # Keep only successful builds (some may be NULL or the "Mismatch" string).
+    valid <- vapply(Raw_models_output, function(x) {
+      is.list(x) && !is.null(x$performance_in_scRNA) &&
+        length(x$performance_in_scRNA) >= 2
+    }, logical(1))
+
+    if (!any(valid)) {
+      warning("  Skipping ", drug, " - all model builds failed.")
+      for_output_lung_Test_vglm[[i]] <- NULL
+      next
+    }
+
+    # Print and store the performance (rows: p-value, correlation)
+    perf <- sapply(Raw_models_output[valid], function(x) x$performance_in_scRNA)
+    print(perf)
+    Performance_by_features[[i]] <- lapply(Raw_models_output[valid],
+                                           function(x) x$performance_in_scRNA)
 
     # Store the Tuned model (select based on highest correlation estimate)
-    for_output_lung_Test_vglm[[i]] <- err_handle(
-      Raw_models_output[[which.max(sapply(Raw_models_output, function(x) x$performance_in_scRNA)[2, ])]])
+    best_pos <- which.max(perf[2, ])
+    for_output_lung_Test_vglm[[i]] <- Raw_models_output[valid][[best_pos]]
 
     # Clean up
     rm(Raw_models_output)
