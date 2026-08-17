@@ -279,7 +279,8 @@ build_on_BULK_v2 <- function(infunc_drugName,
 
   # Check consistency between rnorm matrices
   if (nrow(DepMap$expression_rnorm) != nrow(DepMap$scRNA_subset_rnorm)) {
-    return('Mismatch in initial features: rNorm sc vs bulk')
+    warning("Mismatch in initial features (rNorm sc vs bulk); skipping this model.")
+    return(NULL)
   }
 
   ############
@@ -364,7 +365,8 @@ build_on_BULK_v2 <- function(infunc_drugName,
   ############
   # Performance
   ##########
-  # Best performance during CV
+  # Best performance during CV. NOTE: sqrt(R²) = |correlation| — R² discards the
+  # sign, so this metric is the absolute value of the CV correlation (no p-value).
   model_performance_cv <- max(sqrt(cv.out$results$Rsquared), na.rm = TRUE)
 
   # Test on bulk (test 2)
