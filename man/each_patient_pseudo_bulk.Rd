@@ -6,7 +6,7 @@
 \usage{
 each_patient_pseudo_bulk(
   x = 1,
-  comb_killing_df,
+  comb_viability_df,
   Clone_Counts_per_patients,
   clone_Level_z_expression_df
 )
@@ -14,7 +14,7 @@ each_patient_pseudo_bulk(
 \arguments{
 \item{x}{Integer. Index of the patient. Default = 1.}
 
-\item{comb_killing_df}{Data frame. Must have columns 'patient' and 'clone_id'.}
+\item{comb_viability_df}{Data frame. Retained for backward compatibility; no longer used (clone ids are read from the expression column names).}
 
 \item{Clone_Counts_per_patients}{Data frame. Patient-clone abundance data.}
 

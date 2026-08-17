@@ -7,7 +7,7 @@
 plot_response_boxplot(
   exp_vs_pred,
   response_var = "response",
-  predicted_var = "predicted_killing",
+  predicted_var = "predicted_viability",
   y_label = "Predicted Viability (z-score)",
   base_size = 15,
   compare_method = "wilcox.test",
@@ -16,11 +16,11 @@ plot_response_boxplot(
 )
 }
 \arguments{
-\item{exp_vs_pred}{Data frame with columns: response, predicted_killing.}
+\item{exp_vs_pred}{Data frame with columns: response, predicted_viability.}
 
 \item{response_var}{Character. Column name for response labels. Default = "response".}
 
-\item{predicted_var}{Character. Column name for predicted values. Default = "predicted_killing".}
+\item{predicted_var}{Character. Column name for predicted values. Default = "predicted_viability".}
 
 \item{y_label}{Character. Y-axis label. Default = "Predicted Viability (z-score)".}
 
@@ -46,7 +46,7 @@ statistical significance bracket.
 \dontrun{
   exp_pred <- data.frame(
     response = factor(c("R", "NR", "R", "NR")),
-    predicted_killing = c(0.8, 0.2, 0.7, 0.3)
+    predicted_viability = c(0.8, 0.2, 0.7, 0.3)
   )
   plot_response_boxplot(exp_pred)
 }

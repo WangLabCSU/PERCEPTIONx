@@ -35,8 +35,8 @@ test_that("predict_drugs returns matrix with correct dimensions", {
 })
 
 test_that("predict_patients aggregates clone predictions", {
-  # Simulate clone killing data
-  clone_killing_df <- data.frame(
+  # Simulate clone viability data
+  clone_viability_df <- data.frame(
     patient  = c("P1", "P1", "P2", "P2", "P2"),
     clone_id = c("P1_c1", "P1_c2", "P2_c1", "P2_c2", "P2_c3"),
     erlotinib = c(-1.2, -0.5, -2.1, -0.3, -1.8),
@@ -52,13 +52,13 @@ test_that("predict_patients aggregates clone predictions", {
     patients = c("P1", "P2")
   )
 
-  result <- predict_patients(clone_killing_df, clone_counts_df, mode = "weighted_average")
+  result <- predict_patients(clone_viability_df, clone_counts_df, mode = "weighted_average")
   expect_s3_class(result, "data.frame")
   expect_true(nrow(result) > 0)
 })
 
 test_that("predict_patients weighted_max mode works", {
-  clone_killing_df <- data.frame(
+  clone_viability_df <- data.frame(
     patient  = c("P1", "P1"),
     clone_id = c("P1_c1", "P1_c2"),
     erlotinib = c(-1.2, -0.5),
@@ -71,7 +71,7 @@ test_that("predict_patients weighted_max mode works", {
     patients = "P1"
   )
 
-  result <- predict_patients(clone_killing_df, clone_counts_df, mode = "weighted_max")
+  result <- predict_patients(clone_viability_df, clone_counts_df, mode = "weighted_max")
   expect_s3_class(result, "data.frame")
   expect_true(nrow(result) == 1)
 })

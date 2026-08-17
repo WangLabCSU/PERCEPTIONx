@@ -175,20 +175,20 @@ message("\n", strrep("=", 60))
 message("OPTIONAL: Generating visualizations")
 message(strrep("=", 60))
 
-# Build clone_killing_df for plotting (needed for plot functions)
-clone_killing_df <- data.frame(
-  patient = prepared$clone_killing_template$patient,
-  clone_id = prepared$clone_killing_template$clone_id,
+# Build clone_viability_df for plotting (needed for plot functions)
+clone_viability_df <- data.frame(
+  patient = prepared$clone_viability_template$patient,
+  clone_id = prepared$clone_viability_template$clone_id,
   clone_pred
 )
 
 # Clone distribution plot
 clone_dist_df <- data.frame(
-  patients = clone_killing_df$patient,
-  clones   = clone_killing_df$clone_id,
+  patients = clone_viability_df$patient,
+  clones   = clone_viability_df$clone_id,
   weights  = prepared$clone_counts[
-    match(clone_killing_df$patient, prepared$clone_counts$patients),
-    match(clone_killing_df$clone_id, colnames(prepared$clone_counts)[-1])
+    match(clone_viability_df$patient, prepared$clone_counts$patients),
+    match(clone_viability_df$clone_id, colnames(prepared$clone_counts)[-1])
   ]
 )
 # Normalize weights per patient
@@ -203,17 +203,17 @@ print(p1)
 dev.off()
 message("Saved: clone_distribution.pdf")
 
-# Clone killing lollipop plot (use first drug)
+# Clone viability lollipop plot (use first drug)
 drug_col <- drug_list[1]
-clone_kill_plot_df <- clone_killing_df
-clone_kill_plot_df$comb_killing <- clone_kill_plot_df[[drug_col]]
+clone_kill_plot_df <- clone_viability_df
+clone_kill_plot_df$comb_viability <- clone_kill_plot_df[[drug_col]]
 clone_kill_plot_df$weights <- clone_dist_df$weights
 
-pdf(file.path(output_dir, "clone_killing.pdf"), width = 12, height = 5)
-p2 <- plot_clone_killing(clone_kill_plot_df, killing_var = "comb_killing", weights_var = "weights")
+pdf(file.path(output_dir, "clone_viability.pdf"), width = 12, height = 5)
+p2 <- plot_clone_viability(clone_kill_plot_df, viability_var = "comb_viability", weights_var = "weights")
 print(p2)
 dev.off()
-message("Saved: clone_killing.pdf")
+message("Saved: clone_viability.pdf")
 
 # =============================================================================
 # SUMMARY

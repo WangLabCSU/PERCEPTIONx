@@ -1,6 +1,6 @@
 # PERCEPTION-shiny User Guide
 
-**PERCEPTION-shiny** is the interactive web application (Shiny) of the **PERCEPTIONx** R package. It wraps the complete analysis pipeline — data loading, model training, drug-sensitivity prediction, and result visualization — into a point-and-click interface, so you can go from a patient single-cell expression matrix to clone-level killing scores and patient-level response stratification without writing code.
+**PERCEPTION-shiny** is the interactive web application (Shiny) of the **PERCEPTIONx** R package. It wraps the complete analysis pipeline — data loading, model training, drug-sensitivity prediction, and result visualization — into a point-and-click interface, so you can go from a patient single-cell expression matrix to clone-level viability scores and patient-level response stratification without writing code.
 
 > Methodological basis: PERCEPTION (PERsonalized single-Cell Expression-based Planning for Treatments In ONcology), which trains elastic-net models on DepMap cell-line data to predict patient response and resistance to drug treatment.
 
@@ -12,7 +12,7 @@
 - [1. Interface Overview](#1-interface-overview)
 - [2. Data Tab: Loading Data](#2-data-tab-loading-data)
 - [3. Train Tab: Training Models (Optional)](#3-train-tab-training-models-optional)
-- [4. Predict Tab: Predicting Killing Scores](#4-predict-tab-predicting-killing-scores)
+- [4. Predict Tab: Predicting Viability Scores](#4-predict-tab-predicting-viability-scores)
 - [5. Visualize Tab](#5-visualize-tab)
 - [6. Help Tab](#6-help-tab)
 - [7. FAQ](#7-faq)
@@ -161,11 +161,11 @@ Two ways:
 
 ---
 
-## 4. Predict Tab: Predicting Killing Scores
+## 4. Predict Tab: Predicting Viability Scores
 
 Select the loaded models (pre-trained from the Data tab or trained on the Train tab) and click predict:
 
-1. **Clone-level**: killing score for every clone × every drug. Semantics: the model outputs **viability (survival)**, where lower = more sensitive; the app shows `killing_scaled`, already rank-inverted and normalized to [0, 1] — **closer to 1 = predicted more sensitive** to that drug
+1. **Clone-level**: viability score for every clone × every drug. Semantics: the model outputs **viability (survival)**, where **higher = more resistant, lower = more sensitive**. Values shown in the app are rescaled to [0, 1] for display — **closer to 1 = more resistant (higher viability)** to that drug
 2. **Patient-level**: clone scores are aggregated to patients by clone proportion (default `weighted_max`), giving each patient's drug-sensitivity stratification
 
 Outputs include an interactive heatmap (clones × drugs, plotly) and downloadable prediction tables.
@@ -178,7 +178,7 @@ Outputs include an interactive heatmap (clones × drugs, plotly) and downloadabl
 
 This module visualizes the prediction results, so **you must run a prediction first**.
 
-All figures are **interactive SVG** (built on ggiraph): hover any point or bar to see details (clone id, killing score, proportion, FPR/TPR, ...). The toolbar supports zoom, pan, and download.
+All figures are **interactive SVG** (built on ggiraph): hover any point or bar to see details (clone id, viability score, proportion, FPR/TPR, ...). The toolbar supports zoom, pan, and download.
 
 ### 5.1 Clone Distribution (stacked bar chart)
 
@@ -186,12 +186,12 @@ All figures are **interactive SVG** (built on ggiraph): hover any point or bar t
 
 Shows the clone composition within each patient; one color band = one clone (a curated palette is used for ≤ 15 clones).
 
-### 5.2 Clone Killing (lollipop plot)
+### 5.2 Clone Viability (lollipop plot)
 
-![Clone killing lollipop plot](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrtRqdGQW8zkwfYWQ_VN994k_iZJH8gACsDQAAtsboFe7I7H3sbW6sz0E.png)
+![Clone viability lollipop plot](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrtRqdGQW8zkwfYWQ_VN994k_iZJH8gACsDQAAtsboFe7I7H3sbW6sz0E.png)
 
 - **Rules**: all samples, all clones, one facet per patient, one lollipop per clone
-- **Color**: blue-white-red diverging — blue = predicted resistant (low killing), red = predicted sensitive (high killing)
+- **Color**: blue-white-red diverging — blue = predicted sensitive (low viability), red = predicted resistant (high viability)
 - **Point size**: clone proportion (larger clones get bigger points)
 - **Ordering**: within a patient, by proportion descending; responders come first when response data is present
 - **Y-axis**: Predicted Viability (z-score), with a zero line as the reference
@@ -218,22 +218,22 @@ Validation performance curves for trained models (requires models from the Train
 
 ![Gene expression on UMAP (SLC2A1)](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYru1qdGSiWp9UYiS0DlsprEKVOud1_AACyTQAAtsboFfwQwHtvh_32z0E.png)
 
-![Drug killing on UMAP (erlotinib)](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrvNqdGS9_DCHZMgsGZFMcIhxBlsf_wACzzQAAtsboFerQBd3_vv2kz0E.png)
+![Drug viability on UMAP (erlotinib)](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrvNqdGS9_DCHZMgsGZFMcIhxBlsf_wACzzQAAtsboFerQBd3_vv2kz0E.png)
 
 Choose a dimensionality-reduction method and a color variable:
 
 - **Gene Expression**: per-cell expression of a single gene (z-score), continuous scale — see which cell groups express the gene highly
-- **Drug Killing**: each cell colored by its clone's predicted killing score ("patchwork" blocks) — see which clones are predicted sensitive
+- **Drug Viability**: each cell colored by its clone's predicted viability score ("patchwork" blocks) — see which clones are predicted resistant (high) vs. sensitive (low)
 - **Clone / Cluster**: color by clone (cluster) — see the population structure
 
 > **How to read them together**
 >
-> If the cells with high Gene Expression are also warm on the Drug Killing plot, the gene's high expression is positively associated with predicted sensitivity; if not, negatively. The two plots use different color scales — compare spatial patterns only, not values.
+> If the cells with high Gene Expression are also bright (high viability) on the Drug Viability plot, the gene's high expression is positively associated with resistance; if dark (low viability), with sensitivity. The two plots use different color scales — compare spatial patterns only, not values.
 >
 > For example, the two figures above give preliminary insight:
 >
-> 1. **Resistance-marker clue**: the clone in the bottom-right region shows high SLC2A1 expression, which overlaps exactly with the region of low predicted erlotinib killing — suggesting SLC2A1 overexpression may mark this resistant clone.
-> 2. **Sensitive main population**: the major cell groups at the top barely express SLC2A1, yet are precisely the region with the highest predicted drug killing.
+> 1. **Resistance-marker clue**: the clone in the bottom-right region shows high SLC2A1 expression, which overlaps exactly with the region of high predicted erlotinib viability — suggesting SLC2A1 overexpression may mark this resistant clone.
+> 2. **Sensitive main population**: the major cell groups at the top barely express SLC2A1, yet are precisely the region with the lowest predicted drug viability.
 >
 > So in the PRJNA591860 dataset, locally abnormal SLC2A1 overexpression strongly points to erlotinib resistance, while most non-SLC2A1-expressing cells are highly drug-sensitive — preliminary single-cell evidence that **SLC2A1 may be a resistance target**.
 
@@ -263,8 +263,8 @@ That plot needs validation metrics produced during training; pre-trained models 
 **Q3: How do I construct the response labels?**
 Build a two-column table `patient` / `response`. `patient` must exactly match `patient_id` in the Mapping; `response` values are normalized automatically (responder → Responder, etc.). Without outcome data, use treatment timepoints instead (baseline → Responder, resistant progression → Non-responder).
 
-**Q4: Why is a killing score lower than I expected?**
-Scores are relative ranks learned from DepMap (normalized to 0–1): "1" means the most sensitive clone in this batch, not an absolute killing percentage. Clonal heterogeneity and activated resistance pathways both lower the score.
+**Q4: Why is a viability score lower than I expected?**
+Scores are relative ranks learned from DepMap (normalized to 0–1): "1" means the most resistant clone in this batch (highest viability), not an absolute viability percentage. Clonal heterogeneity and activated resistance pathways both raise the viability score.
 
 **Q5: Does data persist after I close the app?**
 No. Downloaded DepMap data and pre-trained models are written to the R session's `tempdir()` and are cleaned up automatically when the app closes — nothing remains on disk.

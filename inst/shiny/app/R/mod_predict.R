@@ -63,14 +63,14 @@ mod_predict_ui <- function(id) {
                           choices = c(
                             "Weighted Max (recommended)" = "weighted_max",
                             "Weighted Average" = "weighted_average",
-                            "Min (Most Resistant)" = "min",
-                            "Max (Most Sensitive)" = "max"
+                            "Min (Most Sensitive)" = "min",
+                            "Max (Most Resistant)" = "max"
                           ),
                           selected = "weighted_max"),
               div(class = "info-box", style = "margin-top: 0.5rem; font-size: 0.78rem;",
                 strong("weighted_max"), ": top N most resistant clones (recommended)",
                 br(), strong("weighted_average"), ": weighted average across all clones",
-                br(), strong("min/max"), ": most resistant/sensitive clone"
+                br(), strong("min/max"), ": most sensitive/resistant clone"
               )
             ),
 
@@ -279,7 +279,7 @@ mod_predict_server <- function(id, shared, main_session) {
           clone_to_patient <- split(clone_data$patient, clone_data$clone_id)
           clone_to_patient <- lapply(clone_to_patient, unique)
 
-          clone_killing_list <- lapply(clone_rows, function(cl) {
+          clone_viability_list <- lapply(clone_rows, function(cl) {
             pat <- clone_to_patient[[cl]]
             if (is.null(pat) || length(pat) == 0) return(NULL)
             if (length(pat) > 1) pat <- pat[1]
@@ -293,9 +293,9 @@ mod_predict_server <- function(id, shared, main_session) {
             }
             df
           })
-          clone_killing_df <- do.call(rbind, clone_killing_list)
+          clone_viability_df <- do.call(rbind, clone_viability_list)
 
-          if (is.null(clone_killing_df) || nrow(clone_killing_df) == 0) {
+          if (is.null(clone_viability_df) || nrow(clone_viability_df) == 0) {
             showNotification("No matching clones between prediction and annotation", type = "error")
             return(NULL)
           }
@@ -306,7 +306,7 @@ mod_predict_server <- function(id, shared, main_session) {
           clone_counts$patients <- rownames(clone_counts)
 
           result <- PERCEPTIONx::predict_patients(
-            clone_killing_df,
+            clone_viability_df,
             clone_counts,
             mode = input$agg_mode
           )

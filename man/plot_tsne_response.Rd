@@ -6,9 +6,9 @@
 \usage{
 plot_tsne_response(
   tsne_data,
-  color_var = "killing_scaled",
+  color_var = "viability_scaled",
   title = NULL,
-  color_label = "Predicted Killing",
+  color_label = "Predicted Viability",
   point_size = NULL,
   colors = NULL,
   palette = c("viridis", "diverging"),
@@ -20,14 +20,14 @@ plot_tsne_response(
 }
 \arguments{
 \item{tsne_data}{Data frame with columns: X, Y (coordinates), and optional
-biomarker/killing columns.}
+biomarker/viability columns.}
 
 \item{color_var}{Character. Name of the column to use for color mapping.
-Default = "killing_scaled".}
+Default = "viability_scaled".}
 
 \item{title}{Character. Plot title. Default = NULL.}
 
-\item{color_label}{Character. Legend label for color. Default = "Predicted Killing".}
+\item{color_label}{Character. Legend label for color. Default = "Predicted Viability".}
 
 \item{point_size}{Numeric. Point size. If NULL (default), auto-adapts to
 the number of cells to avoid overplotting.}
@@ -57,13 +57,13 @@ either biomarker expression or predicted drug sensitivity.
 }
 \examples{
 \dontrun{
-  # After predicting killing for single cells
+  # After predicting viability for single cells
   tsne_data <- data.frame(
     X = lung_tSNE$X,
     Y = lung_tSNE$Y,
-    killing_scaled = range01(rank(-viability_pred))
+    viability_scaled = range01(rank(-viability_pred))
   )
-  plot_tsne_response(tsne_data, color_var = "killing_scaled")
+  plot_tsne_response(tsne_data, color_var = "viability_scaled")
 }
 
 }

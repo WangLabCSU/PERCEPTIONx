@@ -113,7 +113,7 @@ message(strrep("=", 60))
 # Simulate 3 patients from test cell lines, each with 2-3 clones
 set.seed(42)
 patient_ids <- c("Patient_A", "Patient_B", "Patient_C")
-clone_killing_list <- list()
+clone_viability_list <- list()
 
 for (pid in patient_ids) {
   n_clones <- sample(2:3, 1)
@@ -125,7 +125,7 @@ for (pid in patient_ids) {
   for (j in seq_len(n_clones)) {
     row_vals <- as.list(as.vector(cell_pred[cell_idx[j], ]))
     names(row_vals) <- colnames(cell_pred)
-    clone_killing_list[[length(clone_killing_list) + 1]] <- data.frame(
+    clone_viability_list[[length(clone_viability_list) + 1]] <- data.frame(
       patient  = pid,
       clone_id = clone_ids[j],
       row_vals,
@@ -134,22 +134,22 @@ for (pid in patient_ids) {
   }
 }
 
-clone_killing_df <- do.call(rbind, clone_killing_list)
+clone_viability_df <- do.call(rbind, clone_viability_list)
 
 # Build clone_counts_df: unified columns for all clone IDs, fill 0 for missing
-all_clone_ids <- unique(clone_killing_df$clone_id)
+all_clone_ids <- unique(clone_viability_df$clone_id)
 clone_counts_df <- as.data.frame(matrix(0L, nrow = length(patient_ids), ncol = length(all_clone_ids)))
 colnames(clone_counts_df) <- all_clone_ids
 rownames(clone_counts_df) <- patient_ids
 for (i in seq_along(patient_ids)) {
   pid <- patient_ids[i]
-  pid_clones <- clone_killing_df$clone_id[clone_killing_df$patient == pid]
+  pid_clones <- clone_viability_df$clone_id[clone_viability_df$patient == pid]
   clone_counts_df[i, pid_clones] <- sample(50:500, length(pid_clones))
 }
 clone_counts_df$patients <- patient_ids
 
 # Patient-level prediction
-patient_pred <- predict_patients(clone_killing_df, clone_counts_df, mode = "weighted_average")
+patient_pred <- predict_patients(clone_viability_df, clone_counts_df, mode = "weighted_average")
 message("Patient-level predictions:")
 print(patient_pred)
 
@@ -163,12 +163,12 @@ message(strrep("=", 60))
 counts_mat <- as.matrix(clone_counts_df[, all_clone_ids, drop = FALSE])
 row_sums <- rowSums(counts_mat)
 clone_dist_df <- data.frame(
-  patients = clone_killing_df$patient,
-  clones   = clone_killing_df$clone_id,
+  patients = clone_viability_df$patient,
+  clones   = clone_viability_df$clone_id,
   weights  = counts_mat[
-    cbind(match(clone_killing_df$patient, patient_ids),
-          match(clone_killing_df$clone_id, all_clone_ids))
-  ] / row_sums[match(clone_killing_df$patient, patient_ids)]
+    cbind(match(clone_viability_df$patient, patient_ids),
+          match(clone_viability_df$clone_id, all_clone_ids))
+  ] / row_sums[match(clone_viability_df$patient, patient_ids)]
 )
 
 pdf(file.path(output_dir, "02_clone_distribution.pdf"), width = 8, height = 5)
@@ -177,18 +177,18 @@ print(p2)
 dev.off()
 message("Saved: 02_clone_distribution.pdf")
 
-# -- 5b. Clone killing (lollipop) --
-# Rename prediction column to comb_killing (use first drug)
-drug_col <- colnames(clone_killing_df)[3]  # first drug column
-clone_kill_plot_df <- clone_killing_df
-clone_kill_plot_df$comb_killing <- clone_kill_plot_df[[drug_col]]
+# -- 5b. Clone viability (lollipop) --
+# Rename prediction column to comb_viability (use first drug)
+drug_col <- colnames(clone_viability_df)[3]  # first drug column
+clone_kill_plot_df <- clone_viability_df
+clone_kill_plot_df$comb_viability <- clone_kill_plot_df[[drug_col]]
 clone_kill_plot_df$weights <- clone_dist_df$weights
 
-pdf(file.path(output_dir, "03_clone_killing.pdf"), width = 20, height = 6)
-p3 <- plot_clone_killing(clone_kill_plot_df, killing_var = "comb_killing", weights_var = "weights")
+pdf(file.path(output_dir, "03_clone_viability.pdf"), width = 20, height = 6)
+p3 <- plot_clone_viability(clone_kill_plot_df, viability_var = "comb_viability", weights_var = "weights")
 print(p3)
 dev.off()
-message("Saved: 03_clone_killing.pdf")
+message("Saved: 03_clone_viability.pdf")
 
 # -- 5c. Response boxplot + ROC curve (using model's built-in pred vs ground truth) --
 for (drug_name in names(models)) {
@@ -202,7 +202,7 @@ for (drug_name in names(models)) {
   median_pred <- median(pred_gt$Test_pred_sc, na.rm = TRUE)
   exp_vs_pred <- data.frame(
     response = ifelse(pred_gt$Observed > median(pred_gt$Observed, na.rm = TRUE), "R", "NR"),
-    predicted_killing = pred_gt$Test_pred_sc
+    predicted_viability = pred_gt$Test_pred_sc
   )
   exp_vs_pred$response <- factor(exp_vs_pred$response, levels = c("R", "NR"))
 
@@ -216,7 +216,7 @@ for (drug_name in names(models)) {
   # ROC curve
   pdf(file.path(output_dir, paste0("05_roc_curve_", drug_name, ".pdf")),
       width = 5, height = 5)
-  p5 <- plot_roc_curve(response = exp_vs_pred$response, predictor = exp_vs_pred$predicted_killing)
+  p5 <- plot_roc_curve(response = exp_vs_pred$response, predictor = exp_vs_pred$predicted_viability)
   print(p5)
   dev.off()
   message("Saved: 05_roc_curve_", drug_name, ".pdf")
@@ -226,9 +226,9 @@ for (drug_name in names(models)) {
 pdf(file.path(output_dir, "06_patient_response_panel.pdf"), width = 10, height = 15)
 p6 <- plot_patient_response_panel(
   clone_distribution = clone_dist_df,
-  clone_killing      = clone_kill_plot_df,
+  clone_viability      = clone_kill_plot_df,
   exp_vs_pred        = exp_vs_pred,
-  killing_col        = "comb_killing"
+  viability_col        = "comb_viability"
 )
 print(p6)
 dev.off()
@@ -256,30 +256,30 @@ if (!is.null(seurat_result$seurat_object)) {
   tsne_data <- data.frame(
     X = umap_coords$X,
     Y = umap_coords$Y,
-    killing_scaled = range01(rank(-pred_for_tsne))
+    viability_scaled = range01(rank(-pred_for_tsne))
   )
 
   pdf(file.path(output_dir, "08_tsne_response.pdf"), width = 6, height = 5)
-  p8 <- plot_tsne_response(tsne_data, color_var = "killing_scaled",
-                           title = paste("Drug Killing -", drug_list[1]))
+  p8 <- plot_tsne_response(tsne_data, color_var = "viability_scaled",
+                           title = paste("Drug Viability -", drug_list[1]))
   print(p8)
   dev.off()
   message("Saved: 08_tsne_response.pdf")
 
-  # t-SNE biomarker + killing side by side
+  # t-SNE biomarker + viability side by side
   best_gene <- models[[1]]$single_best
   if (!is.null(best_gene) && best_gene %in% rownames(expr_subset)) {
     biomarker_vals <- as.numeric(expr_subset[best_gene, ])
     tsne_data$biomarker_scaled <- range01(rank(biomarker_vals))
 
-    pdf(file.path(output_dir, "09_tsne_biomarker_killing.pdf"), width = 10, height = 5)
-    p9 <- plot_tsne_biomarker_killing(tsne_data,
+    pdf(file.path(output_dir, "09_tsne_biomarker_viability.pdf"), width = 10, height = 5)
+    p9 <- plot_tsne_biomarker_viability(tsne_data,
                                       biomarker_var = "biomarker_scaled",
-                                      killing_var   = "killing_scaled",
+                                      viability_var   = "viability_scaled",
                                       biomarker_label = paste0("Biomarker (", best_gene, ")"))
     print(p9)
     dev.off()
-    message("Saved: 09_tsne_biomarker_killing.pdf")
+    message("Saved: 09_tsne_biomarker_viability.pdf")
   }
 }
 

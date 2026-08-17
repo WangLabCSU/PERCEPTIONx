@@ -29,7 +29,7 @@ mod_visualize_ui <- function(id) {
             radioButtons(ns("plot_type"), "",
                          choices = c(
                            "Clone Distribution" = "clone_dist",
-                           "Clone Killing Lollipop" = "clone_kill",
+                           "Clone Viability Lollipop" = "clone_kill",
                            "ROC Curve" = "roc",
                            "Response Boxplot" = "boxplot",
                            "Model Performance" = "model_perf"
@@ -73,7 +73,7 @@ mod_visualize_ui <- function(id) {
               radioButtons(ns("plot_type_advanced"), NULL,
                            choices = c(
                              "Gene Expression" = "umap_gene",
-                             "Drug Killing" = "umap_killing"
+                             "Drug Viability" = "umap_viability"
                            ),
                            selected = character(0)),
 
@@ -84,13 +84,13 @@ mod_visualize_ui <- function(id) {
                                options = list(maxItems = 1, placeholder = "Select a gene"))
               ),
               conditionalPanel(
-                condition = paste0("input['", ns("plot_type_advanced"), "'] == 'umap_killing'"),
+                condition = paste0("input['", ns("plot_type_advanced"), "'] == 'umap_viability'"),
                 selectizeInput(ns("umap_drug"), "Drug",
                                choices = NULL, selected = NULL, width = "100%",
                                options = list(maxItems = 1, placeholder = "Select a drug"))
               ),
               conditionalPanel(
-                condition = paste0("input['", ns("plot_type_advanced"), "'] == 'umap_gene' || input['", ns("plot_type_advanced"), "'] == 'umap_killing'"),
+                condition = paste0("input['", ns("plot_type_advanced"), "'] == 'umap_gene' || input['", ns("plot_type_advanced"), "'] == 'umap_viability'"),
                 actionButton(ns("generate_advanced"), "Generate Spatial Plot", width = "100%",
                              class = "btn-primary btn-sm", icon = icon("wand-magic-sparkles"))
               )
@@ -249,17 +249,17 @@ mod_visualize_server <- function(id, shared, main_session) {
       boxplot = c("patient_pred", "user_response"),
       model_perf = c("models"),
       umap_gene = c("predictions", "user_expr"),
-      umap_killing = c("predictions")
+      umap_viability = c("predictions")
     )
 
     plot_labels <- list(
       clone_dist = "Clone Distribution",
-      clone_kill = "Clone Killing Lollipop",
+      clone_kill = "Clone Viability Lollipop",
       roc = "ROC Curve",
       boxplot = "Response Boxplot",
       model_perf = "Model Performance",
       umap_gene = "Gene Expression",
-      umap_killing = "Drug Killing"
+      umap_viability = "Drug Viability"
     )
     # For display, prefix with method label
     spatial_plot_label <- function(pt) {
@@ -345,18 +345,18 @@ mod_visualize_server <- function(id, shared, main_session) {
           },
 
           "clone_kill" = {
-            # Build clone_killing data frame: patient, clone_id, comb_killing, weights
+            # Build clone_viability data frame: patient, clone_id, comb_viability, weights
             clone_data <- shared$user_clones
             pred_mat <- shared$predictions
             drug <- if (nchar(input$drug_name_common) > 0) input$drug_name_common else colnames(pred_mat)[1]
 
-            # Use clone_killing_template from prepared_data if available (most reliable)
-            if (!is.null(shared$prepared_data$clone_killing_template)) {
-              tmpl <- shared$prepared_data$clone_killing_template
-              clone_killing_df <- data.frame(
+            # Use clone_viability_template from prepared_data if available (most reliable)
+            if (!is.null(shared$prepared_data$clone_viability_template)) {
+              tmpl <- shared$prepared_data$clone_viability_template
+              clone_viability_df <- data.frame(
                 patient = tmpl$patient,
                 clone_id = tmpl$clone_id,
-                comb_killing = pred_mat[rownames(pred_mat), drug],
+                comb_viability = pred_mat[rownames(pred_mat), drug],
                 stringsAsFactors = FALSE
               )
             } else {
@@ -377,22 +377,22 @@ mod_visualize_server <- function(id, shared, main_session) {
                 data.frame(
                   patient = p,
                   clone_id = pred_clone_ids[pred_rows],
-                  comb_killing = pred_mat[pred_rows, drug],
+                  comb_viability = pred_mat[pred_rows, drug],
                   weights = sapply(pred_clone_ids[pred_rows], function(cl) sum(clone_data$clone_id == cl) / n_p_cells),
                   stringsAsFactors = FALSE
                 )
               })
-              clone_killing_df <- do.call(rbind, clone_kill_list)
+              clone_viability_df <- do.call(rbind, clone_kill_list)
             }
-            if (is.null(clone_killing_df) || nrow(clone_killing_df) == 0) {
+            if (is.null(clone_viability_df) || nrow(clone_viability_df) == 0) {
               stop("No matching clones between prediction matrix and clone annotation.")
             }
             if (!is.null(shared$user_response)) {
-              clone_killing_df$response <- shared$user_response$response[
-                match(clone_killing_df$patient, shared$user_response$patient)
+              clone_viability_df$response <- shared$user_response$response[
+                match(clone_viability_df$patient, shared$user_response$patient)
               ]
             }
-            p_result <- PERCEPTIONx::plot_clone_killing(clone_killing_df, killing_var = "comb_killing",
+            p_result <- PERCEPTIONx::plot_clone_viability(clone_viability_df, viability_var = "comb_viability",
                                           weights_var = "weights", response_var = "response",
                                           drug = drug)
             p_result
@@ -424,7 +424,7 @@ mod_visualize_server <- function(id, shared, main_session) {
             response_vec <- ifelse(tolower(response_vec) %in% c("responder", "r"), "R", "NR")
             exp_vs_pred <- data.frame(
               response = factor(response_vec, levels = c("R", "NR")),
-              predicted_killing = pp[[drug]],
+              predicted_viability = pp[[drug]],
               stringsAsFactors = FALSE
             )
             # plot_response_boxplot has no 'title' parameter — use ggplot2::labs() after
@@ -524,7 +524,7 @@ mod_visualize_server <- function(id, shared, main_session) {
             }
           },
 
-          "umap_killing" = {
+          "umap_viability" = {
             pred_mat <- shared$predictions
             if (is.null(pred_mat)) {
               showNotification("No clone-level predictions found. Run predictions first.", type = "warning")
@@ -533,19 +533,19 @@ mod_visualize_server <- function(id, shared, main_session) {
               drug <- if (!is.null(input$umap_drug) && nchar(input$umap_drug) > 0) input$umap_drug else colnames(pred_mat)[1]
 
               # Build Patient@@CloneID key for each cell to look up its
-              # clone-level killing value (correct per-patient-per-clone)
+              # clone-level viability value (correct per-patient-per-clone)
               cell_keys <- PERCEPTIONx::build_clone_key(clone_data$patient, clone_data$clone_id)
               pred_keys <- rownames(pred_mat)
-              cell_killing <- setNames(pred_mat[match(cell_keys, pred_keys), drug],
+              cell_viability <- setNames(pred_mat[match(cell_keys, pred_keys), drug],
                                        clone_data$cell_id)
 
-              kill_common <- intersect(names(cell_killing), umap_coords$cell_id)
-              kill_common <- kill_common[!is.na(cell_killing[kill_common])]
+              kill_common <- intersect(names(cell_viability), umap_coords$cell_id)
+              kill_common <- kill_common[!is.na(cell_viability[kill_common])]
               if (length(kill_common) == 0) {
                 showNotification(paste0("No matching cells between ", reduction_label(), " coordinates and prediction data."), type = "error")
                 NULL
               } else {
-                raw_vals <- cell_killing[kill_common]
+                raw_vals <- cell_viability[kill_common]
                 scaled_vals <- safe_range01(raw_vals)
                 xy <- get_embedding_xy(umap_coords, kill_common)
                 # Defensive: ensure all columns have the same length
@@ -554,11 +554,11 @@ mod_visualize_server <- function(id, shared, main_session) {
                 umap_data <- data.frame(
                   X = xy$X,
                   Y = xy$Y,
-                  killing_scaled = scaled_vals,
+                  viability_scaled = scaled_vals,
                   row.names = kill_common
                 )
-                PERCEPTIONx::plot_tsne_response(umap_data, color_var = "killing_scaled",
-                                                title = drug, color_label = "Predicted Killing",
+                PERCEPTIONx::plot_tsne_response(umap_data, color_var = "viability_scaled",
+                                                title = drug, color_label = "Predicted Viability",
                                                 palette = "viridis", base_size = 11)
               }
             }
@@ -668,7 +668,7 @@ mod_visualize_server <- function(id, shared, main_session) {
       pt <- current_plot_type()
       if (is.null(pt)) return(NULL)
       # Spatial plots get method prefix
-      label <- if (pt %in% c("umap_gene", "umap_killing")) spatial_plot_label(pt) else plot_labels[[pt]]
+      label <- if (pt %in% c("umap_gene", "umap_viability")) spatial_plot_label(pt) else plot_labels[[pt]]
       tags$span(class = "viz-info-inline",
         strong(label),
         tags$span(class = "text-muted", style = "margin-left: 0.5rem; font-size: 0.78rem;",
@@ -685,18 +685,18 @@ mod_visualize_server <- function(id, shared, main_session) {
         requires = "Clone Annotation (from Seurat clustering)"
       ),
       clone_kill = list(
-        title = "Clone Killing Lollipop",
-        desc = "Displays predicted drug killing scores for each clone within each patient. Lollipop height indicates sensitivity — taller = more sensitive to the drug. Use this to identify which subclones are most affected by treatment.",
+        title = "Clone Viability Lollipop",
+        desc = "Displays predicted drug viability scores for each clone within each patient. Taller = higher viability = more resistant; shorter = lower viability = more sensitive. Use this to identify which subclones are most affected by treatment.",
         requires = "Clone-level Predictions + Clone Annotation"
       ),
       roc = list(
         title = "ROC Curve",
-        desc = "Receiver Operating Characteristic curve evaluating how well the predicted killing score discriminates Responders (R) from Non-Responders (NR). AUC closer to 1.0 indicates better prediction accuracy.",
+        desc = "Receiver Operating Characteristic curve evaluating how well the predicted viability score discriminates Responders (R) from Non-Responders (NR). AUC closer to 1.0 indicates better prediction accuracy.",
         requires = "Patient-level Predictions + Clinical Response"
       ),
       boxplot = list(
         title = "Response Boxplot",
-        desc = "Compares predicted killing scores between Responders and Non-Responders. The p-value (Wilcoxon test) indicates whether the difference is statistically significant. A lower p-value suggests the model captures clinically meaningful differences.",
+        desc = "Compares predicted viability scores between Responders and Non-Responders. The p-value (Wilcoxon test) indicates whether the difference is statistically significant. A lower p-value suggests the model captures clinically meaningful differences.",
         requires = "Patient-level Predictions + Clinical Response"
       ),
       model_perf = list(
@@ -709,9 +709,9 @@ mod_visualize_server <- function(id, shared, main_session) {
         desc = "Shows the expression level of a selected gene across all single cells in the 2D embedding space. Color gradient indicates expression intensity — brighter colors = higher expression. Use this to examine how a gene's expression pattern relates to the transcriptional subclone landscape.",
         requires = "Clone-level Predictions + Expression Matrix + 2D embedding coordinates"
       ),
-      umap_killing = list(
-        title = "Drug Killing",
-        desc = "Shows the predicted drug killing score across all single cells in the 2D embedding space. Color gradient indicates sensitivity — red = sensitive, blue = resistant. Use this to identify which regions of the embedding (i.e., which subclones) are most affected by a given drug.",
+      umap_viability = list(
+        title = "Drug Viability",
+        desc = "Shows the predicted drug viability score across all single cells in the 2D embedding space. Color gradient indicates viability — brighter = higher viability (more resistant), darker = lower viability (more sensitive). Use this to identify which regions of the embedding (i.e., which subclones) are most affected by a given drug.",
         requires = "Clone-level Predictions + 2D embedding coordinates (auto-generated by Seurat)"
       )
     )
@@ -727,7 +727,7 @@ mod_visualize_server <- function(id, shared, main_session) {
       if (is.null(info)) return(NULL)
 
       # Prefix title for spatial plots
-      display_title <- if (pt %in% c("umap_gene", "umap_killing"))
+      display_title <- if (pt %in% c("umap_gene", "umap_viability"))
         paste(reduction_label(), info$title) else info$title
 
       div(class = "card viz-explanation-card",
