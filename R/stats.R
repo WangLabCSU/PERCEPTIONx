@@ -24,12 +24,13 @@ NULL
 #' @export
 hypergeometric_test_for_twolists <- function(test_list, base_list, global, lower.tail = FALSE) {
   base_in_global <- global[na.omit(match(base_list, global))]
-  overlap <- test_list[!is.na(match(test_list, base_in_global))]
+  test_in_global <- test_list[!is.na(match(test_list, global))]
+  overlap <- test_in_global[!is.na(match(test_in_global, base_in_global))]
   phyper(
     q = length(overlap) - 1,
     m = length(base_in_global),
     n = length(global) - length(base_in_global),
-    k = length(test_list),
+    k = length(test_in_global),
     lower.tail = lower.tail
   )
 }

@@ -8,6 +8,38 @@
 NULL
 
 
+# Normalize a performance object to a c(pvalue, correlation) numeric vector.
+#
+# Accepts every shape produced across the package:
+#   * named vector c(p.value = ..., estimate.cor = ...)  (train_models())
+#   * data.frame with columns estimate.cor / p.value     (Shiny demo models)
+#   * positional c(pvalue, correlation)                  (fallback)
+# Returns c(pvalue = NA, correlation = NA) when nothing usable is found.
+perf_to_vector <- function(perf) {
+  if (is.null(perf)) return(c(pvalue = NA, correlation = NA))
+
+  if (is.data.frame(perf)) {
+    cor <- if ("estimate.cor" %in% names(perf)) perf$estimate.cor[1] else
+           if ("correlation" %in% names(perf))  perf$correlation[1]  else NA
+    p   <- if ("p.value" %in% names(perf)) perf$p.value[1] else NA
+    return(c(pvalue = unname(p), correlation = unname(cor)))
+  }
+
+  if (is.numeric(perf) && !is.null(names(perf))) {
+    cor <- if ("estimate.cor" %in% names(perf)) perf["estimate.cor"] else
+           if ("correlation" %in% names(perf))  perf["correlation"]  else NA
+    p   <- if ("p.value" %in% names(perf)) perf["p.value"] else NA
+    return(c(pvalue = unname(p), correlation = unname(cor)))
+  }
+
+  if (is.numeric(perf) && length(perf) >= 2) {
+    return(c(pvalue = as.numeric(perf[1]), correlation = as.numeric(perf[2])))
+  }
+
+  c(pvalue = NA, correlation = NA)
+}
+
+
 #' Compare performance of multiple trained models
 #'
 #' Computes and summarizes performance metrics across multiple drug models.
@@ -19,7 +51,7 @@ NULL
 #'
 #' @return A list containing:
 #'   \describe{
-#'     \item{perf_cv}{Cross-validation performance (correlation, p-value) for each drug}
+#'     \item{perf_cv}{Cross-validation performance (|correlation| = sqrt(R²); p-value not available) for each drug}
 #'     \item{perf_bulk}{Bulk test set performance for each drug}
 #'     \item{perf_pseudo_bulk}{Pseudo-bulk performance for each drug}
 #'     \item{perf_scRNA}{Single-cell RNA performance for each drug}
@@ -44,35 +76,24 @@ compare_performance <- function(model_list, threshold = 0.3, verbose = TRUE) {
   # R package uses named elements, not positional indices like original code
 
   perf_cv <- do.call(rbind, lapply(model_list, function(x) {
-    if (is.null(x) || length(x) == 1 && is.na(x)) {
-      return(c(NA, NA))
-    }
-    cv_val <- x$model_performance_during_cv
-    if (length(cv_val) == 1) {
-      return(c(NA, cv_val))
-    }
-    cv_val
+    if (is.null(x) || (length(x) == 1 && is.na(x))) return(c(pvalue = NA, correlation = NA))
+    # CV stores sqrt(R²) = |correlation| only (no p-value available).
+    c(pvalue = NA, correlation = as.numeric(x$model_performance_during_cv)[1])
   }))
 
   perf_bulk <- do.call(rbind, lapply(model_list, function(x) {
-    if (is.null(x) || length(x) == 1 && is.na(x)) {
-      return(c(NA, NA))
-    }
-    x$performance_in_bulk
+    if (is.null(x) || (length(x) == 1 && is.na(x))) return(c(pvalue = NA, correlation = NA))
+    perf_to_vector(x$performance_in_bulk)
   }))
 
   perf_pseudo_bulk <- do.call(rbind, lapply(model_list, function(x) {
-    if (is.null(x) || length(x) == 1 && is.na(x)) {
-      return(c(NA, NA))
-    }
-    x$performance_in_pseudo_bulk
+    if (is.null(x) || (length(x) == 1 && is.na(x))) return(c(pvalue = NA, correlation = NA))
+    perf_to_vector(x$performance_in_pseudo_bulk)
   }))
 
   perf_scRNA <- do.call(rbind, lapply(model_list, function(x) {
-    if (is.null(x) || length(x) == 1 && is.na(x)) {
-      return(c(NA, NA))
-    }
-    x$performance_in_scRNA
+    if (is.null(x) || (length(x) == 1 && is.na(x))) return(c(pvalue = NA, correlation = NA))
+    perf_to_vector(x$performance_in_scRNA)
   }))
 
   # Set column names and row names
@@ -103,7 +124,7 @@ compare_performance <- function(model_list, threshold = 0.3, verbose = TRUE) {
       sum(x[, "correlation"] > threshold, na.rm = TRUE)
     })
     message("\nModels passing threshold:")
-    message("  CV:            ", passing_counts["perf_cv"], " / ", length(model_list))
+    message("  CV (|cor|):    ", passing_counts["perf_cv"], " / ", length(model_list))
     message("  Bulk test:     ", passing_counts["perf_bulk"], " / ", length(model_list))
     message("  Pseudo-bulk:   ", passing_counts["perf_pseudo_bulk"], " / ", length(model_list))
     message("  scRNA:         ", passing_counts["perf_scRNA"], " / ", length(model_list))
@@ -113,7 +134,7 @@ compare_performance <- function(model_list, threshold = 0.3, verbose = TRUE) {
       mean(x[, "correlation"], na.rm = TRUE)
     })
     message("\nMean correlations:")
-    message("  CV:            ", round(mean_corrs["perf_cv"], 3))
+    message("  CV (|cor|):    ", round(mean_corrs["perf_cv"], 3))
     message("  Bulk test:     ", round(mean_corrs["perf_bulk"], 3))
     message("  Pseudo-bulk:   ", round(mean_corrs["perf_pseudo_bulk"], 3))
     message("  scRNA:         ", round(mean_corrs["perf_scRNA"], 3))
@@ -247,15 +268,20 @@ get_significant_models <- function(model_list,
                          "pseudo_bulk" = "performance_in_pseudo_bulk",
                          "cv" = "model_performance_during_cv")
 
-  # Filter models
-  significant_models <- model_list[sapply(model_list, function(x) {
-    if (is.null(x) || length(x) == 1 && is.na(x)) {
-      return(FALSE)
+  # Filter models. "cv" stores sqrt(R²)=|correlation| with no p-value; the other
+  # datasets carry a named vector or data.frame with (p-value, correlation).
+  significant_models <- model_list[vapply(model_list, function(x) {
+    if (is.null(x) || (length(x) == 1 && is.na(x))) return(FALSE)
+
+    if (dataset == "cv") {
+      cv <- x$model_performance_during_cv
+      return(is.numeric(cv) && length(cv) >= 1 && isTRUE(cv[1] > min_correlation))
     }
-    perf <- x[[perf_element]]
-    # perf[1] is p-value, perf[2] is correlation
-    perf[2] > min_correlation && perf[1] < max_pvalue
-  })]
+
+    perf <- perf_to_vector(x[[perf_element]])
+    isTRUE(perf[["correlation"]] > min_correlation) &&
+      isTRUE(perf[["pvalue"]] < max_pvalue)
+  }, logical(1))]
 
   message("Found ", length(significant_models), " models meeting criteria (cor > ",
           min_correlation, ", p < ", max_pvalue, " in ", dataset, ")")
@@ -271,7 +297,7 @@ get_significant_models <- function(model_list,
 #' for evaluating model performance on pseudo-bulk data, not for prediction.
 #'
 #' @param x Integer. Index of the patient. Default = 1.
-#' @param comb_killing_df Data frame. Must have columns 'patient' and 'clone_id'.
+#' @param comb_killing_df Data frame. Retained for backward compatibility; no longer used (clone ids are read from the expression column names).
 #' @param Clone_Counts_per_patients Data frame. Patient-clone abundance data.
 #' @param clone_Level_z_expression_df Matrix. Clone-level expression data
 #'        with columns named by patient-clone identifiers.
@@ -284,26 +310,25 @@ each_patient_pseudo_bulk <- function(x = 1,
                                      Clone_Counts_per_patients,
                                      clone_Level_z_expression_df) {
 
-  total_cells <- sum(Clone_Counts_per_patients[x, comb_killing_df[
-    comb_killing_df$patient == Clone_Counts_per_patients$patients[x], ]$clone_id])
-  clone_weights <- unlist(Clone_Counts_per_patients[x, comb_killing_df[
-    comb_killing_df$patient == Clone_Counts_per_patients$patients[x], ]$clone_id] / total_cells)
-  clone_expression <- data.frame(
-    clone_Level_z_expression_df[, grep(Clone_Counts_per_patients$patients[x],
-                                       colnames(clone_Level_z_expression_df))])
+  patient <- Clone_Counts_per_patients$patients[x]
 
-  if (ncol(clone_expression) > 1) {
-    # Weighted average across clones. NOTE: assumes clone_weights are ordered to
-    # match the columns selected by grep() below (the original code's assumption).
-    pseudo_bulk <- as.numeric(
-      clone_Level_z_expression_df[
-        , grep(Clone_Counts_per_patients$patients[x],
-               colnames(clone_Level_z_expression_df)), drop = FALSE] %*% clone_weights
-    )
+  # Expression columns are named "Patient@@Clone". Select this patient's clones
+  # and keep clone IDs in the SAME order as the columns, so weights align with
+  # columns (the previous code ordered weights by comb_killing_df instead).
+  # `comb_killing_df` is retained for backward compatibility but not needed here.
+  parsed <- parse_clone_keys(colnames(clone_Level_z_expression_df))
+  cols <- which(parsed$patient == patient)
+  col_clone_ids <- parsed$clone_id[cols]
+
+  total_cells <- sum(unlist(Clone_Counts_per_patients[x, col_clone_ids]))
+  clone_weights <- unlist(Clone_Counts_per_patients[x, col_clone_ids] / total_cells)
+
+  sub <- clone_Level_z_expression_df[, cols, drop = FALSE]
+
+  if (ncol(sub) > 1) {
+    pseudo_bulk <- drop(sub %*% clone_weights)
   } else {
-    pseudo_bulk <- clone_Level_z_expression_df[
-      , grep(Clone_Counts_per_patients$patients[x],
-             colnames(clone_Level_z_expression_df))]
+    pseudo_bulk <- sub[, 1]
   }
   pseudo_bulk
 }

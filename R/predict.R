@@ -105,6 +105,11 @@ predict_drugs <- function(model_list, expr) {
 #' @keywords internal
 viability_from_model_internal <- function(drug_name, model, dataset) {
 
+  if (is.null(model$coefnames) || length(model$coefnames) == 0) {
+    stop("Model for drug '", drug_name, "' has no feature names ($coefnames is NULL/empty). ",
+         "Cannot subset the expression matrix for prediction.")
+  }
+
   # Step 1: Try exact match of model features to expression matrix rows
   feature_match <- match(model$coefnames, rownames(dataset))
 
@@ -318,7 +323,8 @@ predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
         "weighted_average" = apply(drug_matrix, 2, function(col) sum(col * clone_weights)),
         "min" = apply(drug_matrix, 2, function(col) min(col)),
         "max" = apply(drug_matrix, 2, function(col) max(col)),
-        "weighted_max" = apply(drug_matrix, 2, function(col) max(col * clone_weights))
+        "weighted_max" = apply(drug_matrix, 2, function(col) max(col * clone_weights)),
+        "average" = apply(drug_matrix, 2, function(col) mean(col))
       )
       return(result)
     }
