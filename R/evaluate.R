@@ -293,9 +293,13 @@ each_patient_pseudo_bulk <- function(x = 1,
                                        colnames(clone_Level_z_expression_df))])
 
   if (ncol(clone_expression) > 1) {
-    pseudo_bulk <- rowMeans(clone_Level_z_expression_df[
-      , grep(Clone_Counts_per_patients$patients[x],
-             colnames(clone_Level_z_expression_df))] * clone_weights)
+    # Weighted average across clones. NOTE: assumes clone_weights are ordered to
+    # match the columns selected by grep() below (the original code's assumption).
+    pseudo_bulk <- as.numeric(
+      clone_Level_z_expression_df[
+        , grep(Clone_Counts_per_patients$patients[x],
+               colnames(clone_Level_z_expression_df)), drop = FALSE] %*% clone_weights
+    )
   } else {
     pseudo_bulk <- clone_Level_z_expression_df[
       , grep(Clone_Counts_per_patients$patients[x],

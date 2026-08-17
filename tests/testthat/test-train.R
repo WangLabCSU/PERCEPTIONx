@@ -44,10 +44,10 @@ test_that("feature_ranking_bulk returns ranked features", {
     infunc_drugName = "erlotinib",
     infunc_cancerType = "PanCan",
     exclude_cancer = "PanCan",
-    GOI = NULL
+    infunc_GOI = head(rownames(DepMap$expression_rnorm), 50)
   )
 
-  expect_s3_class(result, "data.frame")
+  expect_true(is.matrix(result))
   expect_true(nrow(result) > 0)
 })
 
@@ -55,8 +55,8 @@ test_that("get_response_matrix returns drug response data", {
   skip_if_not(exists("DepMap"), "DepMap data not loaded")
 
   resp <- get_response_matrix("erlotinib")
-  expect_type(resp, "matrix")
-  expect_true(nrow(resp) > 0)
+  expect_type(resp, "double")
+  expect_true(length(resp) > 0)
 })
 
 test_that("get_cellLine_list returns train/test split", {
