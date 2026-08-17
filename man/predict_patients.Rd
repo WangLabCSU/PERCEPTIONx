@@ -18,7 +18,7 @@ and drugs as columns. Row names should match clone column names from
 \code{prepare_data()}.}
 
 \item{prepared_data}{List from \code{prepare_data()}, containing
-\code{$clone_killing_template} and \code{$clone_counts}. Alternatively,
+\code{$clone_viability_template} and \code{$clone_counts}. Alternatively,
 you can pass \code{clone_counts} directly as a data frame (legacy mode).}
 
 \item{clone_counts}{Optional. Data frame with patients as rows and clone IDs
@@ -27,11 +27,11 @@ as columns. Only needed if \code{prepared_data} is not a list from
 
 \item{mode}{Character. Aggregation method:
 \describe{
-\item{"weighted_max"}{Maximum of weighted killing across clones. Default.}
-\item{"max"}{Maximum killing across clones (most resistant clone)}
-\item{"weighted_average"}{Weighted average of clone killing by clone abundance}
-\item{"min"}{Minimum killing across clones (most sensitive clone)}
-\item{"average"}{Average of clone killing}
+\item{"weighted_max"}{Maximum of weighted viability across clones. Default.}
+\item{"max"}{Maximum viability across clones (most resistant clone)}
+\item{"weighted_average"}{Weighted average of clone viability by clone abundance}
+\item{"min"}{Minimum viability across clones (most sensitive clone)}
+\item{"average"}{Average of clone viability}
 }}
 
 \item{zscore}{Logical. Whether to z-score scale drug columns across patients
@@ -39,12 +39,12 @@ before aggregation. Default = TRUE. Matches the original PERCEPTION pipeline.}
 }
 \value{
 A data frame with patients as rows and drugs as columns,
-containing aggregated killing scores.
+containing aggregated viability scores.
 }
 \description{
 Aggregates clone-level drug response predictions to patient-level using
 various weighting strategies based on clone abundance. This function merges
-the former each_patient_killing (single drug) and each_patient_killingv2
+the former each_patient_viability (single drug) and each_patient_viabilityv2
 (multi-drug) into a unified interface.
 }
 \examples{
@@ -54,13 +54,13 @@ the former each_patient_killing (single drug) and each_patient_killingv2
   clone_pred <- predict_drugs(models, prepared$clone_expression)
   patient_pred <- predict_patients(clone_pred, prepared)
 
-  # Legacy workflow: manually build clone_killing_matrix
-  clone_killing_df <- data.frame(
+  # Legacy workflow: manually build clone_viability_matrix
+  clone_viability_df <- data.frame(
     patient = patient_ids,
     clone_id = clone_ids,
     clone_pred
   )
-  patient_pred <- predict_patients(clone_killing_df, clone_counts)
+  patient_pred <- predict_patients(clone_viability_df, clone_counts)
 }
 
 }

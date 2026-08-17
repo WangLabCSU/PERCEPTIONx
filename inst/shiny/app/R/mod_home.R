@@ -340,8 +340,8 @@ mod_home_server <- function(id, shared, main_session) {
           }
 
           shared$models <- list(
-            abemaciclib = make_drug_model("abemaciclib", 101, abemaciclib_markers, direction = +1),
-            erlotinib   = make_drug_model("erlotinib",   202, erlotinib_markers,   direction = -1)
+            abemaciclib = make_drug_model("abemaciclib", 101, abemaciclib_markers, direction = -1),
+            erlotinib   = make_drug_model("erlotinib",   202, erlotinib_markers,   direction = +1)
           )
           shared$model_cache <- shared$models
           shared$model_active <- list(abemaciclib = TRUE, erlotinib = TRUE)

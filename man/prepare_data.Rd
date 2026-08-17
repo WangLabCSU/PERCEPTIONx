@@ -83,7 +83,7 @@ A named list with:
 \code{predict_patients()}.}
 \item{cell_clone_map}{Data frame. Cell-to-clone mapping with columns
 cell_id, clone_id, patient, dim_1, dim_2.}
-\item{clone_killing_df_template}{Data frame. Template with patient and clone_id
+\item{clone_viability_df_template}{Data frame. Template with patient and clone_id
 columns, ready to merge with \code{predict_drugs()} output.}
 \item{umap_coords}{Data frame. 2D embedding coordinates per cell
 (cell_id, dim_1, dim_2). Ready for \code{plot_tsne_response()}.}

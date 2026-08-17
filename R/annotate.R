@@ -193,7 +193,7 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 #'         \code{predict_patients()}.}
 #'   \item{cell_clone_map}{Data frame. Cell-to-clone mapping with columns
 #'         cell_id, clone_id, patient, dim_1, dim_2.}
-#'   \item{clone_killing_df_template}{Data frame. Template with patient and clone_id
+#'   \item{clone_viability_df_template}{Data frame. Template with patient and clone_id
 #'         columns, ready to merge with \code{predict_drugs()} output.}
 #'   \item{umap_coords}{Data frame. 2D embedding coordinates per cell
 #'         (cell_id, dim_1, dim_2). Ready for \code{plot_tsne_response()}.}
@@ -412,9 +412,9 @@ prepare_data <- function(method = c("umap", "tsne"),
     patient_ids = cell_clone_map$patient
   )
 
-  # Build clone_killing_df template from cell_clone_map
+  # Build clone_viability_df template from cell_clone_map
   # Row order matches clone_expression_rnorm column order
-  clone_killing_template <- parse_clone_keys(colnames(clone_expression_rnorm))
+  clone_viability_template <- parse_clone_keys(colnames(clone_expression_rnorm))
 
   message("\n=== Preparation complete ===")
   message("  Genes: ", nrow(clone_expression_rnorm))
@@ -425,7 +425,7 @@ prepare_data <- function(method = c("umap", "tsne"),
     clone_expression_rnorm = clone_expression_rnorm,
     clone_counts = clone_counts,
     cell_clone_map = cell_clone_map,
-    clone_killing_template = clone_killing_template,
+    clone_viability_template = clone_viability_template,
     umap_coords = cell_clone_map[, c("cell_id", "dim_1", "dim_2")],
     reduction_method = method
   ))

@@ -125,7 +125,7 @@ mod_help_ui <- function(id) {
               div(class = "help-data-icon", style = "color: var(--success);", icon("star")),
               strong("weighted_max"),
               tags$span(class = "status-badge loaded", "Recommended"),
-              p("Weighted average of the N most resistant clones, where N is determined by clone frequency.")
+              p("Weighted maximum across clones, emphasizing the most resistant clones (recommended).")
             ),
             div(class = "help-data-card",
               div(class = "help-data-icon", style = "color: var(--primary);", icon("balance-scale")),
@@ -135,12 +135,12 @@ mod_help_ui <- function(id) {
             div(class = "help-data-card",
               div(class = "help-data-icon", style = "color: var(--error);", icon("arrow-down")),
               strong("min"),
-              p("Takes the most resistant clone's prediction (pessimistic).")
+              p("Takes the most sensitive clone's prediction (lowest viability, pessimistic).")
             ),
             div(class = "help-data-card",
               div(class = "help-data-icon", style = "color: var(--success-light);", icon("arrow-up")),
               strong("max"),
-              p("Takes the most sensitive clone's prediction (optimistic).")
+              p("Takes the most resistant clone's prediction (highest viability, optimistic).")
             )
           )
         ),
@@ -166,7 +166,7 @@ mod_help_ui <- function(id) {
             div(class = "help-viz-card",
               div(class = "help-viz-icon", icon("chart-line")),
               div(
-                strong("Clone Killing Lollipop"),
+                strong("Clone Viability Lollipop"),
                 p("Lollipop chart of predicted viability per clone."),
                 tags$span(class = "status-badge unloaded", "Needs: Predictions + Clones")
               )
@@ -214,8 +214,8 @@ mod_help_ui <- function(id) {
             div(class = "help-viz-card",
               div(class = "help-viz-icon", icon("arrows-left-right")),
               div(
-                strong("Spatial Drug Killing"),
-                p("2D embedding (UMAP/t-SNE) colored by predicted drug killing."),
+                strong("Spatial Drug Viability"),
+                p("2D embedding (UMAP/t-SNE) colored by predicted drug viability."),
                 tags$span(class = "status-badge unloaded", "Needs: Predictions + Embedding")
               )
             )

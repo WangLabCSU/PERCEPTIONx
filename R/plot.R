@@ -87,11 +87,11 @@ sequential_colors <- c("#440154", "#3B528B", "#21908C", "#5DC863", "#FDE725")
 #' either biomarker expression or predicted drug sensitivity.
 #'
 #' @param tsne_data Data frame with columns: X, Y (coordinates), and optional
-#'        biomarker/killing columns.
+#'        biomarker/viability columns.
 #' @param color_var Character. Name of the column to use for color mapping.
-#'        Default = "killing_scaled".
+#'        Default = "viability_scaled".
 #' @param title Character. Plot title. Default = NULL.
-#' @param color_label Character. Legend label for color. Default = "Predicted Killing".
+#' @param color_label Character. Legend label for color. Default = "Predicted Viability".
 #' @param point_size Numeric. Point size. If NULL (default), auto-adapts to
 #'        the number of cells to avoid overplotting.
 #' @param colors Character vector. Custom gradient colors (low, mid, high)
@@ -109,20 +109,20 @@ sequential_colors <- c("#440154", "#3B528B", "#21908C", "#5DC863", "#FDE725")
 #'
 #' @examples
 #' \dontrun{
-#'   # After predicting killing for single cells
+#'   # After predicting viability for single cells
 #'   tsne_data <- data.frame(
 #'     X = lung_tSNE$X,
 #'     Y = lung_tSNE$Y,
-#'     killing_scaled = range01(rank(-viability_pred))
+#'     viability_scaled = range01(rank(-viability_pred))
 #'   )
-#'   plot_tsne_response(tsne_data, color_var = "killing_scaled")
+#'   plot_tsne_response(tsne_data, color_var = "viability_scaled")
 #' }
 #'
 #' @export
 plot_tsne_response <- function(tsne_data,
-                               color_var = "killing_scaled",
+                               color_var = "viability_scaled",
                                title = NULL,
-                               color_label = "Predicted Killing",
+                               color_label = "Predicted Viability",
                                point_size = NULL,
                                colors = NULL,
                                palette = c("viridis", "diverging"),
@@ -321,10 +321,10 @@ plot_clone_distribution <- function(clone_distribution,
 }
 
 # ---------------------------------------------------------------------------
-# Plot: Clone-level killing (lollipop)
+# Plot: Clone-level viability (lollipop)
 # ---------------------------------------------------------------------------
 
-#' Plot clone-level killing (lollipop plot)
+#' Plot clone-level viability (lollipop plot)
 #'
 #' Visualizes predicted drug sensitivity for each clone within patients.
 #' Each clone is represented as a point with a stem (lollipop style).
@@ -336,8 +336,8 @@ plot_clone_distribution <- function(clone_distribution,
 #'   \item > 12 patients: \code{facet_wrap} grid, one compact panel per patient.
 #' }
 #'
-#' @param clone_killing Data frame with columns: patient, clone_id, killing (or drug-specific).
-#' @param killing_var Character. Column name for killing values. Default = "comb_killing".
+#' @param clone_viability Data frame with columns: patient, clone_id, viability (or drug-specific).
+#' @param viability_var Character. Column name for viability values. Default = "comb_viability".
 #' @param weights_var Character. Optional column name for clone weights (point size).
 #'        Default = NULL.
 #' @param response_var Character. Optional column for response annotation.
@@ -346,10 +346,10 @@ plot_clone_distribution <- function(clone_distribution,
 #' @param base_size Numeric. Base font size. Default = 11.
 #' @param y_limits Numeric vector. Y-axis limits. Default = c(-3, 1.2).
 #' @param viridis_scale Logical. If TRUE (default), uses the standard PERCEPTIONx
-#'        diverging scale (blue = resistant, red = sensitive) centred at 0.
+#'        diverging scale (blue = sensitive, red = resistant) centred at 0.
 #'        If FALSE, uses a plain viridis sequential scale.
 #' @param tooltip Logical. If TRUE (default) and \pkg{ggiraph} is installed,
-#'        points get hover tooltips (clone + killing + proportion).
+#'        points get hover tooltips (clone + viability + proportion).
 #' @param tooltip_col Character. Optional existing column used as the tooltip
 #'        text. Default = NULL (auto-builds a rich tooltip).
 #'
@@ -360,14 +360,14 @@ plot_clone_distribution <- function(clone_distribution,
 #'   clone_kill <- data.frame(
 #'     patient = c("P1", "P1", "P2", "P2"),
 #'     clone_id = c("c1", "c2", "c1", "c2"),
-#'     comb_killing = c(-0.5, 0.8, -1.2, 0.3)
+#'     comb_viability = c(-0.5, 0.8, -1.2, 0.3)
 #'   )
-#'   plot_clone_killing(clone_kill, killing_var = "comb_killing")
+#'   plot_clone_viability(clone_kill, viability_var = "comb_viability")
 #' }
 #'
 #' @export
-plot_clone_killing <- function(clone_killing,
-                               killing_var = "comb_killing",
+plot_clone_viability <- function(clone_viability,
+                               viability_var = "comb_viability",
                                weights_var = NULL,
                                response_var = NULL,
                                drug = NULL,
@@ -377,101 +377,101 @@ plot_clone_killing <- function(clone_killing,
                                tooltip = TRUE,
                                tooltip_col = NULL) {
 
-  if (!all(c("patient", "clone_id", killing_var) %in% colnames(clone_killing))) {
-    stop("clone_killing must contain columns: patient, clone_id, and ", killing_var)
+  if (!all(c("patient", "clone_id", viability_var) %in% colnames(clone_viability))) {
+    stop("clone_viability must contain columns: patient, clone_id, and ", viability_var)
   }
 
   # --- Prepare facet labels ---
   facet_col <- "patient"
-  if (!is.null(response_var) && response_var %in% colnames(clone_killing)) {
-    resp_map <- clone_killing[!duplicated(clone_killing$patient), ]
+  if (!is.null(response_var) && response_var %in% colnames(clone_viability)) {
+    resp_map <- clone_viability[!duplicated(clone_viability$patient), ]
     rownames(resp_map) <- resp_map$patient
     # Order: Responders first
-    patient_order <- unique(clone_killing$patient[
-      order(clone_killing[[response_var]], decreasing = TRUE)
+    patient_order <- unique(clone_viability$patient[
+      order(clone_viability[[response_var]], decreasing = TRUE)
     ])
-    clone_killing$patient <- factor(clone_killing$patient, levels = patient_order)
-    clone_killing$facet_label <- vapply(as.character(clone_killing$patient), function(pat) {
+    clone_viability$patient <- factor(clone_viability$patient, levels = patient_order)
+    clone_viability$facet_label <- vapply(as.character(clone_viability$patient), function(pat) {
       rv <- as.character(resp_map[pat, response_var])
       tag <- if (toupper(rv) %in% c("R", "RESPONDER")) "R" else "NR"
       paste0(tag, " ", pat)
     }, character(1))
     # Two-line variant used by facet_wrap (top strip, no rotation)
-    clone_killing$facet_label_wrap <- vapply(as.character(clone_killing$patient), function(pat) {
+    clone_viability$facet_label_wrap <- vapply(as.character(clone_viability$patient), function(pat) {
       rv <- as.character(resp_map[pat, response_var])
       tag <- if (toupper(rv) %in% c("R", "RESPONDER")) "R" else "NR"
       paste0(tag, "\n", pat)
     }, character(1))
   } else {
-    clone_killing$facet_label <- as.character(clone_killing$patient)
-    clone_killing$facet_label_wrap <- as.character(clone_killing$patient)
+    clone_viability$facet_label <- as.character(clone_viability$patient)
+    clone_viability$facet_label_wrap <- as.character(clone_viability$patient)
   }
 
   # Preserve patient ordering via factor levels on facet_label
-  if (!is.null(response_var) && response_var %in% colnames(clone_killing)) {
-    clone_killing$facet_label <- factor(clone_killing$facet_label,
-                                        levels = unique(clone_killing$facet_label[
-                                          order(clone_killing$patient)
+  if (!is.null(response_var) && response_var %in% colnames(clone_viability)) {
+    clone_viability$facet_label <- factor(clone_viability$facet_label,
+                                        levels = unique(clone_viability$facet_label[
+                                          order(clone_viability$patient)
                                         ]))
-    clone_killing$facet_label_wrap <- factor(clone_killing$facet_label_wrap,
-                                             levels = unique(clone_killing$facet_label_wrap[
-                                               order(clone_killing$patient)
+    clone_viability$facet_label_wrap <- factor(clone_viability$facet_label_wrap,
+                                             levels = unique(clone_viability$facet_label_wrap[
+                                               order(clone_viability$patient)
                                              ]))
   }
 
   # --- Sort clones within each patient by proportion (descending) ---
-  if (!is.null(weights_var) && weights_var %in% colnames(clone_killing)) {
-    clone_killing <- clone_killing[order(clone_killing$facet_label,
-                                         -clone_killing[[weights_var]]), ]
+  if (!is.null(weights_var) && weights_var %in% colnames(clone_viability)) {
+    clone_viability <- clone_viability[order(clone_viability$facet_label,
+                                         -clone_viability[[weights_var]]), ]
   }
 
   # Build aes mapping. NOTE: `size` (clone proportion) is mapped ONLY on
   # geom_point — a global size mapping would be inherited by the line layers
   # (geom_segment/geom_hline), which triggers the ggplot2 "size for lines is
   # deprecated" warning.
-  has_weights <- !is.null(weights_var) && weights_var %in% colnames(clone_killing)
-  aes_mapping <- aes(y = .data[[killing_var]], x = clone_id,
-                     color = .data[[killing_var]])
+  has_weights <- !is.null(weights_var) && weights_var %in% colnames(clone_viability)
+  aes_mapping <- aes(y = .data[[viability_var]], x = clone_id,
+                     color = .data[[viability_var]])
 
-  # Tooltip for ggiraph interactivity (hover shows clone, killing, proportion).
+  # Tooltip for ggiraph interactivity (hover shows clone, viability, proportion).
   tt_ok <- tooltip && requireNamespace("ggiraph", quietly = TRUE)
-  if (is.null(tooltip_col) || !(tooltip_col %in% colnames(clone_killing))) {
-    clone_killing$tooltip_text <- if (has_weights) {
-      sprintf("Clone: %s\nPatient: %s\nKilling: %.2f\nProportion: %.2f",
-              clone_killing$clone_id, clone_killing$facet_label,
-              clone_killing[[killing_var]], clone_killing[[weights_var]])
+  if (is.null(tooltip_col) || !(tooltip_col %in% colnames(clone_viability))) {
+    clone_viability$tooltip_text <- if (has_weights) {
+      sprintf("Clone: %s\nPatient: %s\nViability: %.2f\nProportion: %.2f",
+              clone_viability$clone_id, clone_viability$facet_label,
+              clone_viability[[viability_var]], clone_viability[[weights_var]])
     } else {
-      sprintf("Clone: %s\nPatient: %s\nKilling: %.2f",
-              clone_killing$clone_id, clone_killing$facet_label,
-              clone_killing[[killing_var]])
+      sprintf("Clone: %s\nPatient: %s\nViability: %.2f",
+              clone_viability$clone_id, clone_viability$facet_label,
+              clone_viability[[viability_var]])
     }
   }
-  tt_col <- if (!is.null(tooltip_col) && tooltip_col %in% colnames(clone_killing)) {
+  tt_col <- if (!is.null(tooltip_col) && tooltip_col %in% colnames(clone_viability)) {
     tooltip_col
   } else {
     "tooltip_text"
   }
 
   # Adaptive Y limits
-  y_data <- clone_killing[[killing_var]]
+  y_data <- clone_viability[[viability_var]]
   y_min <- min(y_data, na.rm = TRUE)
   y_max <- max(y_data, na.rm = TRUE)
   y_bottom <- min(0, y_min)
   y_top <- y_max + (y_max - y_bottom) * 0.1
 
   # Adaptive facet layout: wrap for many patients, single-row grid otherwise
-  n_patients <- length(unique(clone_killing$facet_label))
+  n_patients <- length(unique(clone_viability$facet_label))
   wrap_mode <- n_patients > 12
 
   # hline data (one per facet) so ggplotly can locate the facet column
   facet_var <- if (wrap_mode) "facet_label_wrap" else "facet_label"
-  hline_data <- clone_killing[!duplicated(clone_killing[[facet_var]]), facet_var, drop = FALSE]
+  hline_data <- clone_viability[!duplicated(clone_viability[[facet_var]]), facet_var, drop = FALSE]
   hline_data$yintercept <- 0
 
-  p <- ggplot(clone_killing, aes_mapping) +
+  p <- ggplot(clone_viability, aes_mapping) +
     geom_hline(data = hline_data, mapping = aes(yintercept = yintercept),
                color = "grey60", linewidth = 0.3) +
-    geom_segment(aes(x = clone_id, xend = clone_id, y = 0, yend = .data[[killing_var]]),
+    geom_segment(aes(x = clone_id, xend = clone_id, y = 0, yend = .data[[viability_var]]),
                  color = "grey40", linewidth = 0.35) +
     { if (tt_ok && has_weights) ggiraph::geom_point_interactive(
         aes(size = .data[[weights_var]], tooltip = .data[[tt_col]],
@@ -491,7 +491,7 @@ plot_clone_killing <- function(clone_killing,
           legend.key.size = unit(13, "pt"),
           axis.title.y = element_text(margin = margin(r = 6)))
 
-  # Color scale: diverging blue-white-red (resistant -> neutral -> sensitive)
+  # Color scale: diverging blue-white-red (sensitive -> neutral -> resistant)
   if (viridis_scale) {
     p <- p + scale_colour_gradient2(low = diverging_colors[1],
                                     mid = diverging_colors[2],
@@ -547,7 +547,7 @@ plot_clone_killing <- function(clone_killing,
 #' Generates a ROC curve from predicted vs observed response with AUC value annotation.
 #'
 #' @param response Factor or numeric. True response labels (e.g., "R"/"NR" or 0/1).
-#' @param predictor Numeric. Predicted values (e.g., killing scores).
+#' @param predictor Numeric. Predicted values (e.g., viability scores).
 #' @param smooth_curve Logical. Whether to smooth the ROC curve. Default = TRUE.
 #' @param base_size Numeric. Base font size. Default = 15.
 #' @param auc_digits Integer. Number of digits for AUC display. Default = 3.
@@ -653,9 +653,9 @@ plot_roc_curve <- function(response,
 #' between response groups (e.g., Responders vs Non-Responders) with a
 #' statistical significance bracket.
 #'
-#' @param exp_vs_pred Data frame with columns: response, predicted_killing.
+#' @param exp_vs_pred Data frame with columns: response, predicted_viability.
 #' @param response_var Character. Column name for response labels. Default = "response".
-#' @param predicted_var Character. Column name for predicted values. Default = "predicted_killing".
+#' @param predicted_var Character. Column name for predicted values. Default = "predicted_viability".
 #' @param y_label Character. Y-axis label. Default = "Predicted Viability (z-score)".
 #' @param base_size Numeric. Base font size. Default = 15.
 #' @param compare_method Character. Statistical test method. One of
@@ -670,7 +670,7 @@ plot_roc_curve <- function(response,
 #' \dontrun{
 #'   exp_pred <- data.frame(
 #'     response = factor(c("R", "NR", "R", "NR")),
-#'     predicted_killing = c(0.8, 0.2, 0.7, 0.3)
+#'     predicted_viability = c(0.8, 0.2, 0.7, 0.3)
 #'   )
 #'   plot_response_boxplot(exp_pred)
 #' }
@@ -678,7 +678,7 @@ plot_roc_curve <- function(response,
 #' @export
 plot_response_boxplot <- function(exp_vs_pred,
                                   response_var = "response",
-                                  predicted_var = "predicted_killing",
+                                  predicted_var = "predicted_viability",
                                   y_label = "Predicted Viability (z-score)",
                                   base_size = 15,
                                   compare_method = "wilcox.test",
@@ -971,15 +971,15 @@ plot_seurat_clustering <- function(method = c("umap", "tsne"),
 #' Complete patient response visualization pipeline
 #'
 #' Generates a comprehensive visualization panel for patient drug response prediction,
-#' including clone distribution, clone-level killing, response boxplot, and ROC curve.
+#' including clone distribution, clone-level viability, response boxplot, and ROC curve.
 #' This is a convenience function that combines multiple plot functions.
 #'
 #' @param clone_distribution Data frame. Clone weights per patient.
-#' @param clone_killing Data frame. Killing scores per clone.
+#' @param clone_viability Data frame. Viability scores per clone.
 #' @param exp_vs_pred Data frame. Predicted vs observed response.
 #' @param response_col Character. Response column name. Default = "response".
-#' @param killing_col Character. Killing column name. Default = "comb_killing".
-#' @param predicted_col Character. Predicted values column name. Default = "predicted_killing".
+#' @param viability_col Character. Viability column name. Default = "comb_viability".
+#' @param predicted_col Character. Predicted values column name. Default = "predicted_viability".
 #' @param weights_col Character. Weights column name. Default = "weights".
 #' @param layout_matrix Matrix. Layout for grid.arrange. Default = NULL (auto).
 #'
@@ -990,7 +990,7 @@ plot_seurat_clustering <- function(method = c("umap", "tsne"),
 #'   # After running prediction pipeline
 #'   panel <- plot_patient_response_panel(
 #'     clone_distribution = clone_dist_df,
-#'     clone_killing = clone_kill_df,
+#'     clone_viability = clone_kill_df,
 #'     exp_vs_pred = response_df
 #'   )
 #'   ggsave(panel, filename = "patient_response.pdf", height = 15, width = 10)
@@ -998,11 +998,11 @@ plot_seurat_clustering <- function(method = c("umap", "tsne"),
 #'
 #' @export
 plot_patient_response_panel <- function(clone_distribution,
-                                        clone_killing,
+                                        clone_viability,
                                         exp_vs_pred,
                                         response_col = "response",
-                                        killing_col = "comb_killing",
-                                        predicted_col = "predicted_killing",
+                                        viability_col = "comb_viability",
+                                        predicted_col = "predicted_viability",
                                         weights_col = "weights",
                                         layout_matrix = NULL) {
 
@@ -1013,8 +1013,8 @@ plot_patient_response_panel <- function(clone_distribution,
   # Panel 1: Clone distribution
   p1 <- plot_clone_distribution(clone_distribution, response_var = response_col)
 
-  # Panel 2: Clone-level killing (uses killing_col from clone_killing data)
-  p2 <- plot_clone_killing(clone_killing, killing_var = killing_col,
+  # Panel 2: Clone-level viability (uses viability_col from clone_viability data)
+  p2 <- plot_clone_viability(clone_viability, viability_var = viability_col,
                            weights_var = weights_col, response_var = response_col)
 
   # Panel 3: Response boxplot (uses predicted_col from exp_vs_pred data)
@@ -1051,19 +1051,19 @@ plot_patient_response_panel <- function(clone_distribution,
 }
 
 # ---------------------------------------------------------------------------
-# Plot: UMAP biomarker vs killing side-by-side
+# Plot: UMAP biomarker vs viability side-by-side
 # ---------------------------------------------------------------------------
 
-#' Plot UMAP side-by-side for biomarker and killing
+#' Plot UMAP side-by-side for biomarker and viability
 #'
-#' Creates a side-by-side comparison of biomarker expression and predicted killing
+#' Creates a side-by-side comparison of biomarker expression and predicted viability
 #' in UMAP space. Useful for visualizing correlation between marker and response.
 #'
-#' @param tsne_data Data frame with X, Y coordinates and both biomarker/killing columns.
+#' @param tsne_data Data frame with X, Y coordinates and both biomarker/viability columns.
 #' @param biomarker_var Character. Column name for biomarker expression. Default = "biomarker_scaled".
-#' @param killing_var Character. Column name for killing values. Default = "killing_scaled".
+#' @param viability_var Character. Column name for viability values. Default = "viability_scaled".
 #' @param biomarker_label Character. Legend label for biomarker. Default = "Biomarker Exp".
-#' @param killing_label Character. Legend label for killing. Default = "Drug Killing".
+#' @param viability_label Character. Legend label for viability. Default = "Drug Viability".
 #' @param nrow Integer. Number of rows in arrangement. Default = 1.
 #' @param base_size Numeric. Base font size. Default = 8.
 #'
@@ -1075,17 +1075,17 @@ plot_patient_response_panel <- function(clone_distribution,
 #'     X = lung_tSNE$X,
 #'     Y = lung_tSNE$Y,
 #'     biomarker_scaled = range01(rank(MDM2_expression)),
-#'     killing_scaled = range01(rank(-viability_pred))
+#'     viability_scaled = range01(rank(-viability_pred))
 #'   )
-#'   plot_tsne_biomarker_killing(tsne_data)
+#'   plot_tsne_biomarker_viability(tsne_data)
 #' }
 #'
 #' @export
-plot_tsne_biomarker_killing <- function(tsne_data,
+plot_tsne_biomarker_viability <- function(tsne_data,
                                         biomarker_var = "biomarker_scaled",
-                                        killing_var = "killing_scaled",
+                                        viability_var = "viability_scaled",
                                         biomarker_label = "Biomarker Exp",
-                                        killing_label = "Drug Killing",
+                                        viability_label = "Drug Viability",
                                         nrow = 1,
                                         base_size = 8) {
 
@@ -1096,8 +1096,8 @@ plot_tsne_biomarker_killing <- function(tsne_data,
   p1 <- plot_tsne_response(tsne_data, color_var = biomarker_var,
                            color_label = biomarker_label, base_size = base_size,
                            palette = "diverging")
-  p2 <- plot_tsne_response(tsne_data, color_var = killing_var,
-                           color_label = killing_label, base_size = base_size,
+  p2 <- plot_tsne_response(tsne_data, color_var = viability_var,
+                           color_label = viability_label, base_size = base_size,
                            palette = "viridis")
 
   combined <- gridExtra::grid.arrange(p1, p2, nrow = nrow)

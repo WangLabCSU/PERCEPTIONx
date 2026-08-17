@@ -22,7 +22,7 @@ drug sensitivity.
 Given a trained model (or list of models) and a rank-normalized expression matrix,
 predicts viability scores for each cell/sample across one or more drugs.
 This function merges the former viability_from_model (single drug) and
-killing_in_each_dataset (multi-drug) into a unified interface.
+viability_in_each_dataset (multi-drug) into a unified interface.
 }
 \examples{
 \dontrun{

@@ -78,23 +78,23 @@ Prediction proceeds in two stages: first, `predict_drugs()` scores each clone's 
 
 ```r
 # Clone-level prediction (returns matrix: clones x drugs)
-clone_killing <- predict_drugs(
+clone_viability <- predict_drugs(
   model_list = models,
   expr = sc_expression_rnorm
 )
 
-# Build clone_killing_matrix with patient and clone_id columns
+# Build clone_viability_matrix with patient and clone_id columns
 # (clone_ids from rownames, patients extracted via strsplit_customv0)
-clone_killing_df <- data.frame(
-  patient = strsplit_customv0(rownames(clone_killing), "_", 1),
-  clone_id = rownames(clone_killing),
-  clone_killing,
+clone_viability_df <- data.frame(
+  patient = strsplit_customv0(rownames(clone_viability), "_", 1),
+  clone_id = rownames(clone_viability),
+  clone_viability,
   check.names = FALSE
 )
 
 # Patient-level aggregation (legacy: prepared_data = clone_counts data.frame)
 patient_pred <- predict_patients(
-  clone_pred = clone_killing_df,
+  clone_pred = clone_viability_df,
   prepared_data = clone_counts,
   mode = "weighted_max"
 )
@@ -105,13 +105,13 @@ patient_pred <- predict_patients(
 
 ### 3.4 🎨 Visualize Results
 
-PERCEPTIONx provides a suite of plotting functions to inspect model predictions from different perspectives: spatial (t-SNE), clonal (distribution and killing), and clinical (ROC and response stratification).
+PERCEPTIONx provides a suite of plotting functions to inspect model predictions from different perspectives: spatial (t-SNE), clonal (distribution and viability), and clinical (ROC and response stratification).
 
 ```r
 # t-SNE with drug response overlay
 plot_tsne_response(
   tsne_data = tsne_data,
-  color_var = "killing_scaled",
+  color_var = "viability_scaled",
   title = "Drug Response"
 )
 
@@ -121,10 +121,10 @@ plot_clone_distribution(
   response_var = "response"
 )
 
-# Clone killing lollipop plot
-plot_clone_killing(
-  clone_killing = clone_killing,
-  killing_var = "comb_killing"
+# Clone viability lollipop plot
+plot_clone_viability(
+  clone_viability = clone_viability,
+  viability_var = "comb_viability"
 )
 
 # ROC curve with AUC annotation
@@ -143,7 +143,7 @@ plot_response_boxplot(
 
 > **Interactive tooltips (optional)**: every plotting function above accepts
 > `tooltip = TRUE` (default). When the [`ggiraph`](https://cran.r-project.org/package=ggiraph)
-> package is installed, points/bars get hover tooltips (clone id, killing score,
+> package is installed, points/bars get hover tooltips (clone id, viability score,
 > proportion, FPR/TPR, ...). Set `tooltip = FALSE` for a plain static `ggplot`
 > with the identical layout. See the package vignette §6.9 for details.
 
@@ -199,9 +199,9 @@ plot_response_boxplot(
 | Function | Description |
 |----------|-------------|
 | `plot_tsne_response()` | t-SNE/UMAP with drug response overlay |
-| `plot_tsne_biomarker_killing()` | Biomarker vs. killing side-by-side on t-SNE |
+| `plot_tsne_biomarker_viability()` | Biomarker vs. viability side-by-side on t-SNE |
 | `plot_clone_distribution()` | Clone abundance stacked bar chart |
-| `plot_clone_killing()` | Clone-level killing lollipop plot |
+| `plot_clone_viability()` | Clone-level viability lollipop plot |
 | `plot_roc_curve()` | ROC curve with AUC |
 | `plot_response_boxplot()` | Responder vs. non-responder boxplot |
 | `plot_model_performance()` | Model performance across thresholds |
@@ -297,13 +297,13 @@ shiny::runApp(system.file("shiny", "app", package = "PERCEPTIONx"))
 | **Data** | Load the synthetic demo data (smoke-test), load the full DepMap reference (~567 MB), or upload your own rank-normalized single-cell matrix + clinical responses |
 | **Train** | Train drug-response models (`glmnet` / `random forest`) with tunable parameters |
 | **Predict** | Score clone-level and patient-level drug sensitivity for any loaded model |
-| **Visualize** | Clone distribution, clone-killing lollipop, ROC curve, response boxplot, model performance, and UMAP/t-SNE overlays |
+| **Visualize** | Clone distribution, clone-viability lollipop, ROC curve, response boxplot, model performance, and UMAP/t-SNE overlays |
 | **Help** | In-app documentation |
 
 ### 7.3 Interactive plots
 
 All figures are rendered as **interactive SVG** (via `ggiraph`): hover any point
-or bar to see a tooltip (clone id, killing score, proportion, FPR/TPR, ...).
+or bar to see a tooltip (clone id, viability score, proportion, FPR/TPR, ...).
 Because the original `ggplot` object is rendered directly — never converted to
 `plotly` — facet layouts and legends stay exactly as designed: no re-flow, no
 overlapping labels. Static downloads are publication-quality:

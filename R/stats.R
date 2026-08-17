@@ -197,35 +197,35 @@ clone_mean_expression <- function(expression_matrix, cell_clone_map, patient_ids
 
 
 
-#' Z-score scale killing values across patients
+#' Z-score scale viability values across patients
 #'
 #' Applies base R \code{scale()} to each drug column across all patients,
 #' centering to mean 0 and standard deviation 1. This ensures comparability
 #' of predicted viability scores between different drugs before patient-level
 #' aggregation. Matches the original PERCEPTION pipeline.
 #'
-#' @param clone_killing_df Data frame. Must have columns 'patient' and 'clone_id',
+#' @param clone_viability_df Data frame. Must have columns 'patient' and 'clone_id',
 #'        plus one or more drug columns with predicted viability values.
 #'
 #' @return A data frame with the same structure, but drug columns z-score scaled.
 #' @export
-zscore_killing <- function(clone_killing_df) {
+zscore_viability <- function(clone_viability_df) {
 
-  if (!"patient" %in% colnames(clone_killing_df)) {
-    stop("clone_killing_df must have a 'patient' column.")
+  if (!"patient" %in% colnames(clone_viability_df)) {
+    stop("clone_viability_df must have a 'patient' column.")
   }
 
-  drug_cols <- setdiff(colnames(clone_killing_df), c("patient", "clone_id"))
+  drug_cols <- setdiff(colnames(clone_viability_df), c("patient", "clone_id"))
 
   if (length(drug_cols) == 0) {
     stop("No drug columns found (expected columns other than 'patient' and 'clone_id').")
   }
 
-  clone_killing_df[drug_cols] <- lapply(clone_killing_df[drug_cols], function(col) {
+  clone_viability_df[drug_cols] <- lapply(clone_viability_df[drug_cols], function(col) {
     as.numeric(scale(as.numeric(col)))
   })
 
-  return(clone_killing_df)
+  return(clone_viability_df)
 }
 
 

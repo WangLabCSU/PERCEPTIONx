@@ -297,7 +297,7 @@ get_significant_models <- function(model_list,
 #' for evaluating model performance on pseudo-bulk data, not for prediction.
 #'
 #' @param x Integer. Index of the patient. Default = 1.
-#' @param comb_killing_df Data frame. Retained for backward compatibility; no longer used (clone ids are read from the expression column names).
+#' @param comb_viability_df Data frame. Retained for backward compatibility; no longer used (clone ids are read from the expression column names).
 #' @param Clone_Counts_per_patients Data frame. Patient-clone abundance data.
 #' @param clone_Level_z_expression_df Matrix. Clone-level expression data
 #'        with columns named by patient-clone identifiers.
@@ -306,7 +306,7 @@ get_significant_models <- function(model_list,
 #'
 #' @export
 each_patient_pseudo_bulk <- function(x = 1,
-                                     comb_killing_df,
+                                     comb_viability_df,
                                      Clone_Counts_per_patients,
                                      clone_Level_z_expression_df) {
 
@@ -314,8 +314,8 @@ each_patient_pseudo_bulk <- function(x = 1,
 
   # Expression columns are named "Patient@@Clone". Select this patient's clones
   # and keep clone IDs in the SAME order as the columns, so weights align with
-  # columns (the previous code ordered weights by comb_killing_df instead).
-  # `comb_killing_df` is retained for backward compatibility but not needed here.
+  # columns (the previous code ordered weights by comb_viability_df instead).
+  # `comb_viability_df` is retained for backward compatibility but not needed here.
   parsed <- parse_clone_keys(colnames(clone_Level_z_expression_df))
   cols <- which(parsed$patient == patient)
   col_clone_ids <- parsed$clone_id[cols]

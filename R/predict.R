@@ -13,7 +13,7 @@ NULL
 #' Given a trained model (or list of models) and a rank-normalized expression matrix,
 #' predicts viability scores for each cell/sample across one or more drugs.
 #' This function merges the former viability_from_model (single drug) and
-#' killing_in_each_dataset (multi-drug) into a unified interface.
+#' viability_in_each_dataset (multi-drug) into a unified interface.
 #'
 #' @param model_list A named list of model objects (each with a \code{$model} element),
 #'        or a single model object. From \code{train_models()} or \code{load_model()}.
@@ -158,31 +158,31 @@ viability_from_model_internal <- function(drug_name, model, dataset) {
 #'
 #' Aggregates clone-level drug response predictions to patient-level using
 #' various weighting strategies based on clone abundance. This function merges
-#' the former each_patient_killing (single drug) and each_patient_killingv2
+#' the former each_patient_viability (single drug) and each_patient_viabilityv2
 #' (multi-drug) into a unified interface.
 #'
 #' @param clone_pred Matrix from \code{predict_drugs()}, with clones as rows
 #'        and drugs as columns. Row names should match clone column names from
 #'        \code{prepare_data()}.
 #' @param prepared_data List from \code{prepare_data()}, containing
-#'        \code{$clone_killing_template} and \code{$clone_counts}. Alternatively,
+#'        \code{$clone_viability_template} and \code{$clone_counts}. Alternatively,
 #'        you can pass \code{clone_counts} directly as a data frame (legacy mode).
 #' @param clone_counts Optional. Data frame with patients as rows and clone IDs
 #'        as columns. Only needed if \code{prepared_data} is not a list from
 #'        \code{prepare_data()}.
 #' @param mode Character. Aggregation method:
 #'   \describe{
-#'     \item{"weighted_max"}{Maximum of weighted killing across clones. Default.}
-#'     \item{"max"}{Maximum killing across clones (most resistant clone)}
-#'     \item{"weighted_average"}{Weighted average of clone killing by clone abundance}
-#'     \item{"min"}{Minimum killing across clones (most sensitive clone)}
-#'     \item{"average"}{Average of clone killing}
+#'     \item{"weighted_max"}{Maximum of weighted viability across clones. Default.}
+#'     \item{"max"}{Maximum viability across clones (most resistant clone)}
+#'     \item{"weighted_average"}{Weighted average of clone viability by clone abundance}
+#'     \item{"min"}{Minimum viability across clones (most sensitive clone)}
+#'     \item{"average"}{Average of clone viability}
 #'   }
 #' @param zscore Logical. Whether to z-score scale drug columns across patients
 #'        before aggregation. Default = TRUE. Matches the original PERCEPTION pipeline.
 #'
 #' @return A data frame with patients as rows and drugs as columns,
-#'         containing aggregated killing scores.
+#'         containing aggregated viability scores.
 #'
 #' @examples
 #' \dontrun{
@@ -191,13 +191,13 @@ viability_from_model_internal <- function(drug_name, model, dataset) {
 #'   clone_pred <- predict_drugs(models, prepared$clone_expression)
 #'   patient_pred <- predict_patients(clone_pred, prepared)
 #'
-#'   # Legacy workflow: manually build clone_killing_matrix
-#'   clone_killing_df <- data.frame(
+#'   # Legacy workflow: manually build clone_viability_matrix
+#'   clone_viability_df <- data.frame(
 #'     patient = patient_ids,
 #'     clone_id = clone_ids,
 #'     clone_pred
 #'   )
-#'   patient_pred <- predict_patients(clone_killing_df, clone_counts)
+#'   patient_pred <- predict_patients(clone_viability_df, clone_counts)
 #' }
 #'
 #' @export
@@ -205,10 +205,10 @@ predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
                              mode = "weighted_max", zscore = TRUE) {
 
   # Determine input mode: simple (prepared_data is a list) vs legacy (prepared_data is clone_counts)
-  # Accept both clone_killing_template and clone_killing_df_template for backward compatibility
+  # Accept both clone_viability_template and clone_viability_df_template for backward compatibility
   # Also accept any list with clone_counts + any template-like element
-  template_names <- c("clone_killing_template", "clone_killing_df_template",
-                      "template", "killing_template")
+  template_names <- c("clone_viability_template", "clone_viability_df_template",
+                      "template", "viability_template")
   has_counts <- "clone_counts" %in% names(prepared_data)
 
   if (is.list(prepared_data) && !is.data.frame(prepared_data) && has_counts) {
@@ -231,19 +231,19 @@ predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
 
     clone_counts <- prepared_data$clone_counts
 
-    # Merge clone_pred matrix with template to build clone_killing_matrix
+    # Merge clone_pred matrix with template to build clone_viability_matrix
     clone_pred_df <- as.data.frame(clone_pred)
     clone_pred_df$patient <- clone_template$patient
     clone_pred_df$clone_id <- clone_template$clone_id
-    clone_killing_matrix <- clone_pred_df
+    clone_viability_matrix <- clone_pred_df
   } else if (is.data.frame(prepared_data)) {
-    # Legacy mode: prepared_data is actually clone_counts, clone_pred is clone_killing_matrix
-    clone_killing_matrix <- clone_pred
+    # Legacy mode: prepared_data is actually clone_counts, clone_pred is clone_viability_matrix
+    clone_viability_matrix <- clone_pred
     clone_counts <- prepared_data
   } else {
     stop("prepared_data must be either:\n",
          "  1. A list from prepare_data() (with clone_counts)\n",
-         "  2. A data frame of clone_counts (legacy mode, requires clone_pred to be clone_killing_matrix)\n",
+         "  2. A data frame of clone_counts (legacy mode, requires clone_pred to be clone_viability_matrix)\n",
          "\nDiagnostic info:\n",
          "  class(prepared_data): ", class(prepared_data)[1], "\n",
          "  is.list: ", is.list(prepared_data), "\n",
@@ -253,11 +253,11 @@ predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
   }
 
   # Validate inputs
-  if (!"patient" %in% colnames(clone_killing_matrix)) {
-    stop("clone_killing_matrix must have a 'patient' column.")
+  if (!"patient" %in% colnames(clone_viability_matrix)) {
+    stop("clone_viability_matrix must have a 'patient' column.")
   }
-  if (!"clone_id" %in% colnames(clone_killing_matrix)) {
-    stop("clone_killing_matrix must have a 'clone_id' column.")
+  if (!"clone_id" %in% colnames(clone_viability_matrix)) {
+    stop("clone_viability_matrix must have a 'clone_id' column.")
   }
   if (!"patients" %in% colnames(clone_counts)) {
     stop("clone_counts must have a 'patients' column.")
@@ -269,12 +269,12 @@ predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
   }
 
   # Identify drug columns (all columns except patient and clone_id)
-  drug_cols <- setdiff(colnames(clone_killing_matrix), c("patient", "clone_id"))
+  drug_cols <- setdiff(colnames(clone_viability_matrix), c("patient", "clone_id"))
   n_drugs <- length(drug_cols)
 
   # Z-score scale drug columns across patients before aggregation
   if (zscore) {
-    clone_killing_matrix <- zscore_killing(clone_killing_matrix)
+    clone_viability_matrix <- zscore_viability(clone_viability_matrix)
   }
 
   # Aggregate for each patient
@@ -282,8 +282,8 @@ predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
     patient_id <- clone_counts$patients[x]
 
     # Get clone data for this patient
-    patient_clones <- clone_killing_matrix[
-      clone_killing_matrix$patient == patient_id, ]
+    patient_clones <- clone_viability_matrix[
+      clone_viability_matrix$patient == patient_id, ]
 
     if (nrow(patient_clones) == 0) {
       # No clone data for this patient
@@ -300,19 +300,19 @@ predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
 
     # Aggregate based on mode
     if (n_drugs == 1) {
-      # Single drug: use comb_killing column if present, otherwise use drug column
-      if ("comb_killing" %in% colnames(patient_clones)) {
-        killing_values <- patient_clones$comb_killing
+      # Single drug: use comb_viability column if present, otherwise use drug column
+      if ("comb_viability" %in% colnames(patient_clones)) {
+        viability_values <- patient_clones$comb_viability
       } else {
-        killing_values <- patient_clones[[drug_cols]]
+        viability_values <- patient_clones[[drug_cols]]
       }
 
       result <- switch(mode,
-        "weighted_average" = sum(killing_values * clone_weights),
-        "min" = min(killing_values),
-        "max" = max(killing_values),
-        "weighted_max" = max(killing_values * clone_weights),
-        "average" = mean(killing_values)
+        "weighted_average" = sum(viability_values * clone_weights),
+        "min" = min(viability_values),
+        "max" = max(viability_values),
+        "weighted_max" = max(viability_values * clone_weights),
+        "average" = mean(viability_values)
       )
       return(setNames(result, drug_cols))
     } else {

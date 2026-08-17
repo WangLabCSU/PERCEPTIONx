@@ -16,7 +16,7 @@ compare_performance(model_list, threshold = 0.3, verbose = TRUE)
 \value{
 A list containing:
 \describe{
-\item{perf_cv}{Cross-validation performance (correlation, p-value) for each drug}
+\item{perf_cv}{Cross-validation performance (|correlation| = sqrt(R²); p-value not available) for each drug}
 \item{perf_bulk}{Bulk test set performance for each drug}
 \item{perf_pseudo_bulk}{Pseudo-bulk performance for each drug}
 \item{perf_scRNA}{Single-cell RNA performance for each drug}

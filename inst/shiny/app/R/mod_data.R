@@ -524,9 +524,10 @@ mod_data_server <- function(id, shared) {
               x_train[g, ] <- runif(n_train, 0.5, 8)
             }
 
-            # y = signed mean of marker gene expression:
-            #   direction = +1: high marker expr → high killing (responder sensitive)
-            #   direction = -1: high marker expr → low killing (responder resistant)
+            # y = signed mean of marker gene expression, interpreted as VIABILITY
+            #   (high = resistant, low = sensitive):
+            #   direction = -1: high marker expr → low viability (responder sensitive)
+            #   direction = +1: high marker expr → high viability (responder resistant)
             y_train <- direction * colMeans(x_train[marker_genes, , drop = FALSE])
             y_train <- y_train + rnorm(n_train, sd = 0.3)  # small noise
 
@@ -557,11 +558,13 @@ mod_data_server <- function(id, shared) {
             obj
           }
 
-          # abemaciclib: high marker expression → high killing (responders sensitive)
-          # erlotinib: high marker expression → low killing (responders resistant — opposite pattern)
+          # abemaciclib: markers HIGH in responders → direction -1 maps high expr
+          #   to LOW viability (responders sensitive)
+          # erlotinib: markers LOW in responders → direction +1 maps low expr
+          #   to LOW viability (responders sensitive)
           shared$models <- list(
-            abemaciclib = make_drug_model("abemaciclib", 101, abemaciclib_markers, direction = +1),
-            erlotinib   = make_drug_model("erlotinib",   202, erlotinib_markers,   direction = -1)
+            abemaciclib = make_drug_model("abemaciclib", 101, abemaciclib_markers, direction = -1),
+            erlotinib   = make_drug_model("erlotinib",   202, erlotinib_markers,   direction = +1)
           )
           shared$model_cache <- shared$models
           shared$model_active <- list(abemaciclib = TRUE, erlotinib = TRUE)

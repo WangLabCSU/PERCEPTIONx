@@ -6,11 +6,11 @@
 \usage{
 plot_patient_response_panel(
   clone_distribution,
-  clone_killing,
+  clone_viability,
   exp_vs_pred,
   response_col = "response",
-  killing_col = "comb_killing",
-  predicted_col = "predicted_killing",
+  viability_col = "comb_viability",
+  predicted_col = "predicted_viability",
   weights_col = "weights",
   layout_matrix = NULL
 )
@@ -18,15 +18,15 @@ plot_patient_response_panel(
 \arguments{
 \item{clone_distribution}{Data frame. Clone weights per patient.}
 
-\item{clone_killing}{Data frame. Killing scores per clone.}
+\item{clone_viability}{Data frame. Viability scores per clone.}
 
 \item{exp_vs_pred}{Data frame. Predicted vs observed response.}
 
 \item{response_col}{Character. Response column name. Default = "response".}
 
-\item{killing_col}{Character. Killing column name. Default = "comb_killing".}
+\item{viability_col}{Character. Viability column name. Default = "comb_viability".}
 
-\item{predicted_col}{Character. Predicted values column name. Default = "predicted_killing".}
+\item{predicted_col}{Character. Predicted values column name. Default = "predicted_viability".}
 
 \item{weights_col}{Character. Weights column name. Default = "weights".}
 
@@ -37,7 +37,7 @@ A gtable object from grid.arrange.
 }
 \description{
 Generates a comprehensive visualization panel for patient drug response prediction,
-including clone distribution, clone-level killing, response boxplot, and ROC curve.
+including clone distribution, clone-level viability, response boxplot, and ROC curve.
 This is a convenience function that combines multiple plot functions.
 }
 \examples{
@@ -45,7 +45,7 @@ This is a convenience function that combines multiple plot functions.
   # After running prediction pipeline
   panel <- plot_patient_response_panel(
     clone_distribution = clone_dist_df,
-    clone_killing = clone_kill_df,
+    clone_viability = clone_kill_df,
     exp_vs_pred = response_df
   )
   ggsave(panel, filename = "patient_response.pdf", height = 15, width = 10)

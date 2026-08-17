@@ -159,7 +159,7 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 选择已加载的模型（Data 页加载的预训练模型或 Train 页训练出的模型），点击预测：
 
-1. **Clone-level（克隆级）**：每个克隆 × 每个药物的杀伤分数。分数语义：模型输出的是 **viability（存活度）**，值越低 = 越敏感；页面展示的 `killing_scaled` 已取反排名归一化到 [0, 1]——**越接近 1 表示预测对该药越敏感**
+1. **Clone-level（克隆级）**：每个克隆 × 每个药物的杀伤分数。分数语义：模型输出的是 **viability（存活度）**，值越低 = 越敏感；页面展示的 `viability_scaled` 已取反排名归一化到 [0, 1]——**越接近 1 表示预测对该药越敏感**
 2. **Patient-level（患者级）**：按克隆占比把克隆分数聚合到患者（默认 `weighted_max`），得到每例患者的药物敏感性分层
 
 输出包括交互式热图（克隆 × 药物，plotly）与可下载的预测表格。
@@ -180,7 +180,7 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 展示每例患者内部各克隆的占比构成，一个色带 = 一个克隆（≤15 个克隆时使用内置协调色板）。
 
-### 5.2 Clone Killing（lolliplot）
+### 5.2 Clone Viability（lolliplot）
 
 ![BQACAgUAAyEGAASHRsPbAAEYrtRqdGQW8zkwfYWQ_VN994k_iZJH8gACsDQAAtsboFe7I7H3sbW6sz0E.png](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrtRqdGQW8zkwfYWQ_VN994k_iZJH8gACsDQAAtsboFe7I7H3sbW6sz0E.png)
 
@@ -217,10 +217,10 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 选择降维方法和着色变量：
 
 - **Gene Expression**：每个细胞的单基因真实表达量（z-score），连续色标——看基因在哪群细胞高表达
-- **Drug Killing**：每个细胞回填所属克隆的预测杀伤分数，呈"拼接色块"——看哪些克隆被预测敏感
+- **Drug Viability**：每个细胞回填所属克隆的预测杀伤分数，呈"拼接色块"——看哪些克隆被预测敏感
 - **Clone / Cluster**：按克隆（聚类）着色——看分群结构
 
-> 对照读法：Gene Expression 高表达的细胞群，如果在 Drug Killing 图中也是暖色，说明该基因高表达与预测敏感正相关；反之则负相关。注意两图色标刻度不同，只看空间分布模式。
+> 对照读法：Gene Expression 高表达的细胞群，如果在 Drug Viability 图中也是暖色，说明该基因高表达与预测敏感正相关；反之则负相关。注意两图色标刻度不同，只看空间分布模式。
 >
 > 例如，根据上方两个示例图能得出初步的有效信息：
 >

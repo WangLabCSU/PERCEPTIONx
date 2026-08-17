@@ -17,7 +17,7 @@ plot_roc_curve(
 \arguments{
 \item{response}{Factor or numeric. True response labels (e.g., "R"/"NR" or 0/1).}
 
-\item{predictor}{Numeric. Predicted values (e.g., killing scores).}
+\item{predictor}{Numeric. Predicted values (e.g., viability scores).}
 
 \item{smooth_curve}{Logical. Whether to smooth the ROC curve. Default = TRUE.}
 
