@@ -622,6 +622,9 @@ mod_data_server <- function(id, shared) {
         DepMap <- readRDS(file$datapath)
         depmap_env <- getFromNamespace(".depmap_env", "PERCEPTIONx")
         assign("DepMap", DepMap, envir = depmap_env)
+        # Also write to .GlobalEnv so train_models() (which checks the global
+        # env, and whose PSOCK workers export from it) can see DepMap.
+        assign("DepMap", DepMap, envir = .GlobalEnv)
         shared$depmap <- DepMap
         w$hide()
         showNotification(paste("DepMap loaded from file:", length(DepMap), "datasets"), type = "message")
