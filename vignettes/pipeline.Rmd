@@ -61,10 +61,10 @@ For quick exploration, you can load pre-trained models without training from scr
 
 ```r
 # Load a single pre-trained model
-models <- load_model("abemaciclib")
+models <- load_model("abemaciclib", read = TRUE)
 
 # Load multiple drugs
-models <- load_model(c("abemaciclib", "erlotinib"))
+models <- load_model(c("abemaciclib", "erlotinib"), read = TRUE)
 ```
 
 # 3. Train Models

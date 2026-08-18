@@ -31,7 +31,7 @@ PERCEPTIONx relies on DepMap reference data and optional pre-trained models. Bot
 devtools::load_all()
 
 # Load pre-trained models
-models <- load_model("abemaciclib")
+models <- load_model("abemaciclib", read = TRUE)
 
 # Load DepMap reference data
 load_depmap(read = TRUE)

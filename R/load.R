@@ -97,6 +97,10 @@ download_with_mirrors <- function(urls, destfile, quiet = FALSE,
           message(sprintf("Downloaded %.2f MB in %.1f sec (%.0f KB/s)",
                           file_size_mb, elapsed, speed_kb_s))
         }
+        if (is.finite(speed_kb_s) && speed_kb_s < speed_threshold) {
+          message(sprintf("  Warning: mirror %d is slow (%.0f KB/s < %.0f KB/s threshold). Consider a different mirror.",
+                          i, speed_kb_s, speed_threshold))
+        }
         return(TRUE)
       }
 
