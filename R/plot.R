@@ -485,7 +485,7 @@ plot_clone_viability <- function(clone_viability,
     labs(x = "Clones", y = "Predicted Viability (z-score)",
          color = "Predicted Viability",
          size = if (has_weights) "Proportion in Tumor" else NULL,
-         caption = "Higher = more resistant · lower = more sensitive (stronger drug killing). Z-scores are within-patient; cross-patient comparison is not recommended.") +
+         caption = "Higher = more resistant · lower = more sensitive (stronger drug killing). Z-scores are standardized across all patients, so clones are comparable across patients.") +
     theme(legend.position = "top",
           legend.box = "horizontal",
           legend.box.spacing = unit(8, "pt"),
