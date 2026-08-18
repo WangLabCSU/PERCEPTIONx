@@ -24,7 +24,6 @@ get_response_matrix <- function(infunc_drugName) {
     stop("DepMap data not loaded. Please run load_depmap(read = TRUE) first.")
   }
 
-  infun_response_matrix <- DepMap$secondary_prism
   infunc_drugName_id <- which(stripall2match(DepMap$secondary_screen_drugAnnotation$CommonName) == infunc_drugName)
   infunc_response <- DepMap$secondary_prism[infunc_drugName_id, ]
 
@@ -158,7 +157,7 @@ feature_ranking_bulk <- function(infunc_drugName,
 
     common_cellLines <- setdiff(intersect(CellLines_with_drugResponse, CellLines_with_bulkExp),
                                 cellLines2remove)
-    print(length(common_cellLines))
+    message("  Common cell lines: ", length(common_cellLines))
   } else {
     CellLines_cancer <- DepMap$annotation_20Q4$DepMap_ID[
       grep(infunc_cancerType, DepMap$annotation_20Q4$lineage)]
@@ -170,7 +169,7 @@ feature_ranking_bulk <- function(infunc_drugName,
                                                        CellLines_with_bulkExp,
                                                        CellLines_cancer)),
                                 colnames(DepMap$scRNA_complete))
-    print(length(common_cellLines))
+    message("  Common cell lines: ", length(common_cellLines))
   }
 
   # Compute correlations

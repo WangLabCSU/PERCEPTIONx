@@ -109,7 +109,7 @@ mod_data_ui <- function(id) {
           div(class = "demo-icon", icon("flask")),
           div(class = "demo-text",
             strong("Try it out! "),
-            "Click the button below to load demo data (50 genes × 400 cells, 20 patients) and explore all features without uploading anything."
+            "Click the button below to load demo data (49 genes × 400 cells, 20 patients) and explore all features without uploading anything."
           ),
           actionButton(ns("load_demo"), "Load Demo Data", class = "btn-demo btn-sm", icon = icon("play"))
         )
@@ -422,13 +422,13 @@ mod_data_server <- function(id, shared) {
                        "KMT2D", "SETD2", "BAP1", "PBRM1", "NOTCH1", "NOTCH2",
                        "NOTCH3", "JAK1", "JAK3", "SOX9", "IDH1", "IDH2", "FLT3")
       n_cells <- 400
-      n_patients <- 25
+      n_patients <- 20
       cell_names <- paste0("CELL_", sprintf("%04d", 1:n_cells))
       patient_names <- paste0("PAT_", sprintf("%03d", 1:n_patients))
 
       # Clinical response — defined FIRST so expression can be structured around it
-      # 13 Responders + 12 Non-responders for meaningful box plots
-      response_labels <- c(rep("Responder", 13), rep("Non-responder", 12))
+      # 10 Responders + 10 Non-responders for meaningful box plots
+      response_labels <- c(rep("Responder", 10), rep("Non-responder", 10))
       clinical_response <- data.frame(
         patient = patient_names,
         response = response_labels,
