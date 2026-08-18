@@ -114,33 +114,33 @@ compare_performance <- function(model_list, threshold = 0.3, verbose = TRUE) {
     perf_scRNA = perf_scRNA
   )
 
+  # Compute summary statistics unconditionally so they are available in the
+  # returned summary regardless of `verbose`.
+  passing_counts <- sapply(performance_results, function(x) {
+    sum(x[, "correlation"] > threshold, na.rm = TRUE)
+  })
+  mean_corrs <- sapply(performance_results, function(x) {
+    mean(x[, "correlation"], na.rm = TRUE)
+  })
+  passing_drugs <- names(model_list)[which(perf_scRNA[, "correlation"] > threshold)]
+
   # Print summary statistics if verbose
   if (verbose) {
     message("\n=== Model Performance Summary ===")
     message("Threshold: correlation >", threshold)
 
-    # Count models passing threshold in each dataset
-    passing_counts <- sapply(performance_results, function(x) {
-      sum(x[, "correlation"] > threshold, na.rm = TRUE)
-    })
     message("\nModels passing threshold:")
     message("  CV (|cor|):    ", passing_counts["perf_cv"], " / ", length(model_list))
     message("  Bulk test:     ", passing_counts["perf_bulk"], " / ", length(model_list))
     message("  Pseudo-bulk:   ", passing_counts["perf_pseudo_bulk"], " / ", length(model_list))
     message("  scRNA:         ", passing_counts["perf_scRNA"], " / ", length(model_list))
 
-    # Mean correlations
-    mean_corrs <- sapply(performance_results, function(x) {
-      mean(x[, "correlation"], na.rm = TRUE)
-    })
     message("\nMean correlations:")
     message("  CV (|cor|):    ", round(mean_corrs["perf_cv"], 3))
     message("  Bulk test:     ", round(mean_corrs["perf_bulk"], 3))
     message("  Pseudo-bulk:   ", round(mean_corrs["perf_pseudo_bulk"], 3))
     message("  scRNA:         ", round(mean_corrs["perf_scRNA"], 3))
 
-    # Drugs passing threshold in scRNA (most important metric)
-    passing_drugs <- names(model_list)[which(perf_scRNA[, "correlation"] > threshold)]
     if (length(passing_drugs) > 0) {
       message("\nDrugs passing threshold in scRNA:")
       message("  ", paste(passing_drugs, collapse = ", "))
@@ -152,7 +152,7 @@ compare_performance <- function(model_list, threshold = 0.3, verbose = TRUE) {
     threshold = threshold,
     passing_counts = passing_counts,
     mean_correlations = mean_corrs,
-    passing_drugs_scRNA = names(model_list)[which(perf_scRNA[, "correlation"] > threshold)]
+    passing_drugs_scRNA = passing_drugs
   )
 
   performance_results$summary <- summary_info

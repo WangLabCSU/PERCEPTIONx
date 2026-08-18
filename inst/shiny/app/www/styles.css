@@ -952,10 +952,9 @@ body {
 /* --- Stat Cards --- */
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.2rem;
-  max-width: 1200px;
-  margin: 0 auto;
+  margin: 0;
   padding: 0;
 }
 

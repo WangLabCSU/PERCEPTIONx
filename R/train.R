@@ -560,7 +560,7 @@ train_models <- function(drug_list = NULL,
     features <- features_list[[i]]
     if (is.null(features) || (length(features) == 1 && is.na(features))) {
       warning("  Skipping ", drug, " - feature ranking failed.")
-      for_output_lung_Test_vglm[[i]] <- NULL
+      for_output_lung_Test_vglm[i] <- list(NULL)
       next
     }
 
@@ -568,7 +568,7 @@ train_models <- function(drug_list = NULL,
     drug_match <- which(stripall2match(DepMap$secondary_screen_drugAnnotation$CommonName) == drug)
     if (length(drug_match) == 0) {
       warning("  Skipping ", drug, " - drug not found in DepMap response data.")
-      for_output_lung_Test_vglm[[i]] <- NULL
+      for_output_lung_Test_vglm[i] <- list(NULL)
       next
     }
 
@@ -606,7 +606,7 @@ train_models <- function(drug_list = NULL,
     # Check if any models were successfully built
     if (length(Raw_models_output) == 0 || all(sapply(Raw_models_output, is.null))) {
       warning("  Skipping ", drug, " - all model builds failed.")
-      for_output_lung_Test_vglm[[i]] <- NULL
+      for_output_lung_Test_vglm[i] <- list(NULL)
       next
     }
 
@@ -618,7 +618,7 @@ train_models <- function(drug_list = NULL,
 
     if (!any(valid)) {
       warning("  Skipping ", drug, " - all model builds failed.")
-      for_output_lung_Test_vglm[[i]] <- NULL
+      for_output_lung_Test_vglm[i] <- list(NULL)
       next
     }
 
