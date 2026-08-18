@@ -72,7 +72,8 @@ mod_train_ui <- function(id) {
                           choices = c("Elastic Net (glmnet)" = "glmnet", "Random Forest" = "rf"),
                           selected = "glmnet"),
               numericInput(ns("ncores"), "CPU Cores",
-                           value = 1, min = 1, max = parallel::detectCores(), step = 1)
+                           value = 1, min = 1,
+                           max = max(1L, parallel::detectCores(), na.rm = TRUE), step = 1)
             ),
 
             div(class = "train-action-row",

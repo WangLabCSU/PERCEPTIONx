@@ -10,7 +10,9 @@ mod_predict_ui <- function(id) {
         ),
         div(class = "info-box",
           icon("info-circle"), " Predict drug sensitivity at clone level using trained models, ",
-          "then aggregate to patient-level response using weighted averaging strategies."
+          "then aggregate to patient-level response using weighted averaging strategies. ",
+          strong("Viability semantics:"), " higher viability = more resistant (less sensitive); ",
+          "lower viability = more sensitive (stronger drug killing)."
         )
       )
     ),
@@ -155,13 +157,15 @@ mod_predict_server <- function(id, shared, main_session) {
       }
     })
 
-    # Get expression — prefer prepared_data$clone_expression_rnorm
+    # Get expression — require prepare_data() output (clone-level, rank-normalized).
+    # Never fall back to the raw cell-level user_expr: it is not rank-normalized
+    # and would produce unreliable predictions.
     current_expr <- reactive({
       if (input$expr_source == "loaded") {
         if (!is.null(shared$prepared_data)) {
           shared$prepared_data$clone_expression_rnorm
         } else {
-          shared$user_expr
+          NULL
         }
       } else {
         if (!is.null(input$expr_upload)) {
