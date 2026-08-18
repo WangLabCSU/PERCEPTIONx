@@ -4,6 +4,53 @@
 #' and preparing patient data for the prediction pipeline.
 
 
+# Internal: shared Seurat clustering + 2D embedding pipeline.
+#
+# Runs NormalizeData -> FindVariableFeatures -> ScaleData -> PCA -> neighbors ->
+# clusters -> UMAP/t-SNE, with PCA dimensions capped to what the (possibly
+# small) dataset can support. Used by both annotate_clones() and
+# plot_seurat_clustering() so they stay in sync and share the same safeguards.
+run_seurat_pipeline <- function(expression_matrix, method,
+                                min_cells, min_features, nfeatures,
+                                dims, resolution, seed) {
+  set.seed(seed)
+
+  so <- Seurat::CreateSeuratObject(counts = expression_matrix,
+                                   project = "PERCEPTIONx",
+                                   min.cells = min_cells,
+                                   min.features = min_features)
+  so <- Seurat::NormalizeData(so, normalization.method = "LogNormalize",
+                              scale.factor = 10000)
+  so <- Seurat::FindVariableFeatures(so, selection.method = "vst",
+                                     nfeatures = nfeatures)
+  so <- Seurat::ScaleData(so, features = Seurat::VariableFeatures(object = so))
+
+  # PCA requires npcs < min(nrow, ncol) of the scaled matrix — cap dims to the
+  # number actually available so small datasets do not error out.
+  max_pcs <- min(ncol(so), length(Seurat::VariableFeatures(object = so))) - 1
+  actual_dims <- min(dims, max_pcs)
+  if (actual_dims < 1) actual_dims <- 1
+
+  if (actual_dims < dims) {
+    message("  Adjusting PCA dims from ", dims, " to ", actual_dims,
+            " due to limited cells/features")
+  }
+
+  so <- Seurat::RunPCA(so, features = Seurat::VariableFeatures(object = so),
+                       npcs = actual_dims)
+  so <- Seurat::FindNeighbors(so, dims = seq_len(actual_dims))
+  so <- Seurat::FindClusters(so, resolution = resolution)
+
+  if (method == "umap") {
+    so <- Seurat::RunUMAP(so, dims = seq_len(actual_dims))
+  } else {
+    so <- Seurat::RunTSNE(so, dims = seq_len(actual_dims), check_duplicates = FALSE)
+  }
+
+  so
+}
+
+
 #' Annotate cells with clone IDs via Seurat clustering
 #'
 #' Performs Seurat clustering on a single-cell expression matrix and returns
@@ -48,44 +95,12 @@ annotate_clones <- function(method = c("umap", "tsne"),
          "Install with: install.packages('Seurat')")
   }
 
-  set.seed(seed)
-
-  so <- Seurat::CreateSeuratObject(counts = expression_matrix,
-                                   project = "PERCEPTIONx",
-                                   min.cells = min_cells,
-                                   min.features = min_features)
-  so <- Seurat::NormalizeData(so, normalization.method = "LogNormalize",
-                              scale.factor = 10000)
-  so <- Seurat::FindVariableFeatures(so, selection.method = "vst",
-                                     nfeatures = nfeatures)
-  so <- Seurat::ScaleData(so, features = Seurat::VariableFeatures(object = so))
-
-  # Adjust PCA dimensions based on available cells/features
-  # PCA requires npcs < min(nrow, ncol) of the scaled matrix
-  max_pcs <- min(ncol(so), length(Seurat::VariableFeatures(object = so))) - 1
-  actual_dims <- min(dims, max_pcs)
-  if (actual_dims < 1) actual_dims <- 1
-
-  if (actual_dims < dims) {
-    message("  Adjusting PCA dims from ", dims, " to ", actual_dims,
-            " due to limited cells/features")
-  }
-
-  so <- Seurat::RunPCA(so, features = Seurat::VariableFeatures(object = so),
-                       npcs = actual_dims)
-  so <- Seurat::FindNeighbors(so, dims = 1:actual_dims)
-  so <- Seurat::FindClusters(so, resolution = resolution)
-
-  # Dimensionality reduction: UMAP or t-SNE
-  if (method == "umap") {
-    so <- Seurat::RunUMAP(so, dims = 1:actual_dims)
-    emb <- Seurat::Embeddings(so, reduction = "umap")
-  } else {
-    so <- Seurat::RunTSNE(so, dims = 1:actual_dims, check_duplicates = FALSE)
-    emb <- Seurat::Embeddings(so, reduction = "tsne")
-  }
+  so <- run_seurat_pipeline(expression_matrix, method,
+                            min_cells, min_features, nfeatures,
+                            dims, resolution, seed)
 
   cluster_ids <- Seurat::Idents(so)
+  emb <- Seurat::Embeddings(so, reduction = method)
 
   data.frame(
     cell_id = names(cluster_ids),

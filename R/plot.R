@@ -484,7 +484,8 @@ plot_clone_viability <- function(clone_viability,
     theme_perception(base_size = base_size) +
     labs(x = "Clones", y = "Predicted Viability (z-score)",
          color = "Predicted Viability",
-         size = if (has_weights) "Proportion in Tumor" else NULL) +
+         size = if (has_weights) "Proportion in Tumor" else NULL,
+         caption = "Higher = more resistant · lower = more sensitive (stronger drug killing). Z-scores are within-patient; cross-patient comparison is not recommended.") +
     theme(legend.position = "top",
           legend.box = "horizontal",
           legend.box.spacing = unit(8, "pt"),
@@ -831,20 +832,23 @@ plot_model_performance <- function(performance_list,
   cor_bulk  <- extract_col(performance_list, "performance_in_bulk", "estimate.cor")
   cor_pseudo <- extract_col(performance_list, "performance_in_pseudo_bulk", "estimate.cor")
 
-  # Build summary data frame
+  # Report the PROPORTION of models passing each threshold (not the raw count),
+  # so the three datasets are directly comparable on the same 0–1 scale.
+  n_models <- length(performance_list)
+
   df2plot <- rbind(
     data.frame(
-      drugsCount = sapply(threshold_range, function(x) sum(cor_scRNA > x)),
+      drugProp = sapply(threshold_range, function(x) sum(cor_scRNA > x) / n_models),
       dataused = "scRNA-seq",
       Predictability = threshold_range
     ),
     data.frame(
-      drugsCount = sapply(threshold_range, function(x) sum(cor_bulk > x)),
+      drugProp = sapply(threshold_range, function(x) sum(cor_bulk > x) / n_models),
       dataused = "bulk",
       Predictability = threshold_range
     ),
     data.frame(
-      drugsCount = sapply(threshold_range, function(x) sum(cor_pseudo > x)),
+      drugProp = sapply(threshold_range, function(x) sum(cor_pseudo > x) / n_models),
       dataused = "pseudo-bulk",
       Predictability = threshold_range
     )
@@ -857,12 +861,12 @@ plot_model_performance <- function(performance_list,
 
   # Tooltip for ggiraph interactivity.
   tt_ok <- tooltip && requireNamespace("ggiraph", quietly = TRUE)
-  df2plot$tooltip_text <- sprintf("Dataset: %s\nThreshold: %.2f\nDrugs: %d",
+  df2plot$tooltip_text <- sprintf("Dataset: %s\nThreshold: %.2f\nProportion: %.2f",
                                   df2plot$dataused, df2plot$Predictability,
-                                  df2plot$drugsCount)
+                                  df2plot$drugProp)
   df2plot$data_id <- paste0("perf_", seq_len(nrow(df2plot)))
 
-  p <- ggplot(df2plot, aes(x = Predictability, y = drugsCount, color = dataused)) +
+  p <- ggplot(df2plot, aes(x = Predictability, y = drugProp, color = dataused)) +
     geom_vline(xintercept = highlight_threshold, linetype = "dashed",
                color = "#C13232", alpha = 0.5, linewidth = 0.4) +
     geom_line(linewidth = 0.9) +
@@ -871,7 +875,7 @@ plot_model_performance <- function(performance_list,
       else geom_point(size = 1.8, alpha = 0.85) } +
     scale_color_manual(values = dataset_colors) +
     theme_perception(base_size = base_size) +
-    labs(y = "Number of Drugs", color = "Validation Dataset",
+    labs(y = "Proportion of Drugs", color = "Validation Dataset",
          x = "Predictability (Pearson Correlation)") +
     theme(legend.position = "top",
           legend.box = "horizontal",
@@ -928,39 +932,16 @@ plot_seurat_clustering <- function(method = c("umap", "tsne"),
     stop("Package 'Seurat' is required. Install with: install.packages('Seurat')")
   }
 
-  set.seed(seed)
-
-  # Create Seurat object
-  so <- Seurat::CreateSeuratObject(counts = expression_matrix,
-                                   project = "PERCEPTIONx",
-                                   min.cells = min_cells,
-                                   min.features = min_features)
-
-  # Standard workflow
-  so <- Seurat::NormalizeData(so, normalization.method = "LogNormalize", scale.factor = 10000)
-  so <- Seurat::FindVariableFeatures(so, selection.method = "vst", nfeatures = nfeatures)
-  so <- Seurat::ScaleData(so)
-  so <- Seurat::RunPCA(so, features = Seurat::VariableFeatures(object = so))
-  so <- Seurat::FindNeighbors(so, dims = 1:dims)
-  so <- Seurat::FindClusters(so, resolution = resolution)
-
-  # Dimensionality reduction
-  if (method == "umap") {
-    so <- Seurat::RunUMAP(so, dims = 1:dims)
-  } else {
-    so <- Seurat::RunTSNE(so, dims = 1:dims, check_duplicates = FALSE)
-  }
-
-  # Generate plot
-  embedding_plot <- Seurat::DimPlot(so, reduction = method)
-
-  # Extract cluster IDs
-  cluster_ids <- Seurat::Idents(so)
+  # Shared pipeline (also used by annotate_clones) includes the PCA-dimension
+  # safeguard for small datasets.
+  so <- run_seurat_pipeline(expression_matrix, method,
+                            min_cells, min_features, nfeatures,
+                            dims, resolution, seed)
 
   return(list(
     seurat_object = so,
-    embedding_plot = embedding_plot,
-    cluster_ids = cluster_ids
+    embedding_plot = Seurat::DimPlot(so, reduction = method),
+    cluster_ids = Seurat::Idents(so)
   ))
 }
 
