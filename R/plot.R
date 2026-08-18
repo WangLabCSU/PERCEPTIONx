@@ -661,7 +661,7 @@ plot_roc_curve <- function(response,
 #' @param base_size Numeric. Base font size. Default = 15.
 #' @param compare_method Character. Statistical test method. One of
 #'        \code{"wilcox.test"} (default) or \code{"t.test"}.
-#' @param alternative Character. Alternative hypothesis direction. Default = "greater".
+#' @param alternative Character. Alternative hypothesis direction. Default = "less".
 #' @param tooltip Logical. If TRUE (default) and \pkg{ggiraph} is installed,
 #'        jittered points get hover tooltips.
 #'
@@ -683,7 +683,7 @@ plot_response_boxplot <- function(exp_vs_pred,
                                   y_label = "Predicted Viability (z-score)",
                                   base_size = 15,
                                   compare_method = "wilcox.test",
-                                  alternative = "greater",
+                                  alternative = "less",
                                   tooltip = TRUE) {
 
   if (!all(c(response_var, predicted_var) %in% colnames(exp_vs_pred))) {
@@ -691,8 +691,8 @@ plot_response_boxplot <- function(exp_vs_pred,
   }
 
   # Ensure response is a factor preserving R/NR order (R first, as passed in).
-  # Do NOT reverse levels — reversing would flip the x-order AND invert the
-  # direction of the one-sided test below (e.g. test "NR > R" instead of "R > NR").
+  # The one-sided test below (alternative = "less") asks whether R viability is
+  # significantly LOWER than NR — i.e. responders are more sensitive.
   resp_vec <- exp_vs_pred[[response_var]]
   if (is.factor(resp_vec)) {
     resp_vec <- factor(resp_vec)  # drop unused levels, keep order
@@ -723,8 +723,8 @@ plot_response_boxplot <- function(exp_vs_pred,
   #   3) jitter = raw points, spread across the violin width so the dots
   #               visually match the density shape.
   p <- ggplot(exp_vs_pred, aes(x = .data[[response_var]], y = .data[[predicted_var]])) +
-    geom_violin(aes(fill = .data[[response_var]]), alpha = 0.22,
-                width = 0.80, color = "grey55", linewidth = 0.30) +
+    geom_violin(aes(fill = .data[[response_var]]), alpha = 0.25,
+                width = 0.80, color = "grey40", linewidth = 0.35) +
     geom_boxplot(width = 0.14, outlier.shape = NA, fill = NA,
                  color = "grey30", linewidth = 0.45) +
     { if (tt_ok) ggiraph::geom_jitter_interactive(
@@ -817,7 +817,7 @@ plot_model_performance <- function(performance_list,
       # built-in demo models use a one-row data.frame — support both.
       if (is.data.frame(el)) {
         if (!(col %in% colnames(el))) return(NULL)
-        el[[col]]
+        el[[col]][1]
       } else {
         if (is.null(names(el)) || !(col %in% names(el))) return(NULL)
         el[[col]]

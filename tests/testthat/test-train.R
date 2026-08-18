@@ -33,8 +33,8 @@ test_that("train_models handles invalid drug gracefully", {
   )
 
   expect_type(models, "list")
-  # Should return NA for invalid drug
-  expect_true(is.na(models[["nonexistent_drug_xyz"]]))
+  # Invalid drug is filtered out, leaving an empty list
+  expect_length(models, 0)
 })
 
 test_that("feature_ranking_bulk returns ranked features", {

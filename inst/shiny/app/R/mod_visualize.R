@@ -623,18 +623,22 @@ mod_visualize_server <- function(id, shared, main_session) {
         p_obj <- p_fallback
       }
 
-      # Apply text size scale to ggplot's base font size
+      # Apply text size scale relative to the plot's OWN base font size (not a
+      # hardcoded value) so 100% -> base and >100% grows monotonically.
+      base <- p_obj$theme$text$size
+      if (is.null(base) || length(base) == 0 || !is.finite(base)) base <- 11
+
       p_scaled <- if (scale != 1) {
         p_obj +
-          theme(text = element_text(size = 11 * scale),
-                plot.title = element_text(size = 12 * scale, hjust = 0, vjust = 0, face = "plain",
-                                          margin = margin(b = 6)),
-                plot.subtitle = element_text(size = 11 * scale),
-                axis.title = element_text(size = 11 * scale),
-                axis.text = element_text(size = 10 * scale),
-                legend.text = element_text(size = 9 * scale),
-                legend.title = element_text(size = 10 * scale),
-                strip.text = element_text(size = 10 * scale))
+          theme(text = element_text(size = base * scale),
+                plot.title = element_text(size = (base + 1) * scale, hjust = 0, vjust = 0,
+                                          face = "plain", margin = margin(b = 6)),
+                plot.subtitle = element_text(size = base * scale),
+                axis.title = element_text(size = base * scale),
+                axis.text = element_text(size = (base - 1) * scale),
+                legend.text = element_text(size = (base - 2) * scale),
+                legend.title = element_text(size = (base - 1) * scale),
+                strip.text = element_text(size = (base - 1) * scale))
       } else {
         p_obj
       }
