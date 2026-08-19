@@ -380,7 +380,7 @@ PAT_003    Responder")
           ),
           div(class = "card-body seurat-body",
             # Left: description
-            div(class = "seurat-left",
+            div(id = ns("seurat_left"), class = "seurat-left",
               p(class = "text-muted", style = "font-size: 0.85rem; line-height: 1.5; margin-bottom: 0.6rem;",
                 "Run Seurat clustering to automatically detect transcriptional subclones, ",
                 "compute clone-level mean expression, rank-normalize the data, and build ",
@@ -406,12 +406,6 @@ PAT_003    Responder")
             ),
             # Right: controls
             div(class = "seurat-right",
-              div(id = ns("clone_note"), style = "display: none; flex: 1 1 auto; align-items: center; justify-content: center;",
-                div(class = "info-box", style = "font-size: 0.8rem; padding: 0.5rem 0.7rem; text-align: left;",
-                  icon("bolt"),
-                  "Clone-level mode: data is prepared automatically after upload — no clustering needed."
-                )
-              ),
               div(id = ns("seurat_controls"),
                 selectInput(ns("seurat_method"), "Reduction Method",
                             choices = c("UMAP" = "umap", "t-SNE" = "tsne"),
@@ -427,8 +421,16 @@ PAT_003    Responder")
                              icon = icon("wand-magic-sparkles"),
                              disabled = "disabled",
                              title = "Load expression matrix and patient-cell mapping first")
-              ),
-              tags$script(HTML(paste0("
+              )
+            ),
+            # Clone-level note: centered over the whole card when clone mode is on
+            div(id = ns("clone_note"), style = "display: none; flex: 1 1 auto; align-items: center; justify-content: center;",
+              div(class = "info-box", style = "font-size: 0.8rem; padding: 0.5rem 0.7rem; text-align: left;",
+                icon("bolt"),
+                "Clone-level mode: data is prepared automatically after upload — no clustering needed."
+              )
+            ),
+            tags$script(HTML(paste0("
 Shiny.addCustomMessageHandler('seurat-btn-state-", ns("run_seurat"), "', function(msg) {
   var btn = document.getElementById('", ns("run_seurat"), "');
   if (!btn) return;
@@ -441,13 +443,14 @@ Shiny.addCustomMessageHandler('seurat-btn-state-", ns("run_seurat"), "', functio
   }
 });
 Shiny.addCustomMessageHandler('expr-format-state-", ns("expr_format"), "', function(cloneMode) {
+  var left = document.getElementById('", ns("seurat_left"), "');
   var ctl = document.getElementById('", ns("seurat_controls"), "');
   var note = document.getElementById('", ns("clone_note"), "');
+  if (left) left.style.display = cloneMode ? 'none' : '';
   if (ctl) ctl.style.display = cloneMode ? 'none' : '';
   if (note) note.style.display = cloneMode ? 'flex' : 'none';
 });
 ")))
-            )
           ),
           div(class = "seurat-status-bar",
             uiOutput(ns("seurat_status"))
