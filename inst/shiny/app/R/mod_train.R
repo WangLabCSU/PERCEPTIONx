@@ -193,7 +193,9 @@ mod_train_server <- function(id, shared, main_session) {
           genes <- readLines(file$datapath)
         }
       } else if (nchar(trimws(input$goi)) > 0) {
-        genes <- unlist(strsplit(input$goi, "[,\\s\\n]+"))
+        # NB: use explicit separator chars — "\s" inside a character class is
+        # not treated as whitespace by R's default regex engine.
+        genes <- unlist(strsplit(input$goi, "[,\r\n\t ]+"))
         genes <- trimws(genes)
         genes <- genes[nchar(genes) > 0]
       }
@@ -203,7 +205,7 @@ mod_train_server <- function(id, shared, main_session) {
     # Parse drug text input (one per line or comma/space separated)
     drug_parsed <- reactive({
       if (is.null(input$drug)) return(character(0))
-      d <- unlist(strsplit(input$drug, "[,\\s\\n]+"))
+      d <- unlist(strsplit(input$drug, "[,\r\n\t ]+"))
       d <- trimws(d)
       d <- d[nchar(d) > 0]
       unique(d)
