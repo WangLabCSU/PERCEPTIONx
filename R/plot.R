@@ -255,9 +255,16 @@ plot_clone_distribution <- function(clone_distribution,
     }
   }
 
-  # Order patients by appearance (stable across facets)
+  # Order patients naturally (e.g. AZ_01, AZ_02, ..., LT_S01, ...): group by
+  # letter prefix, then sort by trailing number. This keeps sampled x-axis
+  # labels evenly spaced instead of leaving arbitrary gaps.
+  pat_levels <- unique(clone_distribution$patients)
+  pat_parts <- strsplit(pat_levels, "(?<=[^0-9])(?=[0-9])|(?<=[0-9])(?=[^0-9])", perl = TRUE)
+  key_pref <- vapply(pat_parts, function(p) paste(p[c(TRUE, FALSE)], collapse = ""), character(1))
+  key_num <- suppressWarnings(vapply(pat_parts, function(p) as.integer(paste(p[c(FALSE, TRUE)], collapse = "")), integer(1)))
+  key_num[is.na(key_num)] <- 0L
   clone_distribution$patients <- factor(clone_distribution$patients,
-                                        levels = unique(clone_distribution$patients))
+                                        levels = pat_levels[order(key_pref, key_num)])
 
   n_clones <- length(unique(clone_distribution$clones))
   n_patients <- length(unique(clone_distribution$patients))
