@@ -3,26 +3,74 @@
 # ---- Upload helpers: flexible table reading + column name normalization ----
 
 # Read an uploaded table by file extension. Supported: rds, csv, tsv/txt, xlsx.
+# Leading "comment" rows are skipped automatically: any row at the top with
+# fewer than 2 non-empty fields (e.g. a title line above the real header) is
+# treated as a comment, and the first row with >= 2 fields becomes the header.
+# The number of skipped rows is attached as attribute "skipped_rows".
 read_uploaded_table <- function(file) {
   ext <- tolower(tools::file_ext(file$name))
+
+  # Count fields in a delimited line, ignoring delimiters inside double quotes.
+  count_fields <- function(line, sep) {
+    if (!nzchar(trimws(line))) return(0L)
+    pat <- paste0(sep, "(?=([^\"]*\"[^\"]*\")*[^\"]*$)")
+    length(strsplit(line, pat, perl = TRUE)[[1]])
+  }
+
+  # First row with >= 2 non-empty cells = the real header row.
+  first_header_row <- function(rows) {
+    for (i in seq_along(rows)) {
+      if (sum(!is.na(rows[[i]]) & nzchar(trimws(as.character(rows[[i]])))) >= 2) return(i)
+    }
+    1L
+  }
+
+  read_text <- function(path, sep) {
+    lines <- readLines(path, warn = FALSE)
+    nf <- vapply(lines, count_fields, integer(1), sep = sep)
+    header_idx <- which(nf >= 2)[1]
+    if (is.na(header_idx)) {
+      header_idx <- 1L
+      n_skip <- 0L
+    } else {
+      n_skip <- header_idx - 1L
+    }
+    con <- textConnection(paste(lines[seq.int(header_idx, length(lines))], collapse = "\n"))
+    on.exit(close(con))
+    out <- read.table(con, header = TRUE,
+                      sep = if (sep == "[ \t]+") "" else sep,
+                      stringsAsFactors = FALSE, check.names = FALSE,
+                      comment.char = "", quote = "\"", fill = TRUE)
+    attr(out, "skipped_rows") <- n_skip
+    out
+  }
+
+  read_excel_tbl <- function(path) {
+    if (!requireNamespace("readxl", quietly = TRUE)) {
+      stop("Excel upload requires the 'readxl' package. Please run: install.packages('readxl')")
+    }
+    raw <- readxl::read_excel(path, col_names = FALSE, .name_repair = "minimal")
+    rows <- lapply(seq_len(nrow(raw)), function(i)
+      as.character(unlist(raw[i, ], use.names = FALSE)))
+    header_idx <- first_header_row(rows)
+    out <- as.data.frame(raw[seq.int(header_idx + 1L, nrow(raw)), , drop = FALSE],
+                         stringsAsFactors = FALSE, check.names = FALSE)
+    colnames(out) <- rows[[header_idx]]
+    attr(out, "skipped_rows") <- header_idx - 1L
+    out
+  }
+
   switch(ext,
-    rds = readRDS(file$datapath),
-    csv = read.csv(file$datapath, stringsAsFactors = FALSE, check.names = FALSE),
-    tsv = read.delim(file$datapath, stringsAsFactors = FALSE, check.names = FALSE),
-    txt = read.table(file$datapath, header = TRUE, sep = NULL,
-                     stringsAsFactors = FALSE, check.names = FALSE),
-    xlsx = {
-      if (!requireNamespace("readxl", quietly = TRUE)) {
-        stop("Excel upload requires the 'readxl' package. Please run: install.packages('readxl')")
-      }
-      readxl::read_excel(file$datapath)
+    rds = {
+      obj <- readRDS(file$datapath)
+      if (!isS4(obj)) attr(obj, "skipped_rows") <- 0L
+      obj
     },
-    xls = {
-      if (!requireNamespace("readxl", quietly = TRUE)) {
-        stop("Excel upload requires the 'readxl' package. Please run: install.packages('readxl')")
-      }
-      readxl::read_excel(file$datapath)
-    },
+    csv = read_text(file$datapath, ","),
+    tsv = read_text(file$datapath, "\t"),
+    txt = read_text(file$datapath, "[ \t]+"),
+    xlsx = read_excel_tbl(file$datapath),
+    xls  = read_excel_tbl(file$datapath),
     stop("Unsupported file type: .", ext, ". Please use .csv, .tsv, .txt, .xlsx or .rds.")
   )
 }
@@ -44,8 +92,14 @@ normalize_response_labels <- function(x) {
   y[y %in% c("responder", "response", "responsive", "r", "sensitive", "sensitivity")] <- "Responder"
   y[y %in% c("non-responder", "nonresponder", "non responder", "non-responsive",
              "nonresponsive", "nr", "resistant", "resistance", "progressor",
-             "progression", "non")] <- "Non-responder"
+             "progression", "non", "non_responder")] <- "Non-responder"
   y
+}
+
+# Human-readable suffix for the number of auto-skipped top comment rows.
+skipped_rows_msg <- function(n) {
+  if (is.null(n) || n <= 0) return("")
+  paste0(" (auto-skipped ", n, " top comment/title row", if (n > 1) "s", ")")
 }
 
 # Coerce various R object shapes into a long-format mapping data.frame.
@@ -241,6 +295,8 @@ mod_data_ui <- function(id) {
           div(class = "card-body",
             p(class = "text-muted", style = "font-size: 0.82rem;",
               "Single-cell expression matrix (genes × cells). Raw counts or normalized values. CSV / TSV / TXT / Excel / RDS format."),
+            p(style = "font-size: 0.8rem; font-weight: 700; color: var(--text); margin: 0.3rem 0 0.5rem;",
+              "Header is auto-detected as the first row with ≥2 columns (gene / cell names); single-field title/comment rows above it are skipped. Avoid a multi-column title row above the header."),
             div(class = "data-format-hint",
               icon("table"), " Format: rows = genes, columns = cells",
               tags$pre(class = "data-format-example", 
@@ -249,6 +305,12 @@ TP53      2.1       0.0       5.3
 BRCA1     0.0       1.8       3.2
 EGFR      4.7       2.1       0.0")
             ),
+            radioButtons(ns("expr_format"), "Data format",
+                         choices = c(
+                           "Cell-level — run Seurat clustering to detect clones" = "cell",
+                           "Clone-level — each column is one clone, skip clustering" = "clone"
+                         ),
+                         selected = "cell", width = "100%"),
             fileInput(ns("expr_file"), "Upload Expression",
                       accept = c(".csv", ".tsv", ".txt", ".xlsx", ".rds", ".RDS"), width = "100%"),
             uiOutput(ns("expr_status"))
@@ -265,7 +327,9 @@ EGFR      4.7       2.1       0.0")
           div(class = "card-body",
             p(class = "text-muted", style = "font-size: 0.82rem;",
               "File with columns: ", tags$code("cell_id"), " and ", tags$code("patient_id"),
-              " (case-insensitive). Maps each cell to its patient. Clones will be auto-detected via Seurat clustering. CSV / TSV / TXT / Excel / RDS."),
+              " (case-insensitive). Maps each cell (or clone) to its patient. In Clone-level mode the data is auto-prepared without clustering. CSV / TSV / TXT / Excel / RDS."),
+            p(style = "font-size: 0.8rem; font-weight: 700; color: var(--text); margin: 0.3rem 0 0.5rem;",
+              "Header is auto-detected as the first row with ≥2 columns (cell_id / patient_id); single-field title/comment rows above it are skipped."),
             div(class = "data-format-hint",
               icon("users"), " Format: cell_id + patient_id",
               tags$pre(class = "data-format-example", 
@@ -290,6 +354,8 @@ CELL_003   PAT_002")
           div(class = "card-body",
             p(class = "text-muted", style = "font-size: 0.82rem;",
               "Patient response data for evaluation. File with columns: patient, response (Responder/Non-responder, case-insensitive). CSV / TSV / TXT / Excel / RDS."),
+            p(style = "font-size: 0.8rem; font-weight: 700; color: var(--text); margin: 0.3rem 0 0.5rem;",
+              "Header is auto-detected as the first row with ≥2 columns (patient / response); single-field title/comment rows above it are skipped."),
             div(class = "data-format-hint",
               icon("heartbeat"), " Format: patient + response",
               tags$pre(class = "data-format-example", "patient    response
@@ -333,25 +399,35 @@ PAT_003    Responder")
               div(class = "info-box", style = "margin-top: 0.6rem; margin-bottom: 0; font-size: 0.8rem; padding: 0.5rem 0.7rem;",
                 icon("info-circle"),
                 "Requires Expression Matrix and Patient-Cell Mapping loaded first. ",
-                "Seurat will cluster cells into subclones — you do not need to provide clone annotations manually."
+                "By default Seurat clusters cells into subclones. ",
+                "Choose \"Clone-level\" in the Expression Matrix card to skip clustering — ",
+                "the data is then prepared automatically after upload."
               )
             ),
             # Right: controls
             div(class = "seurat-right",
-              selectInput(ns("seurat_method"), "Reduction Method",
-                          choices = c("UMAP" = "umap", "t-SNE" = "tsne"),
-                          selected = "umap", width = "100%"),
-              div(class = "seurat-params",
-                numericInput(ns("seurat_resolution"), "Resolution",
-                             value = 0.8, min = 0.1, max = 2, step = 0.1, width = "100%"),
-                numericInput(ns("seurat_dims"), "PCA Dims",
-                             value = 10, min = 2, max = 30, step = 1, width = "100%")
+              div(id = ns("clone_note"), style = "display: none; font-size: 0.8rem; margin-bottom: 0.5rem;",
+                div(class = "info-box", style = "margin: 0; font-size: 0.8rem; padding: 0.5rem 0.7rem;",
+                  icon("bolt"),
+                  "Clone-level mode: data is prepared automatically after upload — no clustering needed."
+                )
               ),
-              actionButton(ns("run_seurat"), "Run Seurat Clustering",
-                           class = "btn-primary seurat-run-btn",
-                           icon = icon("wand-magic-sparkles"),
-                           disabled = "disabled",
-                           title = "Load expression matrix and patient-cell mapping first"),
+              div(id = ns("seurat_controls"),
+                selectInput(ns("seurat_method"), "Reduction Method",
+                            choices = c("UMAP" = "umap", "t-SNE" = "tsne"),
+                            selected = "umap", width = "100%"),
+                div(class = "seurat-params",
+                  numericInput(ns("seurat_resolution"), "Resolution",
+                               value = 0.8, min = 0.1, max = 2, step = 0.1, width = "100%"),
+                  numericInput(ns("seurat_dims"), "PCA Dims",
+                               value = 10, min = 2, max = 30, step = 1, width = "100%")
+                ),
+                actionButton(ns("run_seurat"), "Run Seurat Clustering",
+                             class = "btn-primary seurat-run-btn",
+                             icon = icon("wand-magic-sparkles"),
+                             disabled = "disabled",
+                             title = "Load expression matrix and patient-cell mapping first")
+              ),
               tags$script(HTML(paste0("
 Shiny.addCustomMessageHandler('seurat-btn-state-", ns("run_seurat"), "', function(msg) {
   var btn = document.getElementById('", ns("run_seurat"), "');
@@ -363,6 +439,12 @@ Shiny.addCustomMessageHandler('seurat-btn-state-", ns("run_seurat"), "', functio
     btn.setAttribute('disabled', 'disabled');
     btn.setAttribute('title', 'Load expression matrix and patient-cell mapping first');
   }
+});
+Shiny.addCustomMessageHandler('expr-format-state-", ns("expr_format"), "', function(cloneMode) {
+  var ctl = document.getElementById('", ns("seurat_controls"), "');
+  var note = document.getElementById('", ns("clone_note"), "');
+  if (ctl) ctl.style.display = cloneMode ? 'none' : '';
+  if (note) note.style.display = cloneMode ? '' : 'none';
 });
 ")))
             )
@@ -401,6 +483,40 @@ Shiny.addCustomMessageHandler('seurat-btn-state-", ns("run_seurat"), "', functio
 mod_data_server <- function(id, shared) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
+
+    # --- Auto-prepare in clone-level mode (skip clustering) ---
+    # Runs whenever expression + mapping are both available and the user has
+    # selected "Clone-level" in the Expression Matrix card. No button needed.
+    auto_prepare_if_clone <- function() {
+      if (!identical(input$expr_format, "clone")) return(invisible(NULL))
+      if (is.null(shared$user_expr) || is.null(shared$user_mapping)) return(invisible(NULL))
+      w <- Waiter$new(
+        html = tagList(
+          div(class = "spinner-ring"),
+          h4("Preparing clone-level data..."),
+          p(class = "text-muted", "Mapping cells to patients and rank-normalizing")
+        ),
+        color = "rgba(255,255,255,0.85)"
+      )
+      w$show()
+      tryCatch({
+        prepared <- PERCEPTIONx::prepare_data(
+          expression_matrix = shared$user_expr,
+          patient_mapping   = shared$user_mapping,
+          skip_clustering   = TRUE
+        )
+        shared$prepared_data <- prepared
+        shared$user_clones <- prepared$cell_clone_map
+        w$hide()
+        showNotification(paste0("Data ready (clone-level): ",
+                                ncol(prepared$clone_expression_rnorm),
+                                " clones across ", nrow(prepared$clone_counts), " patients"),
+                         type = "message", duration = 5)
+      }, error = function(e) {
+        w$hide()
+        showNotification(paste("Auto-prepare error:", e$message), type = "error", duration = 10)
+      })
+    }
 
     # --- Enable/disable Run Seurat button based on required data (#10) ---
     observe({
@@ -810,6 +926,7 @@ mod_data_server <- function(id, shared) {
       file <- input$expr_file
       tryCatch({
         mat <- read_uploaded_table(file)
+        n_skip <- attr(mat, "skipped_rows"); if (is.null(n_skip)) n_skip <- 0L
         # RDS may be a matrix; text/Excel uploads come in as a data.frame
         if (!is.matrix(mat)) {
           mat <- as.matrix(mat)
@@ -826,7 +943,10 @@ mod_data_server <- function(id, shared) {
         storage.mode(mat) <- "numeric"
         shared$user_expr <- mat
         shared$prepared_data <- NULL  # Reset prepared data when expression changes
-        showNotification(paste("Expression matrix loaded:", nrow(mat), "genes x", ncol(mat), "cells"), type = "message")
+        showNotification(paste0("Expression matrix loaded: ", nrow(mat), " genes x ",
+                                ncol(mat), " cells",
+                                skipped_rows_msg(n_skip)), type = "message")
+        auto_prepare_if_clone()
       }, error = function(e) {
         showNotification(paste("Error:", e$message), type = "error")
       })
@@ -847,6 +967,7 @@ mod_data_server <- function(id, shared) {
       file <- input$mapping_file
       tryCatch({
         df <- coerce_mapping_df(read_uploaded_table(file))
+        n_skip <- attr(df, "skipped_rows"); if (is.null(n_skip)) n_skip <- 0L
         df <- standardize_columns(df, c("cell_id", "patient_id"))
         if (!all(c("cell_id", "patient_id") %in% names(df))) {
           stop("Mapping must contain columns 'cell_id' and 'patient_id' (case-insensitive). Found: ",
@@ -856,7 +977,9 @@ mod_data_server <- function(id, shared) {
         df$patient_id <- as.character(df$patient_id)
         shared$user_mapping <- df
         shared$prepared_data <- NULL  # Reset prepared data when mapping changes
-        showNotification(paste("Patient-cell mapping loaded:", nrow(shared$user_mapping), "cells"), type = "message")
+        showNotification(paste0("Patient-cell mapping loaded: ", nrow(shared$user_mapping),
+                                " cells", skipped_rows_msg(n_skip)), type = "message")
+        auto_prepare_if_clone()
       }, error = function(e) {
         showNotification(paste("Error:", e$message), type = "error")
       })
@@ -871,6 +994,17 @@ mod_data_server <- function(id, shared) {
           paste0(nrow(shared$user_mapping), " cells, ", n_patients, " patients")
         )
       )
+    })
+
+    # --- Expression format (cell-level vs clone-level) ---
+    observeEvent(input$expr_format, {
+      clone_mode <- identical(input$expr_format, "clone")
+      session$sendCustomMessage(paste0("expr-format-state-", ns("expr_format")), clone_mode)
+      # Mode switch invalidates any previous preparation; in clone-level mode
+      # the data is re-prepared automatically.
+      shared$prepared_data <- NULL
+      shared$user_clones <- NULL
+      if (clone_mode) auto_prepare_if_clone()
     })
 
     # --- Run Seurat Clustering (prepare_data) ---
@@ -908,15 +1042,24 @@ mod_data_server <- function(id, shared) {
 
     output$seurat_status <- renderUI({
       if (is.null(shared$prepared_data)) {
-        tags$span(class = "status-badge unloaded",
-          span(class = "status-dot gray"),
-          "Not run yet — upload expression + mapping, then click Run Seurat Clustering"
-        )
+        if (identical(input$expr_format, "clone")) {
+          tags$span(class = "status-badge unloaded",
+            span(class = "status-dot gray"),
+            "Clone-level mode — will auto-prepare once expression + mapping are loaded"
+          )
+        } else {
+          tags$span(class = "status-badge unloaded",
+            span(class = "status-dot gray"),
+            "Not run yet — upload expression + mapping, then click Run Seurat Clustering"
+          )
+        }
       } else {
         pd <- shared$prepared_data
         tagList(
           span(class = "status-badge loaded", span(class = "status-dot green"), "Complete"),
           tags$small(class = "text-muted",
+            if (identical(pd$reduction_method, "none"))
+              "(clone-level, clustering skipped) " else "",
             paste0(ncol(pd$clone_expression_rnorm), " clones, ",
                    nrow(pd$clone_counts), " patients, ",
                    nrow(pd$clone_expression_rnorm), " genes (rank-normalized)")
@@ -930,6 +1073,7 @@ mod_data_server <- function(id, shared) {
       file <- input$response_file
       tryCatch({
         df <- coerce_response_df(read_uploaded_table(file))
+        n_skip <- attr(df, "skipped_rows"); if (is.null(n_skip)) n_skip <- 0L
         df <- standardize_columns(df, c("patient", "response"))
         if (!all(c("patient", "response") %in% names(df))) {
           stop("Response file must contain columns 'patient' and 'response' (case-insensitive). Found: ",
@@ -946,7 +1090,8 @@ mod_data_server <- function(id, shared) {
             showNotification("Warning: no patient IDs in the response file match the mapping's patient_id. Predictions cannot be validated.", type = "warning", duration = 10)
           }
         }
-        showNotification(paste("Clinical response loaded:", nrow(shared$user_response), "patients"), type = "message")
+        showNotification(paste0("Clinical response loaded: ", nrow(shared$user_response),
+                                " patients", skipped_rows_msg(n_skip)), type = "message")
       }, error = function(e) {
         showNotification(paste("Error:", e$message), type = "error")
       })

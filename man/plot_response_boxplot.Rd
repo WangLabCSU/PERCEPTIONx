@@ -11,7 +11,7 @@ plot_response_boxplot(
   y_label = "Predicted Viability (z-score)",
   base_size = 15,
   compare_method = "wilcox.test",
-  alternative = "greater",
+  alternative = "less",
   tooltip = TRUE
 )
 }
@@ -29,7 +29,7 @@ plot_response_boxplot(
 \item{compare_method}{Character. Statistical test method. One of
 \code{"wilcox.test"} (default) or \code{"t.test"}.}
 
-\item{alternative}{Character. Alternative hypothesis direction. Default = "greater".}
+\item{alternative}{Character. Alternative hypothesis direction. Default = "less".}
 
 \item{tooltip}{Logical. If TRUE (default) and \pkg{ggiraph} is installed,
 jittered points get hover tooltips.}

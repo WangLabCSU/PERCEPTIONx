@@ -19,7 +19,8 @@ prepare_data(
   seurat_nfeatures = 2000,
   seurat_min_cells = 3,
   seurat_min_features = 200,
-  seurat_seed = 42
+  seurat_seed = 42,
+  skip_clustering = FALSE
 )
 }
 \arguments{
@@ -73,6 +74,12 @@ If NULL, all genes in the expression matrix are used.}
 Auto-adjusted to 10\% of gene count if the expression matrix has fewer genes.}
 
 \item{seurat_seed}{Integer. Random seed. Default = 42.}
+
+\item{skip_clustering}{Logical. If TRUE, skip the Seurat clustering step and
+treat every column of \code{expression_matrix} as one pre-defined clone.
+Use this when you already have a clone-level expression matrix (e.g. from a
+published study). Rank normalization and clone counts are still applied.
+No UMAP/t-SNE embedding is produced in this mode.}
 }
 \value{
 A named list with:
