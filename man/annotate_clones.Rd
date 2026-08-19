@@ -2,7 +2,7 @@
 % Please edit documentation in R/annotate.R
 \name{annotate_clones}
 \alias{annotate_clones}
-\title{PERCEPTIONx Patient Data Annotation Functions}
+\title{Annotate cells with clone IDs via Seurat clustering}
 \usage{
 annotate_clones(
   method = c("umap", "tsne"),
@@ -40,11 +40,6 @@ A data frame with columns: \code{cell_id}, \code{clone_id}, and
 \code{dim_1}, \code{dim_2} (2D embedding coordinates for visualization).
 }
 \description{
-Functions for annotating single-cell data with clone and patient information,
-and preparing patient data for the prediction pipeline.
-Annotate cells with clone IDs via Seurat clustering
-}
-\details{
 Performs Seurat clustering on a single-cell expression matrix and returns
 a mapping of each cell to its cluster (clone) ID. This matches the original
 PERCEPTIONx pipeline where Seurat clusters define transcriptional subclones.

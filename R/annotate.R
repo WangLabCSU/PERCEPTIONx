@@ -252,6 +252,11 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 #'   Default = "_". Providing this parameter auto-enables parse_patient.
 #' @param patient_pos Integer. Position of patient ID after splitting.
 #'   Default = 1 (first element). Providing this parameter auto-enables parse_patient.
+#' @param skip_clustering Logical. If TRUE, skip the Seurat clustering step and
+#'   treat every column of \code{expression_matrix} as one pre-defined clone.
+#'   Use this when you already have a clone-level expression matrix (e.g. from a
+#'   published study). Rank normalization and clone counts are still applied.
+#'   No UMAP/t-SNE embedding is produced in this mode.
 #'
 #' @export
 prepare_data <- function(method = c("umap", "tsne"),
@@ -268,7 +273,8 @@ prepare_data <- function(method = c("umap", "tsne"),
                           seurat_nfeatures = 2000,
                           seurat_min_cells = 3,
                           seurat_min_features = 200,
-                          seurat_seed = 42) {
+                          seurat_seed = 42,
+                          skip_clustering = FALSE) {
 
   method <- match.arg(method)
   message("=== PERCEPTIONx Patient Data Preparation ===")
@@ -329,34 +335,46 @@ prepare_data <- function(method = c("umap", "tsne"),
     sample_cell_names <- patient_mapping
   }
 
-  # --- Step 1: Seurat clustering to define subclones ---
-  message("[1/5] Clustering cells via Seurat...")
+  # --- Step 1: Define clones (Seurat clustering OR clone-level input) ---
+  if (isTRUE(skip_clustering)) {
+    message("[1/5] Skipping Seurat clustering — each column is treated as one clone...")
+    cn <- colnames(expression_matrix)
+    if (is.null(cn)) {
+      stop("expression_matrix must have column names when skip_clustering = TRUE ",
+           "(each column is expected to be one clone).")
+    }
+    cell_clone_map <- data.frame(cell_id = cn, clone_id = cn,
+                                 stringsAsFactors = FALSE)
+    message("  Using ", length(cn), " provided clone columns.")
+  } else {
+    message("[1/5] Clustering cells via Seurat...")
 
-  # Auto-adjust min_features and nfeatures if gene count is small
-  n_genes <- nrow(expression_matrix)
-  if (n_genes < seurat_min_features) {
-    seurat_min_features <- max(1, floor(n_genes * 0.1))
-    message("  Adjusting min_features to ", seurat_min_features,
-            " (only ", n_genes, " genes in expression matrix)")
-  }
-  if (n_genes < seurat_nfeatures) {
-    seurat_nfeatures <- max(10, n_genes)
-    message("  Adjusting nfeatures to ", seurat_nfeatures,
-            " (only ", n_genes, " genes available)")
-  }
+    # Auto-adjust min_features and nfeatures if gene count is small
+    n_genes <- nrow(expression_matrix)
+    if (n_genes < seurat_min_features) {
+      seurat_min_features <- max(1, floor(n_genes * 0.1))
+      message("  Adjusting min_features to ", seurat_min_features,
+              " (only ", n_genes, " genes in expression matrix)")
+    }
+    if (n_genes < seurat_nfeatures) {
+      seurat_nfeatures <- max(10, n_genes)
+      message("  Adjusting nfeatures to ", seurat_nfeatures,
+              " (only ", n_genes, " genes available)")
+    }
 
-  cell_clone_map <- annotate_clones(
-    method = method,
-    expression_matrix = expression_matrix,
-    min_cells = seurat_min_cells,
-    min_features = seurat_min_features,
-    nfeatures = seurat_nfeatures,
-    dims = seurat_dims,
-    resolution = seurat_resolution,
-    seed = seurat_seed
-  )
-  message("  Found ", length(unique(cell_clone_map$clone_id)), " clones across ",
-          nrow(cell_clone_map), " cells.")
+    cell_clone_map <- annotate_clones(
+      method = method,
+      expression_matrix = expression_matrix,
+      min_cells = seurat_min_cells,
+      min_features = seurat_min_features,
+      nfeatures = seurat_nfeatures,
+      dims = seurat_dims,
+      resolution = seurat_resolution,
+      seed = seurat_seed
+    )
+    message("  Found ", length(unique(cell_clone_map$clone_id)), " clones across ",
+            nrow(cell_clone_map), " cells.")
+  }
 
   # --- Step 2: Build patient IDs ---
   message("[2/5] Mapping cells to patients...")
@@ -441,7 +459,8 @@ prepare_data <- function(method = c("umap", "tsne"),
     clone_counts = clone_counts,
     cell_clone_map = cell_clone_map,
     clone_viability_template = clone_viability_template,
-    umap_coords = cell_clone_map[, c("cell_id", "dim_1", "dim_2")],
-    reduction_method = method
+    umap_coords = if (isTRUE(skip_clustering)) NULL else
+      cell_clone_map[, c("cell_id", "dim_1", "dim_2")],
+    reduction_method = if (isTRUE(skip_clustering)) "none" else method
   ))
 }

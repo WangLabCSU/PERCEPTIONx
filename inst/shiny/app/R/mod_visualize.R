@@ -159,7 +159,8 @@ mod_visualize_server <- function(id, shared, main_session) {
       if (is.null(m)) "umap" else m
     })
     reduction_label <- reactive({
-      if (reduction_method() == "tsne") "t-SNE" else "UMAP"
+      m <- reduction_method()
+      if (m == "none") "no embedding" else if (m == "tsne") "t-SNE" else "UMAP"
     })
 
     # Normalize embedding coordinate columns — old prepare_data() returns
@@ -476,7 +477,7 @@ mod_visualize_server <- function(id, shared, main_session) {
       # Check for 2D embedding coordinates from prepare_data()
       umap_coords <- shared$prepared_data$umap_coords
       if (is.null(umap_coords)) {
-        showNotification(paste0(reduction_label(), " coordinates not found. Run Seurat clustering in Data module first."), type = "warning", duration = 8)
+        showNotification("No 2D embedding available (clustering was skipped or not run). Re-run with Seurat clustering to enable spatial plots.", type = "warning", duration = 8)
         return()
       }
 
