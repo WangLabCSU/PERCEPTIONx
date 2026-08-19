@@ -406,8 +406,8 @@ PAT_003    Responder")
             ),
             # Right: controls
             div(class = "seurat-right",
-              div(id = ns("clone_note"), style = "display: none; font-size: 0.8rem; margin-bottom: 0.5rem;",
-                div(class = "info-box", style = "margin: 0; font-size: 0.8rem; padding: 0.5rem 0.7rem;",
+              div(id = ns("clone_note"), style = "display: none; flex: 1 1 auto; align-items: center; justify-content: center;",
+                div(class = "info-box", style = "font-size: 0.8rem; padding: 0.5rem 0.7rem; text-align: left;",
                   icon("bolt"),
                   "Clone-level mode: data is prepared automatically after upload — no clustering needed."
                 )
@@ -444,7 +444,7 @@ Shiny.addCustomMessageHandler('expr-format-state-", ns("expr_format"), "', funct
   var ctl = document.getElementById('", ns("seurat_controls"), "');
   var note = document.getElementById('", ns("clone_note"), "');
   if (ctl) ctl.style.display = cloneMode ? 'none' : '';
-  if (note) note.style.display = cloneMode ? '' : 'none';
+  if (note) note.style.display = cloneMode ? 'flex' : 'none';
 });
 ")))
             )

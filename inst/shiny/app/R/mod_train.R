@@ -26,7 +26,7 @@ mod_train_ui <- function(id) {
     fluidRow(style = "margin-top: 0.5rem;",
       # Parameters Panel
       column(5,
-        div(class = "card animate-fade-in-up",
+        div(class = "card train-params-card animate-fade-in-up",
           div(class = "card-header",
             icon("sliders-h"), " Parameters"
           ),
@@ -35,15 +35,16 @@ mod_train_ui <- function(id) {
             # Section: Drug & Cancer Type
             div(class = "param-section",
               h6(class = "param-section-title", icon("tag"), " Drug & Cancer Type"),
-              selectizeInput(ns("drug"), "Drug Name (select one or more for combination)",
-                             choices = NULL, selected = "abemaciclib", multiple = TRUE,
-                             options = list(maxItems = NULL, placeholder = "Select drug(s)",
-                                            plugins = list("remove_button"))),
+              textAreaInput(ns("drug"), "Drug Names (one per line or comma-separated)",
+                            value = "abemaciclib", rows = 3, height = "90px",
+                            width = "100%",
+                            placeholder = "e.g.\nabemaciclib\nerlotinib\nAny drug with response data in your DepMap upload can be trained."),
+              uiOutput(ns("drug_hint")),
               selectizeInput(ns("cancer_type"), "Cancer Type (include)",
-                             choices = NULL, selected = "PanCan",
+                             choices = NULL, selected = "PanCan", width = "100%",
                              options = list(maxItems = 1, placeholder = "Select cancer type")),
               selectizeInput(ns("exclude_cancer"), "Cancer Type (exclude)",
-                             choices = NULL, selected = "PanCan",
+                             choices = NULL, selected = "PanCan", width = "100%",
                              options = list(maxItems = 1, placeholder = "Select cancer type to exclude"))
             ),
 
@@ -58,11 +59,13 @@ mod_train_ui <- function(id) {
               textAreaInput(ns("goi"), "Gene Symbols (optional — empty = all genes)",
                             placeholder = "Enter gene symbols, one per line or comma-separated.\nLeave empty to use all genes.",
                             rows = 8,
-                            height = "120px"),
+                            height = "120px",
+                            width = "100%"),
               fileInput(ns("goi_file"), "Or Upload Gene List (.txt, .csv)",
                         accept = c(".txt", ".csv")),
               numericInput(ns("k_features"), "Top k Features",
-                           value = 100, min = 10, max = 5000, step = 10)
+                           value = 100, min = 10, max = 5000, step = 10,
+                           width = "100%")
             ),
 
             # Section: Model Configuration
@@ -70,10 +73,11 @@ mod_train_ui <- function(id) {
               h6(class = "param-section-title", icon("cog"), " Model Configuration"),
               selectInput(ns("model_type"), "Algorithm",
                           choices = c("Elastic Net (glmnet)" = "glmnet", "Random Forest" = "rf"),
-                          selected = "glmnet"),
+                          selected = "glmnet", width = "100%"),
               numericInput(ns("ncores"), "CPU Cores",
                            value = 1, min = 1,
-                           max = max(1L, parallel::detectCores(), na.rm = TRUE), step = 1)
+                           max = max(1L, parallel::detectCores(), na.rm = TRUE), step = 1,
+                           width = "100%")
             ),
 
             div(class = "train-action-row",
@@ -147,24 +151,22 @@ mod_train_server <- function(id, shared, main_session) {
     observe({
       depmap <- shared$depmap
       if (!is.null(depmap)) {
-        # Drug choices: 44 FDA-approved drugs (recommended subset from train_models default)
-        fda_drugs <- c(
-          "abemaciclib", "afatinib", "axitinib", "azacitidine", "cladribine",
-          "clofarabine", "cobimetinib", "dabrafenib", "dasatinib", "daunorubicin",
-          "decitabine", "docetaxel", "doxorubicin", "epirubicin", "erlotinib",
-          "etoposide", "gefitinib", "gemcitabine", "homoharringtonine", "ibrutinib",
-          "icotinib", "ixabepilone", "lapatinib", "lenvatinib", "midostaurin",
-          "niraparib", "osimertinib", "paclitaxel", "palbociclib", "ponatinib",
-          "romidepsin", "sunitinib", "temsirolimus", "teniposide", "thioguanine",
-          "topotecan", "trametinib", "vandetanib", "vemurafenib", "vinblastine",
-          "vincristine", "vindesine", "vinflunine", "vinorelbine"
-        )
-        # Filter to drugs that actually exist in DepMap
+        # Drug hint: how many drugs have response data in the loaded DepMap.
+        # Any of them can be trained — the 44 FDA-approved list is only a
+        # recommended subset, not a limitation.
         if (!is.null(depmap$secondary_screen_drugAnnotation)) {
           available <- unique(depmap$secondary_screen_drugAnnotation$CommonName)
-          fda_drugs <- intersect(fda_drugs, available)
+        } else {
+          available <- character(0)
         }
-        updateSelectizeInput(session, "drug", choices = fda_drugs, selected = "abemaciclib", server = TRUE)
+        output$drug_hint <- renderUI({
+          if (length(available) == 0) return(NULL)
+          tags$small(class = "text-muted",
+            paste0(length(available), " drugs with response data in the loaded DepMap — ",
+                   "any of them can be trained, beyond the 44 recommended ones. ",
+                   "Matching is case-insensitive.")
+          )
+        })
 
         # Cancer type choices: PanCan + unique lineages from DepMap annotation
         cancer_choices <- "PanCan"
@@ -198,6 +200,15 @@ mod_train_server <- function(id, shared, main_session) {
       genes
     })
 
+    # Parse drug text input (one per line or comma/space separated)
+    drug_parsed <- reactive({
+      if (is.null(input$drug)) return(character(0))
+      d <- unlist(strsplit(input$drug, "[,\\s\\n]+"))
+      d <- trimws(d)
+      d <- d[nchar(d) > 0]
+      unique(d)
+    })
+
     # Train
     observeEvent(input$train, {
       # Validate
@@ -211,9 +222,31 @@ mod_train_server <- function(id, shared, main_session) {
         goi <- rownames(shared$depmap$expression_rnorm)
         showNotification(paste0("Using all ", length(goi), " genes from DepMap data"), type = "message")
       }
-      if (is.null(input$drug) || length(input$drug) == 0) {
-        showNotification("Please select at least one drug", type = "error")
+      drugs <- drug_parsed()
+      if (length(drugs) == 0) {
+        showNotification("Please enter at least one drug name", type = "error")
         return()
+      }
+      # Filter to drugs that actually have response data in the loaded DepMap.
+      # Matching is case- and punctuation-insensitive (same rule as
+      # train_models()'s stripall2match): "carfilzomib" matches "Carfilzomib".
+      if (!is.null(shared$depmap$secondary_screen_drugAnnotation)) {
+        available <- unique(as.character(shared$depmap$secondary_screen_drugAnnotation$CommonName))
+        norm_key <- function(x) tolower(gsub("[^a-z0-9]", "", tolower(x)))
+        matched <- match(norm_key(drugs), norm_key(available))
+        missing <- drugs[is.na(matched)]
+        if (length(missing) > 0) {
+          showNotification(paste0("Not found in DepMap response data (skipped): ",
+                                  paste(missing, collapse = ", "),
+                                  ". Drugs outside DepMap (e.g. daratumumab) cannot be trained here — ",
+                                  "load a pre-trained model instead (Predict tab)."),
+                           type = "warning", duration = 8)
+          drugs <- available[matched[!is.na(matched)]]
+        }
+        if (length(drugs) == 0) {
+          showNotification("No valid drug names left — check spellings", type = "error")
+          return()
+        }
       }
 
       w <- Waiter$new(
@@ -228,7 +261,7 @@ mod_train_server <- function(id, shared, main_session) {
 
       tryCatch({
         result <- PERCEPTIONx::train_models(
-          drug_list = input$drug,
+          drug_list = drugs,
           cancer_type = input$cancer_type,
           exclude_cancer = input$exclude_cancer,
           GOI = goi,
@@ -256,7 +289,7 @@ mod_train_server <- function(id, shared, main_session) {
     # Reset
     observeEvent(input$reset, {
       trained(NULL)
-      updateSelectizeInput(session, "drug", selected = "abemaciclib")
+      updateTextAreaInput(session, "drug", value = "abemaciclib")
       updateSelectizeInput(session, "cancer_type", selected = "PanCan")
       updateSelectizeInput(session, "exclude_cancer", selected = "PanCan")
       updateTextAreaInput(session, "goi", value = "")
@@ -403,7 +436,8 @@ mod_train_server <- function(id, shared, main_session) {
 
     output$download_model <- downloadHandler(
       filename = function() {
-        drug_str <- paste(input$drug, collapse = "_")
+        drug_str <- paste(drug_parsed(), collapse = "_")
+        if (nchar(drug_str) > 80) drug_str <- substr(drug_str, 1, 80)
         paste0(drug_str, "_model_", format(Sys.Date(), "%Y%m%d"), ".RDS")
       },
       content = function(file) {
