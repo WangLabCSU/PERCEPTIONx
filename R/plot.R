@@ -256,8 +256,7 @@ plot_clone_distribution <- function(clone_distribution,
   }
 
   # Order patients naturally (e.g. AZ_01, AZ_02, ..., LT_S01, ...): group by
-  # letter prefix, then sort by trailing number. This keeps sampled x-axis
-  # labels evenly spaced instead of leaving arbitrary gaps.
+  # letter prefix, then sort by trailing number. All patient labels are shown.
   pat_levels <- unique(clone_distribution$patients)
   pat_parts <- strsplit(pat_levels, "(?<=[^0-9])(?=[0-9])|(?<=[0-9])(?=[^0-9])", perl = TRUE)
   key_pref <- vapply(pat_parts, function(p) paste(p[c(TRUE, FALSE)], collapse = ""), character(1))
@@ -271,10 +270,10 @@ plot_clone_distribution <- function(clone_distribution,
 
   # Adaptive x-axis labels: rotate 45 deg only when many patients would
   # otherwise overlap. The FACET STRIP labels (R/NR on top) stay horizontal.
+  # All patient labels are always shown (no downsampling).
   x_angle <- if (n_patients <= 8) 0 else 45
   x_hjust <- if (n_patients <= 8) 0.5 else 1
   x_vjust <- if (n_patients <= 8) 0.5 else 1
-  x_breaks <- NULL
 
   # Tooltip for ggiraph interactivity (hover shows clone + proportion).
   tt_ok <- tooltip && requireNamespace("ggiraph", quietly = TRUE)
@@ -300,7 +299,6 @@ plot_clone_distribution <- function(clone_distribution,
       else geom_bar(position = "stack", stat = "identity", width = 0.75,
                     color = "white", linewidth = 0.15) } +
     scale_fill_manual(values = clone_palette(n_clones)) +
-    scale_x_discrete(breaks = x_breaks) +
     theme_perception(base_size = base_size) +
     theme(axis.text.x = element_text(angle = x_angle, hjust = x_hjust, vjust = x_vjust,
                                      size = rel(0.8), margin = margin(t = 4)),
