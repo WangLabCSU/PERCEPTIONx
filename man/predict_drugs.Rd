@@ -24,6 +24,12 @@ predicts viability scores for each cell/sample across one or more drugs.
 This function merges the former viability_from_model (single drug) and
 viability_in_each_dataset (multi-drug) into a unified interface.
 }
+\details{
+If a small fraction (<= 50\\%) of a model's features are missing from
+\code{expr} (e.g. genes filtered out during scRNA QC), they are imputed
+with the neutral rank value 0.5 and a warning is issued. If more than half
+of the features are missing, prediction stops with an error.
+}
 \examples{
 \dontrun{
   # Single drug

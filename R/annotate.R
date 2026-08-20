@@ -343,6 +343,9 @@ prepare_data <- function(method = c("umap", "tsne"),
       stop("expression_matrix must have column names when skip_clustering = TRUE ",
            "(each column is expected to be one clone).")
     }
+    # Keep the full column name as the unique clone identity (e.g. "Kydar01_c1").
+    # This is universal: clone names are whatever the user's data uses. Patient
+    # separation is guaranteed downstream via "patient@@clone" keys.
     cell_clone_map <- data.frame(cell_id = cn, clone_id = cn,
                                  stringsAsFactors = FALSE)
     message("  Using ", length(cn), " provided clone columns.")
@@ -404,6 +407,21 @@ prepare_data <- function(method = c("umap", "tsne"),
   # Add patient column to cell_clone_map
   cell_clone_map$patient <- patient_ids[match(cell_clone_map$cell_id,
                                                 names(patient_ids))]
+
+  # In clone-level mode, refine the clone label to the per-patient category
+  # (e.g. "Kydar01_c1" -> "c1") using the KNOWN patient id, so clone keys
+  # become "Kydar01@@c1" instead of "Kydar01@@Kydar01_c1". This only strips
+  # when the cell name actually starts with its patient id; any other naming
+  # scheme keeps the full name, so the behavior is universal.
+  if (isTRUE(skip_clustering)) {
+    cell_clone_map$clone_id <- vapply(seq_len(nrow(cell_clone_map)), function(i) {
+      cell <- cell_clone_map$cell_id[i]
+      pat  <- cell_clone_map$patient[i]
+      if (is.na(pat) || !startsWith(cell, pat)) return(cell)
+      rest <- sub("^[\\._-]", "", substring(cell, nchar(pat) + 1))
+      if (nchar(rest) == 0) cell else rest
+    }, character(1))
+  }
 
   # --- Step 3: Compute clone-level mean expression ---
   message("[3/5] Computing clone-level mean expression...")

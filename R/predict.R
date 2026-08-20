@@ -24,6 +24,11 @@ NULL
 #'         containing predicted viability scores. Lower values indicate higher
 #'         drug sensitivity.
 #'
+#' @details If a small fraction (<= 50\%) of a model's features are missing from
+#'   \code{expr} (e.g. genes filtered out during scRNA QC), they are imputed
+#'   with the neutral rank value 0.5 and a warning is issued. If more than half
+#'   of the features are missing, prediction stops with an error.
+#'
 #' @examples
 #' \dontrun{
 #'   # Single drug
@@ -132,12 +137,23 @@ viability_from_model_internal <- function(drug_name, model, dataset) {
   missing_features <- model$coefnames[is.na(feature_match)]
 
   if (length(missing_features) > 0) {
-    stop(sprintf(
-      "Model features not found in expression matrix for drug '%s': %s\nTotal missing: %d / %d features.\nThis usually means gene name formats differ between training and prediction data.",
-      drug_name,
-      paste(head(missing_features, 5), collapse = ", "),
-      length(missing_features),
-      length(model$coefnames)))
+    frac_missing <- length(missing_features) / length(model$coefnames)
+    if (frac_missing > 0.5) {
+      stop(sprintf(
+        "Model features not found in expression matrix for drug '%s': %d / %d features missing (%.0f%%).\nThis usually means gene name formats differ between training and prediction data, or the wrong expression matrix was provided.",
+        drug_name, length(missing_features), length(model$coefnames), 100 * frac_missing))
+    }
+    # Impute the remaining features with the neutral rank-normalized value (0.5,
+    # the median rank). This keeps predictions unbiased when a handful of genes
+    # were filtered out during scRNA QC / gene-set coverage differences.
+    warning(sprintf(
+      "Imputing %d / %d missing model features for drug '%s' with the median rank value (0.5): %s",
+      length(missing_features), length(model$coefnames), drug_name,
+      paste(head(missing_features, 10), collapse = ", ")))
+    impute_mat <- matrix(0.5, nrow = length(missing_features), ncol = ncol(dataset),
+                         dimnames = list(missing_features, colnames(dataset)))
+    dataset <- rbind(as.matrix(dataset), impute_mat)
+    feature_match <- match(model$coefnames, rownames(dataset))
   }
 
   # Subset expression matrix to model features
