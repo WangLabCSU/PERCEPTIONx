@@ -275,10 +275,6 @@ plot_clone_distribution <- function(clone_distribution,
   x_hjust <- if (n_patients <= 8) 0.5 else 1
   x_vjust <- if (n_patients <= 8) 0.5 else 1
   x_breaks <- NULL
-  if (n_patients > 24) {
-    keep_idx <- seq(1, n_patients, by = 2)
-    x_breaks <- levels(clone_distribution$patients)[keep_idx]
-  }
 
   # Tooltip for ggiraph interactivity (hover shows clone + proportion).
   tt_ok <- tooltip && requireNamespace("ggiraph", quietly = TRUE)
@@ -710,8 +706,8 @@ plot_response_boxplot <- function(exp_vs_pred,
   }
   exp_vs_pred[[response_var]] <- resp_vec
 
-  # Group colors: responder = blue, non-responder = red
-  grp_colors <- c("#2E86AB", "#C13232")
+  # Group colors: responder = red, non-responder = blue
+  grp_colors <- c("#C13232", "#2E86AB")
   if (length(levels(exp_vs_pred[[response_var]])) == 2) {
     names(grp_colors) <- levels(exp_vs_pred[[response_var]])
   }

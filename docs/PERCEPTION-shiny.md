@@ -186,6 +186,8 @@ All figures are **interactive SVG** (built on ggiraph): hover any point or bar t
 
 Shows the clone composition within each patient; one color band = one clone (a curated palette is used for ≤ 15 clones).
 
+> Note: clone identity depends on the data source — with global clustering, the same clone (color) is genuinely shared across patients; with clone-level input using per-patient labels (e.g. c1/c2/c3), **the same color across patients does not imply the same clone origin** — it is only a shared category label.
+
 ### 5.2 Clone Viability (lollipop plot)
 
 ![Clone viability lollipop plot](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrtRqdGQW8zkwfYWQ_VN994k_iZJH8gACsDQAAtsboFe7I7H3sbW6sz0E.png)

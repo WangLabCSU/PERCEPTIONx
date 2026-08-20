@@ -140,6 +140,17 @@ mod_visualize_server <- function(id, shared, main_session) {
     # Track which plot type was last generated (defined here, before use).
     current_plot_type <- reactiveVal(NULL)
 
+    # Map response labels to the canonical two classes R/NR; anything else
+    # (NA, empty, or extra categories like "PR"/"SD") becomes NA so no third
+    # group can appear in response-based plots.
+    to_rnr <- function(x) {
+      y <- tolower(trimws(as.character(x)))
+      y[y %in% c("responder", "r")] <- "R"
+      y[y %in% c("non-responder", "nonresponder", "non_responder", "nr")] <- "NR"
+      y[!y %in% c("R", "NR")] <- NA_character_
+      y
+    }
+
     # Reactive plot size (px) — driven by user's Width/Height size controls.
     # Used by the static renderPlot (crisp original ggplot, no plotly overlap).
     plot_size <- reactive({
@@ -329,19 +340,32 @@ mod_visualize_server <- function(id, shared, main_session) {
               p_cells <- clone_data[clone_data$patient == p, ]
               p_clones <- unique(p_cells$clone_id)
               n_p_cells <- nrow(p_cells)
+              # Display label: when clone ids are patient-qualified (e.g.
+              # "Kydar01_c1"), strip the known patient prefix so clones appear
+              # as shared categories (c1/c2/c3) across patients, matching the
+              # paper's clone distribution figures. Any other id scheme (e.g.
+              # Seurat cluster ids "0","1") is kept unchanged.
+              display_clones <- vapply(p_clones, function(cl) {
+                if (!startsWith(cl, p)) return(cl)
+                rest <- sub("^[\\._-]", "", substring(cl, nchar(p) + 1))
+                if (nchar(rest) == 0) cl else rest
+              }, character(1))
               data.frame(
                 patients = p,
-                clones = p_clones,
+                clones = display_clones,
                 weights = sapply(p_clones, function(cl) sum(p_cells$clone_id == cl) / n_p_cells),
                 stringsAsFactors = FALSE
               )
             })
             clone_distribution <- do.call(rbind, clone_dist_list)
-            # Add response column for faceting
+            # Add response column for faceting (normalized to R/NR only, so no
+            # third group can appear; patients without a valid response are dropped)
             if (!is.null(shared$user_response)) {
               clone_distribution$response <- shared$user_response$response[
                 match(clone_distribution$patients, shared$user_response$patient)
               ]
+              clone_distribution$response <- to_rnr(clone_distribution$response)
+              clone_distribution <- clone_distribution[!is.na(clone_distribution$response), ]
             }
             plot_clone_distribution <- PERCEPTIONx::plot_clone_distribution
             p <- plot_clone_distribution(clone_distribution, response_var = "response")
@@ -391,10 +415,15 @@ mod_visualize_server <- function(id, shared, main_session) {
               stop("No matching clones between prediction matrix and clone annotation.")
             }
             if (!is.null(shared$user_response)) {
-              clone_viability_df$response <- shared$user_response$response[
+              clone_viability_df$response <- to_rnr(shared$user_response$response[
                 match(clone_viability_df$patient, shared$user_response$patient)
-              ]
+              ])
+              clone_viability_df <- clone_viability_df[!is.na(clone_viability_df$response), ]
             }
+            # Match the paper's lollipop: z-score predicted viability across all
+            # clones (per drug), so most (sensitive) clones fall below the zero
+            # line and resistant outliers point upward — same as the paper.
+            clone_viability_df$comb_viability <- as.numeric(scale(clone_viability_df$comb_viability))
             p_result <- PERCEPTIONx::plot_clone_viability(clone_viability_df, viability_var = "comb_viability",
                                           weights_var = "weights", response_var = "response",
                                           drug = drug)
@@ -406,15 +435,14 @@ mod_visualize_server <- function(id, shared, main_session) {
             pp <- shared$patient_pred
             cr <- shared$user_response
             drug <- if (nchar(input$drug_name_common) > 0) input$drug_name_common else colnames(pp)[1]
-            response_vec <- cr$response[match(rownames(pp), cr$patient)]
+            response_vec <- to_rnr(cr$response[match(rownames(pp), cr$patient)])
             predictor_vec <- pp[[drug]]
-            # Drop patients without a clinical response — NA must not silently
+            # Drop patients without a valid R/NR response — NA must not silently
             # become "NR" (that would bias the ROC / AUC).
             keep <- !is.na(response_vec) & !is.na(predictor_vec)
             response_vec <- response_vec[keep]
             predictor_vec <- predictor_vec[keep]
             # Convert to R/NR factor
-            response_vec <- ifelse(tolower(response_vec) %in% c("responder", "r"), "R", "NR")
             response_vec <- factor(response_vec, levels = c("R", "NR"))
             # Auto-disable smoothing when sample size is small (< 10 patients)
             smooth <- length(response_vec) >= 10
@@ -427,14 +455,13 @@ mod_visualize_server <- function(id, shared, main_session) {
             pp <- shared$patient_pred
             cr <- shared$user_response
             drug <- if (nchar(input$drug_name_common) > 0) input$drug_name_common else colnames(pp)[1]
-            response_vec <- cr$response[match(rownames(pp), cr$patient)]
+            response_vec <- to_rnr(cr$response[match(rownames(pp), cr$patient)])
             predictor_vec <- pp[[drug]]
-            # Drop patients without a clinical response (NA must not silently
-            # become "NR").
+            # Drop patients without a valid R/NR response (NA must not silently
+            # become "NR", and extra categories must not form a third group).
             keep <- !is.na(response_vec) & !is.na(predictor_vec)
             response_vec <- response_vec[keep]
             predictor_vec <- predictor_vec[keep]
-            response_vec <- ifelse(tolower(response_vec) %in% c("responder", "r"), "R", "NR")
             exp_vs_pred <- data.frame(
               response = factor(response_vec, levels = c("R", "NR")),
               predicted_viability = predictor_vec,
@@ -698,8 +725,8 @@ mod_visualize_server <- function(id, shared, main_session) {
     plot_explanations <- list(
       clone_dist = list(
         title = "Clone Distribution",
-        desc = "Shows the proportion of each transcriptional subclone within every patient's cell population. Colors indicate clone groups across patients — the same color across patients does not imply the same clone origin. This helps identify which subclones dominate each patient's tumor.",
-        requires = "Clone Annotation (from Seurat clustering)"
+        desc = "Shows clone proportions within each patient. With global clustering, the same clone (color) genuinely spans patients. With clone-level input using per-patient labels (e.g. c1/c2/c3), the same color across patients does not imply the same clone origin — it is a shared category label.",
+        requires = "Clone annotation (Seurat clustering or clone-level input)"
       ),
       clone_kill = list(
         title = "Clone Viability Lollipop",

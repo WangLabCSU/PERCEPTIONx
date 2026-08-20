@@ -180,6 +180,8 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 展示每例患者内部各克隆的占比构成，一个色带 = 一个克隆（≤15 个克隆时使用内置协调色板）。
 
+> 注意：克隆身份取决于数据来源——全局聚类路径下，同一克隆（同色）确实跨患者共享；克隆级输入（如按患者编号的 c1/c2/c3）时，**跨患者颜色相同不代表同一克隆来源**，它只是共享的类别标签。
+
 ### 5.2 Clone Viability（lolliplot）
 
 ![BQACAgUAAyEGAASHRsPbAAEYrtRqdGQW8zkwfYWQ_VN994k_iZJH8gACsDQAAtsboFe7I7H3sbW6sz0E.png](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrtRqdGQW8zkwfYWQ_VN994k_iZJH8gACsDQAAtsboFe7I7H3sbW6sz0E.png)
