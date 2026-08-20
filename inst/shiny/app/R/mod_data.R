@@ -924,7 +924,16 @@ mod_data_server <- function(id, shared) {
     # --- Upload Expression ---
     observeEvent(input$expr_file, {
       file <- input$expr_file
-      tryCatch({
+      w <- Waiter$new(
+        html = tagList(
+          div(class = "spinner-ring"),
+          h4("Reading expression matrix..."),
+          p(class = "text-muted", "Parsing file and normalizing values")
+        ),
+        color = "rgba(255,255,255,0.85)"
+      )
+      w$show()
+      res <- tryCatch({
         mat <- read_uploaded_table(file)
         n_skip <- attr(mat, "skipped_rows"); if (is.null(n_skip)) n_skip <- 0L
         # RDS may be a matrix; text/Excel uploads come in as a data.frame
@@ -943,13 +952,19 @@ mod_data_server <- function(id, shared) {
         storage.mode(mat) <- "numeric"
         shared$user_expr <- mat
         shared$prepared_data <- NULL  # Reset prepared data when expression changes
-        showNotification(paste0("Expression matrix loaded: ", nrow(mat), " genes x ",
-                                ncol(mat), " cells",
-                                skipped_rows_msg(n_skip)), type = "message")
-        auto_prepare_if_clone()
+        list(ok = TRUE,
+             msg = paste0("Expression matrix loaded: ", nrow(mat), " genes x ",
+                          ncol(mat), " cells", skipped_rows_msg(n_skip)))
       }, error = function(e) {
-        showNotification(paste("Error:", e$message), type = "error")
+        list(ok = FALSE, msg = conditionMessage(e))
       })
+      w$hide()
+      if (isTRUE(res$ok)) {
+        showNotification(res$msg, type = "message")
+        auto_prepare_if_clone()
+      } else {
+        showNotification(paste("Error:", res$msg), type = "error")
+      }
     })
 
     output$expr_status <- renderUI({
