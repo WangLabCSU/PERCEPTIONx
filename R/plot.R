@@ -431,6 +431,12 @@ plot_clone_viability <- function(clone_viability,
   # (geom_segment/geom_hline), which triggers the ggplot2 "size for lines is
   # deprecated" warning.
   has_weights <- !is.null(weights_var) && weights_var %in% colnames(clone_viability)
+  if (has_weights) {
+    # Cap the visual point size at a clone proportion of 0.4: clones above it
+    # (e.g. a dominant clone) keep the same point size so they do not dominate
+    # the panel. The tooltip still shows the true proportion via weights_var.
+    clone_viability$size_val <- pmin(clone_viability[[weights_var]], 0.4)
+  }
   aes_mapping <- aes(y = .data[[viability_var]], x = clone_id,
                      color = .data[[viability_var]])
 
@@ -475,11 +481,11 @@ plot_clone_viability <- function(clone_viability,
     geom_segment(aes(x = clone_id, xend = clone_id, y = 0, yend = .data[[viability_var]]),
                  color = "grey40", linewidth = 0.35) +
     { if (tt_ok && has_weights) ggiraph::geom_point_interactive(
-        aes(size = .data[[weights_var]], tooltip = .data[[tt_col]],
+        aes(size = size_val, tooltip = .data[[tt_col]],
             data_id = .data[[tt_col]]), alpha = 0.85)
       else if (tt_ok) ggiraph::geom_point_interactive(
         aes(tooltip = .data[[tt_col]], data_id = .data[[tt_col]]), alpha = 0.85)
-      else if (has_weights) geom_point(aes(size = .data[[weights_var]]), alpha = 0.85)
+      else if (has_weights) geom_point(aes(size = size_val), alpha = 0.85)
       else geom_point(alpha = 0.85) } +
     coord_cartesian(ylim = c(y_bottom, y_top)) +
     theme_perception(base_size = base_size) +
@@ -508,7 +514,9 @@ plot_clone_viability <- function(clone_viability,
   }
 
   if (has_weights) {
-    p <- p + scale_size(range = c(1, 7))
+    # limits c(0, 0.4) match the capped size_val, so the legend reads the same
+    # range the points actually use.
+    p <- p + scale_size(range = c(1, 7), limits = c(0, 0.4))
   } else {
     p <- p + guides(size = "none")
   }
@@ -883,6 +891,120 @@ plot_model_performance <- function(performance_list,
           legend.box.spacing = unit(8, "pt"))
 
   return(p)
+}
+
+# ---------------------------------------------------------------------------
+# Plot: validation ROC curves (top vs bottom 33%)
+# ---------------------------------------------------------------------------
+
+#' Plot validation ROC curves for trained models
+#'
+#' For each model and each validation dataset (bulk, pseudo-bulk, single-cell),
+#' the observed response is stratified into the top vs bottom 33\% (resistant
+#' vs sensitive, as in the PERCEPTION paper) and a ROC curve of the predicted
+#' viability is drawn, one curve per dataset, with the AUC annotated in the
+#' legend. Higher AUC = the model stratifies better. This is the most
+#' informative single-model summary after training.
+#'
+#' @param performance_list Named list of model objects from \code{train_models()},
+#'        each with a \code{$predVSgroundTruth} element.
+#' @param base_size Numeric. Base font size. Default = 13.
+#'
+#' @return A ggplot object: ROC curves per validation dataset, faceted by drug
+#'         when more than one model is provided.
+#'
+#' @examples
+#' \dontrun{
+#'   models <- train_models(drug_list = "abemaciclib", ...)
+#'   plot_model_roc(models)
+#' }
+#'
+#' @export
+plot_model_roc <- function(performance_list, base_size = 13) {
+  if (!requireNamespace("pROC", quietly = TRUE)) {
+    stop("Package 'pROC' is required for ROC computation. Install with: install.packages('pROC')")
+  }
+  if (is.null(names(performance_list))) {
+    performance_list <- setNames(list(performance_list), "model")
+  }
+
+  # Element keys inside $predVSgroundTruth -> human-readable dataset labels.
+  ds_map <- c(pred_gt_bulk   = "bulk",
+              pred_gt_mscRNA = "pseudo-bulk",
+              pred_gt_scRNA  = "single-cell")
+
+  # Compute one ROC curve (fpr/tpr coordinates) per model per dataset.
+  curve_rows <- lapply(names(performance_list), function(d) {
+    m <- performance_list[[d]]
+    if (is.null(m$predVSgroundTruth)) return(NULL)
+    do.call(rbind, lapply(names(ds_map), function(k) {
+      df <- m$predVSgroundTruth[[k]]
+      if (is.null(df) || nrow(df) < 6) return(NULL)
+      if (!"Observed" %in% colnames(df)) return(NULL)
+      pred_col <- setdiff(colnames(df), "Observed")[1]
+      if (is.na(pred_col)) return(NULL)
+      obs  <- as.numeric(df[["Observed"]])
+      pred <- as.numeric(df[[pred_col]])
+      # Top vs bottom 33% of the observed response = resistant vs sensitive.
+      q <- stats::quantile(obs, c(1 / 3, 2 / 3), na.rm = TRUE)
+      lab <- ifelse(obs <= q[1], "Sensitive",
+                    ifelse(obs >= q[2], "Resistant", NA_character_))
+      keep <- !is.na(lab) & !is.na(pred)
+      if (sum(keep) < 4 || length(unique(lab[keep])) < 2) return(NULL)
+      rocobj <- tryCatch(
+        pROC::roc(factor(lab[keep], levels = c("Sensitive", "Resistant")),
+                  pred[keep], quiet = TRUE),
+        error = function(e) NULL)
+      if (is.null(rocobj)) return(NULL)
+      a <- as.numeric(pROC::auc(rocobj))
+      co <- as.data.frame(pROC::coords(rocobj, x = "all",
+                                       ret = c("specificity", "sensitivity"),
+                                       transpose = FALSE))
+      data.frame(fpr = 1 - co$specificity, tpr = co$sensitivity,
+                 Dataset = unname(ds_map[[k]]), Drug = d, AUC = a,
+                 stringsAsFactors = FALSE)
+    }))
+  })
+  curve_rows <- curve_rows[!vapply(curve_rows, is.null, logical(1))]
+  if (length(curve_rows) == 0) {
+    stop("No prediction-vs-observed data available to compute validation ROC.")
+  }
+  df <- do.call(rbind, curve_rows)
+  df$Dataset <- factor(df$Dataset, levels = c("bulk", "pseudo-bulk", "single-cell"))
+
+  # AUC label position: end of each curve (per Dataset, per Drug when faceting).
+  auc_lab <- do.call(rbind, lapply(
+    split(df, interaction(df$Drug, df$Dataset, drop = TRUE)), function(sub) {
+      tail_row <- sub[which.max(sub$fpr), ]
+      data.frame(Drug = tail_row$Drug, Dataset = tail_row$Dataset,
+                 AUC = unique(sub$AUC), y = tail_row$tpr, stringsAsFactors = FALSE)
+    }))
+  rownames(auc_lab) <- NULL
+
+  dataset_colors <- c("bulk" = "#E67E22", "pseudo-bulk" = "#27AE60",
+                      "single-cell" = "#2E86AB")
+
+  p <- ggplot(df, aes(x = fpr, y = tpr, color = Dataset)) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed",
+                color = "grey55", linewidth = 0.35) +
+    geom_line(linewidth = 0.9) +
+    geom_text(data = auc_lab,
+              aes(x = 1, y = y, label = sprintf("AUC = %.2f", AUC)),
+              hjust = 1.15, size = base_size * 0.28, color = "grey30",
+              show.legend = FALSE) +
+    scale_color_manual(values = dataset_colors) +
+    coord_cartesian(xlim = c(0, 1.12), ylim = c(0, 1)) +
+    theme_perception(base_size = base_size) +
+    labs(x = "1 - Specificity (FPR)", y = "Sensitivity (TPR)",
+         color = "Validation Dataset") +
+    theme(legend.position = "top",
+          legend.box = "horizontal",
+          legend.box.spacing = unit(8, "pt"))
+
+  if (length(unique(df$Drug)) > 1) {
+    p <- p + facet_wrap(~ Drug, ncol = min(4, length(unique(df$Drug))))
+  }
+  p
 }
 
 # ---------------------------------------------------------------------------

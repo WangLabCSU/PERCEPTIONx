@@ -106,9 +106,20 @@ mod_train_ui <- function(id) {
             # Performance metrics — p-value & correlation
             uiOutput(ns("perf_metrics")),
 
-            # Performance plot
+            # Performance plots — validation ROC (default) + threshold curve
             div(class = "viz-plot-wrapper",
-              plotlyOutput(ns("perf_plot"), height = "320px")
+              tabsetPanel(
+                tabPanel("Validation ROC",
+                  plotlyOutput(ns("perf_roc_plot"), height = "340px"),
+                  tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
+                    "ROC of the predicted viability in stratifying the top vs bottom 33% observed response, one curve per validation dataset (bulk / pseudo-bulk / single-cell) with AUC annotated at each curve's end. 0.5 = random.")
+                ),
+                tabPanel("Performance Curve",
+                  plotlyOutput(ns("perf_plot"), height = "320px"),
+                  tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
+                    "For each threshold, the proportion of trained drugs whose predicted-observed Pearson correlation exceeds it (per dataset). Most informative when several drugs are trained together; with a single drug the curve is a simple step.")
+                )
+              )
             ),
 
             # Download
@@ -352,6 +363,14 @@ mod_train_server <- function(id, shared, main_session) {
           tags$tbody(summary_rows)
         )
       )
+    })
+
+    # Validation ROC (default view after training)
+    output$perf_roc_plot <- renderPlotly({
+      req(trained())
+      p <- PERCEPTIONx::plot_model_roc(trained(), base_size = 13)
+      ggplotly(p) %>%
+        layout(font = list(family = "Inter, sans-serif", size = 12))
     })
 
     # Performance Plot
