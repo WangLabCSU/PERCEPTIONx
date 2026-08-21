@@ -192,17 +192,19 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 - **排序**：患者内按占比降序；有响应数据时 Responder 排在前面
 - **y 轴**：Predicted Viability（z-score），0 线为中位参考
 
+> **Combination（联合）模式**：Drug Name 下拉框默认选中 **Combination**，用于多药联合（如论文的 DARA–KRD 骨髓瘤队列）。合成规则与论文 Fig. 2 完全一致——克隆级：先把每个药的克隆级 viability 跨全部克隆做全局 z-score，再逐克隆取 `min`（IDA 原则：联合疗效由组合中**最有效**的那一药决定，对应论文 `pmin(z_carfilzomib, z_lenalidomide)`）；患者级：取**最耐药克隆 × 其丰度占比**的加权最大值（`weighted_max`，论文 5 种策略中 AUC 最高的第 5 种）。棒棒糖图中每根棒 = 一个克隆的**联合** z-viability。
+
 ### 5.3 ROC Curve
 
 ![BQACAgUAAyEGAASHRsPbAAEYrtlqdGQvuGR0iVJf_0IC3FrHl2wx2gACtTQAAtsboFdEeKvbpn7yAT0E.png](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrtlqdGQvuGR0iVJf_0IC3FrHl2wx2gACtTQAAtsboFdEeKvbpn7yAT0E.png)
 
-使用真实临床响应（Data 页上传的 Response）与患者级预测分数绘制 ROC 曲线，AUC 越接近 1 说明预测分层能力越强。若为多药模型预测，可选取要查看的特定模型。
+使用真实临床响应（Data 页上传的 Response）与患者级预测分数绘制 ROC 曲线，AUC 越接近 1 说明预测分层能力越强。Drug Name 选 **Combination**（默认）时使用患者级**联合分数**（`weighted_max`，对应论文 Fig. 2e）；选单个药物时查看该药的 ROC（对应各单药视图）。
 
 ### 5.4 Response Boxplot（R vs NR）
 
 ![BQACAgUAAyEGAASHRsPbAAEYruFqdGRmVjR7z6AiKJZrmoSvML7-BgACvTQAAtsboFcaROROGDpEdj0E.png](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYruFqdGRmVjR7z6AiKJZrmoSvML7-BgACvTQAAtsboFcaROROGDpEdj0E.png)
 
-分组展示 Responder 与 Non-responder 的预测分数分布，附带显著性检验结果。
+分组展示 Responder 与 Non-responder 的预测分数分布，附带显著性检验结果。同样地，选 **Combination**（默认）即展示联合分数的 R/NR 分布（对应论文 Fig. 2d）。
 
 ### 5.5 Model Performance
 
