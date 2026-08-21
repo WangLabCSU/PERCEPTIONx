@@ -147,11 +147,14 @@ coerce_response_df <- function(x) {
 mod_data_ui <- function(id) {
   ns <- NS(id)
   tagList(
+    # Upload Your Data — the primary entry point, placed first so users know
+    # their own data is the main task (DepMap/models are only needed for
+    # training and prediction, so they live in the later "Data Management").
     fluidRow(
       column(12,
         div(class = "section-header",
-          icon("database"),
-          h4("Data Management")
+          icon("upload"),
+          h4("Upload Your Data")
         )
       )
     ),
@@ -170,120 +173,6 @@ mod_data_ui <- function(id) {
       )
     ),
 
-    fluidRow(class = "data-management-row",
-      # DepMap Data
-      column(6,
-        div(class = "card animate-fade-in-up delay-1",
-          div(class = "card-header",
-            icon("database"), " DepMap Data"
-          ),
-          div(class = "card-body",
-            p(class = "text-muted", style = "font-size: 0.86rem;",
-              "Load DepMap reference datasets including bulk expression, single-cell expression, drug response (AUC), and cell line annotations. This is a filtered version derived from the original DepMap release used in the PERCEPTION article, with unused tables and objects removed for efficiency."),
-            tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
-              "To download manually, visit ",
-              tags$a(href = "https://github.com/WangLabCSU/PERCEPTIONx/releases/tag/depmap",
-                     target = "_blank", "GitHub Release", style = "color: var(--primary); text-decoration: underline;"),
-              "."
-            ),
-            hr(),
-            div(class = "inline-form-row", style = "display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;",
-              actionButton(ns("load_depmap"), "Download & Load",
-                           class = "btn-primary btn-sm", icon = icon("download")),
-              checkboxInput(ns("depmap_mirror"), "Use mirror", value = TRUE)
-            ),
-            div(style = "margin-top: 0.6rem; border-top: 1px dashed var(--border); padding-top: 0.6rem;",
-              tags$small(class = "text-muted", "Or load a pre-downloaded DepMap.RDS:"),
-              div(style = "display: flex; gap: 0.5rem; align-items: center; margin-top: 0.3rem;",
-                fileInput(ns("depmap_file"), NULL, accept = c(".RDS", ".rds"), width = "100%",
-                          placeholder = "Select a .RDS file - loads automatically")
-              )
-            ),
-            div(style = "margin-top: 0.75rem;",
-              uiOutput(ns("depmap_status"))
-            )
-          )
-        )
-      ),
-
-      # Pre-trained Models
-      column(6,
-        div(class = "card animate-fade-in-up delay-2",
-          div(class = "card-header",
-            icon("cube"), " Pre-trained Models"
-          ),
-          div(class = "card-body",
-            p(class = "text-muted", style = "font-size: 0.86rem;",
-              "Load pre-trained drug response models from the PERCEPTIONx GitHub Release repository. 44 models are available, each trained on DepMap bulk expression with Elastic Net regression and 5-fold cross-validation. Models are cached locally after first download."),
-            tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
-              "To download manually, visit ",
-              tags$a(href = "https://github.com/WangLabCSU/PERCEPTIONx/releases/tag/models-v1",
-                     target = "_blank", "GitHub Release", style = "color: var(--primary); text-decoration: underline;"),
-              "."
-            ),
-            hr(),
-            div(class = "inline-form-row", style = "display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;",
-              tags$label(class = "control-label", style = "margin:0; font-size:0.88rem; font-weight:600; white-space:nowrap; line-height:38px;", "Drug"),
-              selectizeInput(ns("model_name"), label = NULL, width = "300px",
-                             choices = c("abemaciclib", "afatinib", "axitinib", "azacitidine", "cladribine",
-                                         "clofarabine", "cobimetinib", "dabrafenib", "dasatinib", "daunorubicin",
-                                         "decitabine", "docetaxel", "doxorubicin", "epirubicin", "erlotinib",
-                                         "etoposide", "gefitinib", "gemcitabine", "homoharringtonine", "ibrutinib",
-                                         "icotinib", "ixabepilone", "lapatinib", "lenvatinib", "midostaurin",
-                                         "niraparib", "osimertinib", "paclitaxel", "palbociclib", "ponatinib",
-                                         "romidepsin", "sunitinib", "temsirolimus", "teniposide", "thioguanine",
-                                         "topotecan", "trametinib", "vandetanib", "vemurafenib", "vinblastine",
-                                         "vincristine", "vindesine", "vinflunine", "vinorelbine"),
-                             selected = "abemaciclib",
-                             multiple = TRUE,
-                             options = list(placeholder = "Select one or more drugs...", maxOptions = 50,
-                                            plugins = list("remove_button"))),
-              actionButton(ns("load_model"), "Download & Load",
-                           class = "btn-primary", icon = icon("download")),
-              checkboxInput(ns("model_mirror"), "Use mirror", value = TRUE)
-            ),
-            div(style = "margin-top: 0.6rem; border-top: 1px dashed var(--border); padding-top: 0.6rem;",
-              tags$small(class = "text-muted", "Or load a pre-downloaded model .RDS:"),
-              div(style = "display: flex; gap: 0.5rem; align-items: center; margin-top: 0.3rem;",
-                fileInput(ns("model_file"), NULL, accept = c(".RDS", ".rds"), width = "100%",
-                          placeholder = "Select a .RDS file - loads automatically")
-              )
-            ),
-            div(style = "margin-top: 0.75rem;",
-              uiOutput(ns("model_status"))
-            )
-          )
-        )
-      )
-    ),
-
-    # --- Loaded Models Management (placed after Data Management, before Upload Your Data) ---
-    fluidRow(style = "margin-top: 1.5rem;",
-      column(12,
-        div(class = "card animate-fade-in-up",
-          div(class = "card-header",
-            icon("boxes-stacked"), " Loaded Models Management",
-            tags$span(style = "margin-left: auto; font-size: 0.78rem; color: var(--text-muted);",
-              span(class = "status-dot green", style = "display: inline-block; vertical-align: middle; margin-right: 0.2rem;"), "Active  ",
-              span(class = "status-dot gray", style = "display: inline-block; vertical-align: middle; margin-right: 0.2rem;"), "Inactive"
-            )
-          ),
-          div(class = "card-body", style = "padding: 0.8rem 1.2rem !important;",
-            uiOutput(ns("models_management"))
-          )
-        )
-      )
-    ),
-
-    # Upload Your Data Section
-    fluidRow(style = "margin-top: 1.5rem;",
-      column(12,
-        div(class = "section-header",
-          icon("upload"),
-          h4("Upload Your Data")
-        )
-      )
-    ),
 
     fluidRow(
       # Expression Matrix
@@ -456,6 +345,16 @@ Shiny.addCustomMessageHandler('expr-format-state-", ns("expr_format"), "', funct
       )
     ),
 
+    # --- Data Preview ---
+    fluidRow(style = "margin-top: 1.5rem;",
+      column(12,
+        div(class = "section-header",
+          icon("eye"),
+          h4("Data Preview")
+        )
+      )
+    ),
+
     # Data Overview & Preview (merged)
     fluidRow(style = "margin-top: 1.5rem;",
       column(12,
@@ -473,6 +372,121 @@ Shiny.addCustomMessageHandler('expr-format-state-", ns("expr_format"), "', funct
               tabPanel("Response", DTOutput(ns("response_preview"))),
               tabPanel("DepMap", DTOutput(ns("depmap_preview")))
             )
+          )
+        )
+      )
+    ),
+
+    # --- Data Management (DepMap / pre-trained models) ---
+    fluidRow(style = "margin-top: 1.5rem;",
+      column(12,
+        div(class = "section-header",
+          icon("database"),
+          h4("Data Management")
+        )
+      )
+    ),
+
+    fluidRow(class = "data-management-row",
+      # DepMap Data
+      column(6,
+        div(class = "card animate-fade-in-up delay-1",
+          div(class = "card-header",
+            icon("database"), " DepMap Data"
+          ),
+          div(class = "card-body",
+            p(class = "text-muted", style = "font-size: 0.86rem;",
+              "Load DepMap reference datasets including bulk expression, single-cell expression, drug response (AUC), and cell line annotations. This is a filtered version derived from the original DepMap release used in the PERCEPTION article, with unused tables and objects removed for efficiency."),
+            tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
+              "To download manually, visit ",
+              tags$a(href = "https://github.com/WangLabCSU/PERCEPTIONx/releases/tag/depmap",
+                     target = "_blank", "GitHub Release", style = "color: var(--primary); text-decoration: underline;"),
+              "."
+            ),
+            hr(),
+            div(class = "inline-form-row", style = "display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;",
+              actionButton(ns("load_depmap"), "Download & Load",
+                           class = "btn-primary btn-sm", icon = icon("download")),
+              checkboxInput(ns("depmap_mirror"), "Use mirror", value = TRUE)
+            ),
+            div(style = "margin-top: 0.6rem; border-top: 1px dashed var(--border); padding-top: 0.6rem;",
+              tags$small(class = "text-muted", "Or load a pre-downloaded DepMap.RDS:"),
+              div(style = "display: flex; gap: 0.5rem; align-items: center; margin-top: 0.3rem;",
+                fileInput(ns("depmap_file"), NULL, accept = c(".RDS", ".rds"), width = "100%",
+                          placeholder = "Select a .RDS file - loads automatically")
+              )
+            ),
+            div(style = "margin-top: 0.75rem;",
+              uiOutput(ns("depmap_status"))
+            )
+          )
+        )
+      ),
+
+      # Pre-trained Models
+      column(6,
+        div(class = "card animate-fade-in-up delay-2",
+          div(class = "card-header",
+            icon("cube"), " Pre-trained Models"
+          ),
+          div(class = "card-body",
+            p(class = "text-muted", style = "font-size: 0.86rem;",
+              "Load pre-trained drug response models from the PERCEPTIONx GitHub Release repository. 44 models are available, each trained on DepMap bulk expression with Elastic Net regression and 5-fold cross-validation. Models are cached locally after first download."),
+            tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
+              "To download manually, visit ",
+              tags$a(href = "https://github.com/WangLabCSU/PERCEPTIONx/releases/tag/models-v1",
+                     target = "_blank", "GitHub Release", style = "color: var(--primary); text-decoration: underline;"),
+              "."
+            ),
+            hr(),
+            div(class = "inline-form-row", style = "display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;",
+              tags$label(class = "control-label", style = "margin:0; font-size:0.88rem; font-weight:600; white-space:nowrap; line-height:38px;", "Drug"),
+              selectizeInput(ns("model_name"), label = NULL, width = "300px",
+                             choices = c("abemaciclib", "afatinib", "axitinib", "azacitidine", "cladribine",
+                                         "clofarabine", "cobimetinib", "dabrafenib", "dasatinib", "daunorubicin",
+                                         "decitabine", "docetaxel", "doxorubicin", "epirubicin", "erlotinib",
+                                         "etoposide", "gefitinib", "gemcitabine", "homoharringtonine", "ibrutinib",
+                                         "icotinib", "ixabepilone", "lapatinib", "lenvatinib", "midostaurin",
+                                         "niraparib", "osimertinib", "paclitaxel", "palbociclib", "ponatinib",
+                                         "romidepsin", "sunitinib", "temsirolimus", "teniposide", "thioguanine",
+                                         "topotecan", "trametinib", "vandetanib", "vemurafenib", "vinblastine",
+                                         "vincristine", "vindesine", "vinflunine", "vinorelbine"),
+                             selected = "abemaciclib",
+                             multiple = TRUE,
+                             options = list(placeholder = "Select one or more drugs...", maxOptions = 50,
+                                            plugins = list("remove_button"))),
+              actionButton(ns("load_model"), "Download & Load",
+                           class = "btn-primary", icon = icon("download")),
+              checkboxInput(ns("model_mirror"), "Use mirror", value = TRUE)
+            ),
+            div(style = "margin-top: 0.6rem; border-top: 1px dashed var(--border); padding-top: 0.6rem;",
+              tags$small(class = "text-muted", "Or load a pre-downloaded model .RDS:"),
+              div(style = "display: flex; gap: 0.5rem; align-items: center; margin-top: 0.3rem;",
+                fileInput(ns("model_file"), NULL, accept = c(".RDS", ".rds"), width = "100%",
+                          placeholder = "Select a .RDS file - loads automatically")
+              )
+            ),
+            div(style = "margin-top: 0.75rem;",
+              uiOutput(ns("model_status"))
+            )
+          )
+        )
+      )
+    ),
+
+    # --- Loaded Models Management ---
+    fluidRow(style = "margin-top: 1.5rem;",
+      column(12,
+        div(class = "card animate-fade-in-up",
+          div(class = "card-header",
+            icon("boxes-stacked"), " Loaded Models Management",
+            tags$span(style = "margin-left: auto; font-size: 0.78rem; color: var(--text-muted);",
+              span(class = "status-dot green", style = "display: inline-block; vertical-align: middle; margin-right: 0.2rem;"), "Active  ",
+              span(class = "status-dot gray", style = "display: inline-block; vertical-align: middle; margin-right: 0.2rem;"), "Inactive"
+            )
+          ),
+          div(class = "card-body", style = "padding: 0.8rem 1.2rem !important;",
+            uiOutput(ns("models_management"))
           )
         )
       )
@@ -1145,16 +1159,121 @@ mod_data_server <- function(id, shared) {
     })
 
     # --- Data Previews ---
+    # --- DepMap preview: human-readable descriptions + click-to-inspect ---
+    # Known members of the DepMap.RDS reference object, with short plain-English
+    # descriptions so users know what each table actually contains.
+    depmap_help <- c(
+      expression_20q4              = "Bulk RNA expression (TPM) of CCLE cell lines (DepMap 20Q4). Rows = genes, columns = cell lines.",
+      expression_rnorm             = "Rank-normalized bulk expression (genes x cell lines). The main input used to build drug response models.",
+      scrna_complete               = "Single-cell RNA expression of CCLE cell lines (genes x cells). Used to tune models at single-cell resolution.",
+      scrna_subset_rnorm           = "Rank-normalized subset of single-cell expression (genes x cells), aligned with the model feature space.",
+      cpm_scrna_ccle_rnorm         = "Rank-normalized single-cell CPM expression (cells x genes). The full single-cell reference used for clone-level prediction.",
+      metadata_cpm_scrna           = "Cell-level metadata for the single-cell reference (cell barcodes, cell line, quality metrics, etc.).",
+      mutations_matrix             = "Binarized mutation matrix (genes x cell lines): 1 = non-silent mutation, 0 = wild type.",
+      annotation_20q4              = "Cell line annotations (DepMap 20Q4): lineage, primary disease, growth conditions, etc.",
+      drugcategory                 = "Drug classification table: drug name, target pathway, mechanism of action, etc.",
+      secondary_prism              = "PRISM secondary-screen drug response values (viability/AUC) across cell lines.",
+      secondary_screen_drugannotation = "Annotations for the PRISM secondary-screen drugs."
+    )
+    # Safe lookup: names not in depmap_help return NULL instead of an error.
+    depmap_lookup <- function(n) {
+      n <- tolower(n)
+      if (n %in% names(depmap_help)) depmap_help[[n]] else NULL
+    }
+
     output$depmap_preview <- renderDT({
       req(shared$depmap)
+      nms <- names(shared$depmap)
       summary_df <- data.frame(
-        Dataset = names(shared$depmap),
+        Dataset = nms,
         Rows = sapply(shared$depmap, function(x) nrow(x)),
-        Cols = sapply(shared$depmap, function(x) ncol(x))
+        Cols = sapply(shared$depmap, function(x) ncol(x)),
+        Description = vapply(tolower(nms), function(n) {
+          d <- depmap_lookup(n)
+          if (is.null(d)) "Click View to inspect contents." else d
+        }, character(1)),
+        View = vapply(nms, function(n) {
+          sprintf('<a href="#" onclick="Shiny.setInputValue(\'%s\', \'%s\', {priority: \'event\'}); return false;">View</a>',
+                  ns("depmap_view"), n)
+        }, character(1)),
+        stringsAsFactors = FALSE
       )
       datatable(summary_df, options = list(pageLength = 10, dom = "tp"),
-                rownames = FALSE, class = "display")
+                rownames = FALSE, class = "display",
+                escape = c(TRUE, TRUE, TRUE, TRUE, FALSE))
     })
+
+    # Clicking "View" opens a modal with a description, column list, and a
+    # small data preview so users know what the table actually contains.
+    observeEvent(input$depmap_view, {
+      req(shared$depmap, input$depmap_view)
+      nm <- input$depmap_view
+      obj <- shared$depmap[[nm]]
+      if (is.null(obj)) return(NULL)
+      desc <- depmap_lookup(tolower(nm))
+      if (is.null(desc)) desc <- paste0("R object '", nm, "'.")
+      col_head <- paste(head(colnames(obj), 12), collapse = ", ")
+      if (ncol(obj) > 12) col_head <- paste0(col_head, ", ...")
+      showModal(modalDialog(
+        title = tags$strong(icon("database"), nm),
+        size = "l",
+        easyClose = TRUE,
+        footer = uiOutput(ns("depmap_footer")),
+        tags$div(
+          p(style = "margin-bottom: 0.6rem;", desc),
+          p(class = "text-muted", style = "font-size: 0.82rem; margin-bottom: 0.8rem;",
+            sprintf("Dimensions: %s rows x %s columns.", nrow(obj), ncol(obj)),
+            " | Columns: ", col_head),
+          # tableOutput instead of DTOutput: the preview is a small fixed slice,
+          # and a plain Shiny table has no client-side state to go stale across
+          # successive clicks (the DataTables "column not found" bug).
+          tableOutput(ns("depmap_detail_table"))
+        )
+      ))
+    })
+
+    # Modal footer: export button for small/medium tables; large reference
+    # tables (millions of cells, e.g. the 53k-column single-cell matrix)
+    # would produce enormous CSVs, so they are excluded with a short note.
+    output$depmap_footer <- renderUI({
+      req(shared$depmap, input$depmap_view)
+      obj <- shared$depmap[[input$depmap_view]]
+      if (is.null(obj)) return(modalButton("Close"))
+      if (nrow(obj) * ncol(obj) > 3e6) {
+        tagList(
+          tags$span(class = "text-muted", style = "font-size: 0.8rem; margin-right: 0.5rem;",
+            "Table too large for CSV export."),
+          modalButton("Close")
+        )
+      } else {
+        tagList(
+          downloadButton(ns("depmap_export"), "Export CSV",
+                         class = "btn-outline-primary btn-sm", icon = icon("download")),
+          modalButton("Close")
+        )
+      }
+    })
+
+    output$depmap_export <- downloadHandler(
+      filename = function() {
+        paste0(input$depmap_view, "_", format(Sys.Date(), "%Y%m%d"), ".csv")
+      },
+      content = function(file) {
+        req(shared$depmap, input$depmap_view)
+        obj <- shared$depmap[[input$depmap_view]]
+        write.csv(as.data.frame(obj), file, row.names = TRUE)
+      }
+    )
+
+    output$depmap_detail_table <- renderTable({
+      req(shared$depmap, input$depmap_view)
+      obj <- shared$depmap[[input$depmap_view]]
+      prev <- as.data.frame(obj)
+      prev <- prev[seq_len(min(8, nrow(prev))),
+                   seq_len(min(12, ncol(prev))), drop = FALSE]
+      prev
+    }, rownames = TRUE, digits = 4, width = "100%",
+       caption = "Preview: first 8 rows (first 12 columns)")
 
     output$expr_preview <- renderDT({
       req(shared$user_expr)
