@@ -139,6 +139,8 @@ mod_visualize_server <- function(id, shared, main_session) {
     current_plot <- reactiveVal(NULL)
     # Track which plot type was last generated (defined here, before use).
     current_plot_type <- reactiveVal(NULL)
+    # Track the drug (or "Combination") used by the last generated plot.
+    current_drug <- reactiveVal(NULL)
 
     # Map response labels to the canonical two classes R/NR; anything else
     # (NA, empty, or extra categories like "PR"/"SD") becomes NA so no third
@@ -150,6 +152,82 @@ mod_visualize_server <- function(id, shared, main_session) {
       y[!y %in% c("R", "NR")] <- NA_character_
       y
     }
+
+    # ---------------------------------------------------------------------
+    # Combination (multi-drug) helpers — replicate the paper's pipeline
+    # (Fig. 2b–e; Methods "Testing prediction strategies for multiple
+    # myeloma", code Step3_Figure3.Rmd):
+    #   clone level: z-score EACH drug's viability across ALL clones (global),
+    #                then per-clone combination = pmin over drugs (IDA
+    #                principle: the single most effective drug dominates).
+    #   patient level (strategy 5, the one the paper chose): most-resistant
+    #                clone weighted by its abundance = max(comb * weight).
+    # ---------------------------------------------------------------------
+    combo_clone_frame <- function() {
+      pred_mat <- shared$predictions
+      if (is.null(pred_mat) || ncol(pred_mat) < 1) {
+        stop("No clone-level predictions to combine.")
+      }
+      pred_mat <- as.matrix(pred_mat)
+      # Global z-score per drug across all clones (sd == 0 columns stay 0).
+      z_mat <- pred_mat
+      for (j in seq_len(ncol(pred_mat))) {
+        col <- pred_mat[, j]
+        s <- stats::sd(col, na.rm = TRUE)
+        z_mat[, j] <- if (is.na(s) || s == 0) rep(0, nrow(pred_mat)) else
+          (col - mean(col, na.rm = TRUE)) / s
+      }
+      comb <- apply(z_mat, 1, min, na.rm = TRUE)
+
+      # Attach patient / clone_id (row order follows the prediction matrix,
+      # which matches the clone_viability_template built by prepare_data()).
+      if (!is.null(shared$prepared_data$clone_viability_template)) {
+        tmpl <- shared$prepared_data$clone_viability_template
+        clone_viability_df <- data.frame(patient = tmpl$patient,
+                                         clone_id = tmpl$clone_id,
+                                         comb_viability = unname(comb),
+                                         stringsAsFactors = FALSE)
+      } else {
+        parsed <- PERCEPTIONx::parse_clone_keys(names(comb))
+        clone_viability_df <- data.frame(patient = parsed$patient,
+                                         clone_id = parsed$clone_id,
+                                         comb_viability = unname(comb),
+                                         stringsAsFactors = FALSE)
+      }
+
+      # Clone abundance = real cell-count proportion per patient.
+      clone_data <- shared$user_clones
+      if (!is.null(clone_data) && nrow(clone_data) > 0) {
+        clone_viability_df$weights <- vapply(seq_len(nrow(clone_viability_df)), function(i) {
+          pat <- clone_viability_df$patient[i]
+          cl  <- clone_viability_df$clone_id[i]
+          n_p <- sum(clone_data$patient == pat, na.rm = TRUE)
+          if (n_p == 0) NA_real_ else
+            sum(clone_data$patient == pat & clone_data$clone_id == cl, na.rm = TRUE) / n_p
+        }, numeric(1))
+      } else {
+        clone_viability_df$weights <- NA_real_
+      }
+
+      if (!is.null(shared$user_response)) {
+        clone_viability_df$response <- to_rnr(shared$user_response$response[
+          match(clone_viability_df$patient, shared$user_response$patient)
+        ])
+      }
+      clone_viability_df
+    }
+
+    combo_patient_frame <- function(clone_viability_df) {
+      patients <- unique(clone_viability_df$patient)
+      scores <- vapply(patients, function(p) {
+        sub <- clone_viability_df[clone_viability_df$patient == p, ]
+        sub <- sub[!is.na(sub$comb_viability) & !is.na(sub$weights), ]
+        if (nrow(sub) == 0) return(NA_real_)
+        max(sub$comb_viability * sub$weights)  # most-resistant clone, weighted
+      }, numeric(1))
+      data.frame(patient = patients, combination = scores, stringsAsFactors = FALSE)
+    }
+
 
     # Reactive plot size (px) — driven by user's Width/Height size controls.
     # Used by the static renderPlot (crisp original ggplot, no plotly overlap).
@@ -280,7 +358,11 @@ mod_visualize_server <- function(id, shared, main_session) {
       paste(reduction_label(), plot_labels[[pt]])
     }
 
-    # Populate drug choices from trained models (or predictions as fallback)
+    # Populate drug choices from trained models (or predictions as fallback).
+    # "Combination" is prepended and used as the DEFAULT selection: it applies
+    # the paper's IDA principle (per-clone combination viability = pmin of the
+    # z-scored single-drug viabilities) and the most-resistant-clone weighted
+    # aggregation (weighted_max) for patient-level scores.
     observe({
       drug_choices <- NULL
       if (!is.null(shared$models)) {
@@ -289,7 +371,12 @@ mod_visualize_server <- function(id, shared, main_session) {
         drug_choices <- colnames(shared$predictions)
       }
       if (!is.null(drug_choices) && length(drug_choices) > 0) {
-        updateSelectizeInput(session, "drug_name_common", choices = drug_choices, server = TRUE)
+        combo_choices <- c("Combination" = "Combination",
+                           setNames(drug_choices, drug_choices))
+        updateSelectizeInput(session, "drug_name_common",
+                             choices = combo_choices, selected = "Combination",
+                             server = TRUE)
+        # Spatial UMAP plots remain per-drug only (no combination there).
         updateSelectizeInput(session, "umap_drug", choices = drug_choices, server = TRUE)
       }
     })
@@ -306,6 +393,14 @@ mod_visualize_server <- function(id, shared, main_session) {
     observeEvent(input$generate, {
       pt <- input$plot_type
       reqs <- plot_requirements[[pt]]
+
+      # Combination mode derives patient-level scores from the clone-level
+      # predictions + clone annotation, so boxplot/ROC no longer need the
+      # per-drug patient_pred matrix.
+      is_combo <- identical(input$drug_name_common, "Combination")
+      if (is_combo && pt %in% c("boxplot", "roc")) {
+        reqs <- c("predictions", "user_clones", "user_response")
+      }
 
       # Check requirements
       missing <- c()
@@ -377,6 +472,20 @@ mod_visualize_server <- function(id, shared, main_session) {
             pred_mat <- shared$predictions
             drug <- if (nchar(input$drug_name_common) > 0) input$drug_name_common else colnames(pred_mat)[1]
 
+            if (is_combo) {
+              # Combination clone lollipop (paper Fig. 2b): z-score each drug
+              # across all clones, then per-clone pmin (IDA principle). The
+              # comb_viability column already holds the z-scored combination,
+              # so it is NOT rescaled again below.
+              combo_df <- combo_clone_frame()
+              combo_df <- combo_df[!is.na(combo_df$response), ]
+              if (nrow(combo_df) == 0) {
+                stop("No clones with a valid R/NR response for the combination plot.")
+              }
+              PERCEPTIONx::plot_clone_viability(combo_df, viability_var = "comb_viability",
+                                                weights_var = "weights", response_var = "response",
+                                                drug = "Combination")
+            } else {
             # Use clone_viability_template from prepared_data if available (most reliable)
             if (!is.null(shared$prepared_data$clone_viability_template)) {
               tmpl <- shared$prepared_data$clone_viability_template
@@ -428,15 +537,24 @@ mod_visualize_server <- function(id, shared, main_session) {
                                           weights_var = "weights", response_var = "response",
                                           drug = drug)
             p_result
+            }
           },
 
           "roc" = {
-            # Build exp_vs_pred data frame for ROC
-            pp <- shared$patient_pred
             cr <- shared$user_response
-            drug <- if (nchar(input$drug_name_common) > 0) input$drug_name_common else colnames(pp)[1]
-            response_vec <- to_rnr(cr$response[match(rownames(pp), cr$patient)])
-            predictor_vec <- pp[[drug]]
+            if (is_combo) {
+              # Combination ROC (paper Fig. 2e): patient-level combination score
+              # = most-resistant clone weighted by abundance (weighted_max).
+              combo_df <- combo_clone_frame()
+              pat_df <- combo_patient_frame(combo_df)
+              response_vec <- to_rnr(cr$response[match(pat_df$patient, cr$patient)])
+              predictor_vec <- pat_df$combination
+            } else {
+              pp <- shared$patient_pred
+              drug <- if (nchar(input$drug_name_common) > 0) input$drug_name_common else colnames(pp)[1]
+              response_vec <- to_rnr(cr$response[match(rownames(pp), cr$patient)])
+              predictor_vec <- pp[[drug]]
+            }
             # Drop patients without a valid R/NR response — NA must not silently
             # become "NR" (that would bias the ROC / AUC).
             keep <- !is.na(response_vec) & !is.na(predictor_vec)
@@ -447,16 +565,24 @@ mod_visualize_server <- function(id, shared, main_session) {
             # Auto-disable smoothing when sample size is small (< 10 patients)
             smooth <- length(response_vec) >= 10
             PERCEPTIONx::plot_roc_curve(response = response_vec, predictor = predictor_vec,
-                           smooth_curve = smooth, title = drug)
+                           smooth_curve = smooth, title = if (is_combo) "Combination" else drug)
           },
 
           "boxplot" = {
-            # Build exp_vs_pred data frame
-            pp <- shared$patient_pred
             cr <- shared$user_response
-            drug <- if (nchar(input$drug_name_common) > 0) input$drug_name_common else colnames(pp)[1]
-            response_vec <- to_rnr(cr$response[match(rownames(pp), cr$patient)])
-            predictor_vec <- pp[[drug]]
+            if (is_combo) {
+              # Combination response boxplot (paper Fig. 2d): patient-level
+              # combination score = most-resistant clone weighted by abundance.
+              combo_df <- combo_clone_frame()
+              pat_df <- combo_patient_frame(combo_df)
+              response_vec <- to_rnr(cr$response[match(pat_df$patient, cr$patient)])
+              predictor_vec <- pat_df$combination
+            } else {
+              pp <- shared$patient_pred
+              drug <- if (nchar(input$drug_name_common) > 0) input$drug_name_common else colnames(pp)[1]
+              response_vec <- to_rnr(cr$response[match(rownames(pp), cr$patient)])
+              predictor_vec <- pp[[drug]]
+            }
             # Drop patients without a valid R/NR response (NA must not silently
             # become "NR", and extra categories must not form a third group).
             keep <- !is.na(response_vec) & !is.na(predictor_vec)
@@ -469,7 +595,7 @@ mod_visualize_server <- function(id, shared, main_session) {
             )
             # plot_response_boxplot has no 'title' parameter — use ggplot2::labs() after
             p <- PERCEPTIONx::plot_response_boxplot(exp_vs_pred)
-            p <- p + ggplot2::ggtitle(drug)
+            p <- p + ggplot2::ggtitle(if (is_combo) "Combination" else drug)
             p
           },
 
@@ -481,6 +607,7 @@ mod_visualize_server <- function(id, shared, main_session) {
         if (!is.null(p)) {
           current_plot(p)
           current_plot_type(pt)
+          current_drug(if (is_combo) "Combination" else if (exists("drug", inherits = FALSE)) drug else "")
           w$hide()
           showNotification(paste0(plot_labels[[pt]], " generated successfully"), type = "message")
         } else {
@@ -771,6 +898,18 @@ mod_visualize_server <- function(id, shared, main_session) {
       display_title <- if (pt %in% c("umap_gene", "umap_viability"))
         paste(reduction_label(), info$title) else info$title
 
+      # Extra note when the last plot used Combination mode (IDA + weighted_max).
+      combo_note <- NULL
+      if (identical(current_drug(), "Combination") &&
+          pt %in% c("clone_kill", "boxplot", "roc")) {
+        combo_note <- div(class = "info-box",
+          style = "border-left-color: var(--accent); margin: 0.6rem 0 0.8rem 0; font-size: 0.82rem; line-height: 1.55;",
+          icon("flask"),
+          tags$span(style = "font-weight: 600;", " Combination mode (IDA): "),
+          "each drug's clone-level viability is z-scored across all clones; the per-clone combination viability is the minimum across drugs (the single most effective drug). Patient-level score = most-resistant clone weighted by its abundance (weighted_max), the strategy the paper selected (AUC 0.83)."
+        )
+      }
+
       div(class = "card viz-explanation-card",
         div(class = "card-header",
           icon("circle-info"), " About This Plot"
@@ -778,6 +917,7 @@ mod_visualize_server <- function(id, shared, main_session) {
         div(class = "card-body",
           h6(strong(display_title)),
           p(class = "text-muted", style = "font-size: 0.85rem; line-height: 1.5;", info$desc),
+          combo_note,
           tags$span(class = "viz-explanation-req",
             icon("clipboard-check", style = "font-size: 0.75rem;"),
             tags$span(style = "font-size: 0.78rem; font-weight: 600;", "Requires: "),
