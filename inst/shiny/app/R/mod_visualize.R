@@ -495,6 +495,17 @@ mod_visualize_server <- function(id, shared, main_session) {
                 comb_viability = pred_mat[rownames(pred_mat), drug],
                 stringsAsFactors = FALSE
               )
+              # Clone abundance weights (cell-count proportion) so single-drug
+              # lollipops show the same point-size legend as Combination mode.
+              if (!is.null(clone_data) && nrow(clone_data) > 0) {
+                clone_viability_df$weights <- vapply(seq_len(nrow(clone_viability_df)), function(i) {
+                  pat <- clone_viability_df$patient[i]
+                  cl  <- clone_viability_df$clone_id[i]
+                  n_p <- sum(clone_data$patient == pat, na.rm = TRUE)
+                  if (n_p == 0) NA_real_ else
+                    sum(clone_data$patient == pat & clone_data$clone_id == cl, na.rm = TRUE) / n_p
+                }, numeric(1))
+              }
             } else {
               # Fallback: parse rownames
               parsed <- PERCEPTIONx::parse_clone_keys(rownames(pred_mat))
@@ -910,6 +921,19 @@ mod_visualize_server <- function(id, shared, main_session) {
         )
       }
 
+      # Clone-level input without a count column falls back to equal weights;
+      # say so explicitly so users do not misread the proportions.
+      equal_weight_note <- NULL
+      if (pt == "clone_dist" && !is.null(shared$prepared_data) &&
+          identical(shared$prepared_data$reduction_method, "none") &&
+          !isTRUE(shared$mapping_has_count)) {
+        equal_weight_note <- div(class = "info-box",
+          style = "border-left-color: var(--warning, #d97706); margin: 0.6rem 0 0.8rem 0; font-size: 0.82rem; line-height: 1.5;",
+          icon("triangle-exclamation"),
+          " Clone-level input without a count column: proportions are equal (1/n per clone). Add a count column with real cell numbers in the mapping file to show true proportions."
+        )
+      }
+
       div(class = "card viz-explanation-card",
         div(class = "card-header",
           icon("circle-info"), " About This Plot"
@@ -918,6 +942,7 @@ mod_visualize_server <- function(id, shared, main_session) {
           h6(strong(display_title)),
           p(class = "text-muted", style = "font-size: 0.85rem; line-height: 1.5;", info$desc),
           combo_note,
+          equal_weight_note,
           tags$span(class = "viz-explanation-req",
             icon("clipboard-check", style = "font-size: 0.75rem;"),
             tags$span(style = "font-size: 0.78rem; font-weight: 600;", "Requires: "),

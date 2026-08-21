@@ -219,6 +219,8 @@ EGFR      4.7       2.1       0.0")
               " (case-insensitive). Maps each cell (or clone) to its patient. In Clone-level mode the data is auto-prepared without clustering. CSV / TSV / TXT / Excel / RDS."),
             p(style = "font-size: 0.8rem; font-weight: 700; color: var(--text); margin: 0.3rem 0 0.5rem;",
               "Header is auto-detected as the first row with ≥2 columns (cell_id / patient_id); single-field title/comment rows above it are skipped."),
+            # Cell-level example (default). Clone-level mode swaps to the
+            # count-column example via the conditional panel below.
             div(class = "data-format-hint",
               icon("users"), " Format: cell_id + patient_id",
               tags$pre(class = "data-format-example", 
@@ -226,6 +228,19 @@ EGFR      4.7       2.1       0.0")
 CELL_001   PAT_001
 CELL_002   PAT_001
 CELL_003   PAT_002")
+            ),
+            conditionalPanel(
+              condition = paste0("input['", ns("expr_format"), "'] == 'clone'"),
+              div(class = "data-format-hint", style = "margin-top: 0.4rem;",
+                icon("users"), " Format: cell_id + patient_id + count",
+                tags$pre(class = "data-format-example", 
+                "cell_id       patient_id   count
+CLONE_001     PAT_001      450
+CLONE_002     PAT_001      50
+CLONE_003     PAT_002      300"),
+                tags$small(class = "text-muted",
+                  "count = real cell number per clone; proportions are then shown accurately. Without it, clone proportions fall back to equal (1/n).")
+              )
             ),
             fileInput(ns("mapping_file"), "Upload Mapping",
                       accept = c(".csv", ".tsv", ".txt", ".xlsx", ".rds", ".RDS"), width = "100%"),
@@ -1004,6 +1019,24 @@ mod_data_server <- function(id, shared) {
         }
         df$cell_id    <- as.character(df$cell_id)
         df$patient_id <- as.character(df$patient_id)
+
+        # Optional per-clone abundance column (count / cells / n_cells /
+        # abundance): if present, expand each row to that many cells so clone
+        # proportions reflect TRUE cell counts (matching the paper's figures)
+        # instead of equal 1/n per clone. The abundance column is consumed here
+        # and not passed downstream.
+        count_col <- intersect(c("count", "cells", "n_cells", "n_cells_per_clone",
+                                 "abundance"), tolower(names(df)))
+        shared$mapping_has_count <- length(count_col) > 0
+        if (length(count_col) > 0) {
+          cnt_col <- names(df)[tolower(names(df)) == count_col[1]][1]
+          cnt <- suppressWarnings(as.numeric(df[[cnt_col]]))
+          cnt[is.na(cnt) | cnt < 1] <- 1L
+          df <- df[rep(seq_len(nrow(df)), cnt), , drop = FALSE]
+          df[[cnt_col]] <- NULL
+          rownames(df) <- NULL
+        }
+
         shared$user_mapping <- df
         shared$prepared_data <- NULL  # Reset prepared data when mapping changes
         showNotification(paste0("Patient-cell mapping loaded: ", nrow(shared$user_mapping),
@@ -1017,11 +1050,24 @@ mod_data_server <- function(id, shared) {
     output$mapping_status <- renderUI({
       if (is.null(shared$user_mapping)) return(NULL)
       n_patients <- length(unique(shared$user_mapping$patient_id))
+      clone_mode <- identical(input$expr_format, "clone")
+      # In clone-level mode without a count column there are no per-clone cell
+      # counts, so clone proportions fall back to equal 1/n per clone. Be
+      # explicit about this so users know what the plots actually show.
+      equal_weight_note <- if (clone_mode && !isTRUE(shared$mapping_has_count)) {
+        div(class = "info-box", style = "border-left-color: var(--warning, #d97706); margin-top: 0.4rem; font-size: 0.78rem; padding: 0.4rem 0.6rem;",
+          icon("triangle-exclamation"),
+          " No count column — clone proportions are shown as equal (1/n per clone). Add a <code>count</code> column with real cell numbers to show true proportions."
+        )
+      } else {
+        NULL
+      }
       tagList(
         span(class = "status-badge loaded", span(class = "status-dot green"), "Loaded"),
         tags$small(class = "text-muted",
           paste0(nrow(shared$user_mapping), " cells, ", n_patients, " patients")
-        )
+        ),
+        equal_weight_note
       )
     })
 

@@ -343,12 +343,34 @@ prepare_data <- function(method = c("umap", "tsne"),
       stop("expression_matrix must have column names when skip_clustering = TRUE ",
            "(each column is expected to be one clone).")
     }
-    # Keep the full column name as the unique clone identity (e.g. "Kydar01_c1").
-    # This is universal: clone names are whatever the user's data uses. Patient
-    # separation is guaranteed downstream via "patient@@clone" keys.
-    cell_clone_map <- data.frame(cell_id = cn, clone_id = cn,
-                                 stringsAsFactors = FALSE)
-    message("  Using ", length(cn), " provided clone columns.")
+    # Clone-level input with a cell-count-resolved mapping: if the patient
+    # mapping repeats clone ids (one row per real cell, e.g. "Kydar01_c1"
+    # appearing 500 times), build the cell_clone_map from the mapping rows so
+    # clone abundances reflect TRUE cell counts (matching the paper's figures)
+    # instead of equal weights per clone. If the mapping is 1:1 with the matrix
+    # columns (legacy equal-weight case) the behavior is unchanged.
+    sample_cell_ids <- NULL
+    if (is.list(sample_cell_names)) {
+      sample_cell_ids <- unlist(sample_cell_names, use.names = FALSE)
+    } else if (is.character(sample_cell_names)) {
+      sample_cell_ids <- sample_cell_names
+    }
+    if (!is.null(sample_cell_ids) && anyDuplicated(sample_cell_ids) > 0 &&
+        all(cn %in% sample_cell_ids)) {
+      cell_clone_map <- data.frame(cell_id = sample_cell_ids,
+                                   clone_id = sample_cell_ids,
+                                   stringsAsFactors = FALSE)
+      cell_clone_map <- cell_clone_map[cell_clone_map$cell_id %in% cn, , drop = FALSE]
+      message("  Using cell-count-resolved mapping: ", nrow(cell_clone_map),
+              " cells across ", length(unique(cell_clone_map$cell_id)), " clones.")
+    } else {
+      # Keep the full column name as the unique clone identity (e.g. "Kydar01_c1").
+      # This is universal: clone names are whatever the user's data uses. Patient
+      # separation is guaranteed downstream via "patient@@clone" keys.
+      cell_clone_map <- data.frame(cell_id = cn, clone_id = cn,
+                                   stringsAsFactors = FALSE)
+      message("  Using ", length(cn), " provided clone columns.")
+    }
   } else {
     message("[1/5] Clustering cells via Seurat...")
 
