@@ -389,7 +389,7 @@ mod_train_server <- function(id, shared, main_session) {
           tabPanel("Validation ROC",
             plotlyOutput(ns("perf_roc_plot"), height = "340px"),
             tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
-              "ROC of the predicted viability in stratifying the top vs bottom 33% observed response, one curve per validation dataset (bulk / pseudo-bulk / single-cell) with AUC annotated at each curve's end. 0.5 = random.")
+              "ROC of the predicted viability in stratifying the top vs bottom 50% observed response (median split, paper's convention), one curve per validation dataset (bulk / pseudo-bulk / single-cell) with AUC annotated in a box. 0.5 = random.")
           ),
           tabPanel("Performance Curve",
             plotlyOutput(ns("perf_plot"), height = "320px"),

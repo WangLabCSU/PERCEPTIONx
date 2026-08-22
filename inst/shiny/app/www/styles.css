@@ -89,6 +89,13 @@ div.card > .card-body {
   margin-top: 0;
 }
 
+/* Config column: keeps its natural height. Before any prediction the results
+   column stretches to match it (equal-height empty state); once results grow
+   the config column stays put instead of following the right side. */
+.predict-config-col {
+  align-self: flex-start !important;
+}
+
 /* Center the annotation (icon + text) block vertically inside the card. */
 .predict-results-col .card-body {
   justify-content: center;
