@@ -91,8 +91,8 @@ mod_train_ui <- function(id) {
       ),
 
       # Results Panel
-      column(7,
-        div(class = "card animate-fade-in-up delay-1",
+      column(7, class = "train-results-col",
+        div(class = "card",
           div(class = "card-header",
             icon("chart-bar"), " Training Results"
           ),
@@ -106,21 +106,11 @@ mod_train_ui <- function(id) {
             # Performance metrics — p-value & correlation
             uiOutput(ns("perf_metrics")),
 
-            # Performance plots — validation ROC (default) + threshold curve
-            div(class = "viz-plot-wrapper",
-              tabsetPanel(
-                tabPanel("Validation ROC",
-                  plotlyOutput(ns("perf_roc_plot"), height = "340px"),
-                  tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
-                    "ROC of the predicted viability in stratifying the top vs bottom 33% observed response, one curve per validation dataset (bulk / pseudo-bulk / single-cell) with AUC annotated at each curve's end. 0.5 = random.")
-                ),
-                tabPanel("Performance Curve",
-                  plotlyOutput(ns("perf_plot"), height = "320px"),
-                  tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
-                    "For each threshold, the proportion of trained drugs whose predicted-observed Pearson correlation exceeds it (per dataset). Most informative when several drugs are trained together; with a single drug the curve is a simple step.")
-                )
-              )
-            ),
+            # Performance plots — validation ROC (default) + threshold curve.
+            # Rendered dynamically only after training completes: keeps the
+            # heavy plotly.js bundle OFF the initial page (so entering the
+            # module is instant) and shows no empty frames before a run.
+            uiOutput(ns("perf_plots")),
 
             # Download
             uiOutput(ns("download_btn"))
@@ -311,8 +301,12 @@ mod_train_server <- function(id, shared, main_session) {
     # Progress UI
     output$progress <- renderUI({
       if (is.null(trained())) {
-        div(class = "text-muted", style = "text-align: center; padding: 2rem;",
-          icon("hourglass-start"), " No training run yet"
+        div(class = "text-muted", style = "text-align: center; padding: 3rem;",
+          icon("brain", style = "font-size: 3rem; opacity: 0.15; display: block; margin-bottom: 0.8rem;"),
+          "Enter drug names, configure parameters, and click ",
+          strong("Start Training"),
+          br(),
+          span(style = "font-size: 0.82rem; opacity: 0.7;", "Check the prerequisites above for available data")
         )
       } else {
         div(class = "status-badge loaded",
@@ -382,6 +376,28 @@ mod_train_server <- function(id, shared, main_session) {
       p <- plot_model_performance(models, base_size = 13, tooltip = FALSE)
       ggplotly(p, tooltip = c("x", "y", "colour")) %>%
         layout(font = list(family = "Inter, sans-serif", size = 12))
+    })
+
+    # Performance plots wrapper — only rendered after training completes so the
+    # results card starts with just the hint and no empty plot frames. The
+    # plotly.js bundle is therefore NOT part of the initial page (the module
+    # opens instantly); it loads on demand when the first plot renders.
+    output$perf_plots <- renderUI({
+      req(trained())
+      div(class = "viz-plot-wrapper",
+        tabsetPanel(
+          tabPanel("Validation ROC",
+            plotlyOutput(ns("perf_roc_plot"), height = "340px"),
+            tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
+              "ROC of the predicted viability in stratifying the top vs bottom 33% observed response, one curve per validation dataset (bulk / pseudo-bulk / single-cell) with AUC annotated at each curve's end. 0.5 = random.")
+          ),
+          tabPanel("Performance Curve",
+            plotlyOutput(ns("perf_plot"), height = "320px"),
+            tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
+              "For each threshold, the proportion of trained drugs whose predicted-observed Pearson correlation exceeds it (per dataset). Most informative when several drugs are trained together; with a single drug the curve is a simple step.")
+          )
+        )
+      )
     })
 
     # Performance Metrics — display p-value & correlation

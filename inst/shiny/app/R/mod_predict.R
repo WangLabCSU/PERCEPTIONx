@@ -24,7 +24,7 @@ mod_predict_ui <- function(id) {
       )
     ),
 
-    fluidRow(style = "margin-top: 0.5rem; align-items: flex-start;",
+    fluidRow(style = "margin-top: 0.5rem;",
       # Configuration
       column(4,
         div(class = "card",
@@ -92,8 +92,9 @@ mod_predict_ui <- function(id) {
             icon("fire"), " Clone-Level Predictions"
           ),
           div(class = "card-body",
+            uiOutput(ns("card_desc_clone")),
             uiOutput(ns("clone_pred_status")),
-            plotlyOutput(ns("clone_heatmap"), height = "400px")
+            uiOutput(ns("clone_heatmap_area"))
           )
         ),
 
@@ -103,7 +104,9 @@ mod_predict_ui <- function(id) {
             icon("user"), " Patient-Level Predictions"
           ),
           div(class = "card-body",
-            DTOutput(ns("patient_table")),
+            uiOutput(ns("card_desc_patient")),
+            uiOutput(ns("patient_status")),
+            uiOutput(ns("patient_table_area")),
             uiOutput(ns("patient_download"))
           )
         )
@@ -350,10 +353,47 @@ mod_predict_server <- function(id, shared, main_session) {
         )
     })
 
+    # Heatmap area — only rendered after a prediction run, so no empty
+    # heatmap frame shows before the user clicks Run Prediction.
+    output$clone_heatmap_area <- renderUI({
+      req(clone_pred())
+      plotlyOutput(ns("clone_heatmap"), height = "400px")
+    })
+
+    # Card annotations (icon + description) — shown only before a prediction
+    # run; once results exist the space belongs to the heatmap / table.
+    output$card_desc_clone <- renderUI({
+      if (is.null(clone_pred())) {
+        div(class = "card-desc",
+          icon("fire", style = "font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 0.35rem;"),
+          "Predicted viability of every clone for each drug (higher = more resistant). ",
+          br(),
+          "Shown as a heatmap after running prediction.")
+      } else {
+        NULL
+      }
+    })
+
+    output$card_desc_patient <- renderUI({
+      if (is.null(clone_pred())) {
+        div(class = "card-desc",
+          icon("user", style = "font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 0.35rem;"),
+          "Clone viabilities aggregated per patient using the selected mode ",
+          "(e.g. weighted_max).",
+          br(),
+          "Table appears after running prediction.")
+      } else {
+        NULL
+      }
+    })
+
     output$clone_pred_status <- renderUI({
       if (is.null(clone_pred())) {
-        div(class = "text-muted", style = "text-align: center; padding: 2rem;",
-          icon("arrow-left"), " Configure parameters and click Run Prediction"
+        div(class = "text-muted", style = "text-align: center; padding: 2.5rem;",
+          "Select model and expression sources, configure aggregation, and click ",
+          strong("Run Prediction"),
+          br(),
+          span(style = "font-size: 0.82rem; opacity: 0.7;", "Check the prerequisites above for available data")
         )
       } else {
         tagList(
@@ -362,6 +402,17 @@ mod_predict_server <- function(id, shared, main_session) {
             paste(nrow(clone_pred()), "clones x", ncol(clone_pred()), "drugs")
           )
         )
+      }
+    })
+
+    # Patient-level empty-state hint (before any prediction)
+    output$patient_status <- renderUI({
+      if (is.null(clone_pred())) {
+        div(class = "text-muted", style = "text-align: center; padding: 2rem;",
+          "Patient-level predictions will appear here after running prediction."
+        )
+      } else {
+        NULL
       }
     })
 
@@ -381,6 +432,12 @@ mod_predict_server <- function(id, shared, main_session) {
                 rownames = FALSE,
                 class = "display") %>%
         formatRound(names(df)[sapply(df, is.numeric)], 4)
+    })
+
+    # Patient table area — only rendered once patient predictions exist.
+    output$patient_table_area <- renderUI({
+      req(patient_pred())
+      DTOutput(ns("patient_table"))
     })
 
     # Patient download

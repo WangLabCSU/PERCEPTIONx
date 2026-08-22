@@ -432,9 +432,11 @@ plot_clone_viability <- function(clone_viability,
   # deprecated" warning.
   has_weights <- !is.null(weights_var) && weights_var %in% colnames(clone_viability)
   if (has_weights) {
-    # Cap the visual point size at a clone proportion of 0.4: clones above it
-    # (e.g. a dominant clone) keep the same point size so they do not dominate
-    # the panel. The tooltip still shows the true proportion via weights_var.
+    # Cap ONLY the size fed to the point geometry: a clone whose proportion
+    # exceeds 0.4 renders at exactly the circle size that 0.4 maps to on the
+    # natural scale (see scale_size below), so dominant clones never balloon.
+    # The underlying value is untouched — tooltips and sorting still use the
+    # true proportion via weights_var.
     clone_viability$size_val <- pmin(clone_viability[[weights_var]], 0.4)
   }
   aes_mapping <- aes(y = .data[[viability_var]], x = clone_id,
@@ -514,9 +516,15 @@ plot_clone_viability <- function(clone_viability,
   }
 
   if (has_weights) {
-    # limits c(0, 0.4) match the capped size_val, so the legend reads the same
-    # range the points actually use.
-    p <- p + scale_size(range = c(1, 7), limits = c(0, 0.4))
+    max_w <- max(clone_viability[[weights_var]], na.rm = TRUE)
+    if (!is.finite(max_w) || max_w <= 0) max_w <- 1
+    # Size scale spans the FULL natural range (0 .. max proportion) so relative
+    # sizes stay true; size_val (pmin w at 0.4) then caps every rendered circle
+    # at exactly the size that 0.4 gets on this scale. Legend breaks are limited
+    # to the capped region so the legend matches the actual circle sizes.
+    p <- p + scale_size(range = c(1, 7),
+                        limits = c(0, max_w),
+                        breaks = seq(0, min(0.4, max_w), length.out = 3))
   } else {
     p <- p + guides(size = "none")
   }
