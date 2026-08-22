@@ -93,7 +93,6 @@ mod_predict_ui <- function(id) {
           ),
           div(class = "card-body",
             uiOutput(ns("card_desc_clone")),
-            uiOutput(ns("clone_pred_status")),
             uiOutput(ns("clone_heatmap_area"))
           )
         ),
@@ -105,7 +104,6 @@ mod_predict_ui <- function(id) {
           ),
           div(class = "card-body",
             uiOutput(ns("card_desc_patient")),
-            uiOutput(ns("patient_status")),
             uiOutput(ns("patient_table_area")),
             uiOutput(ns("patient_download"))
           )
@@ -360,15 +358,18 @@ mod_predict_server <- function(id, shared, main_session) {
       plotlyOutput(ns("clone_heatmap"), height = "400px")
     })
 
-    # Card annotations (icon + description) — shown only before a prediction
-    # run; once results exist the space belongs to the heatmap / table.
+    # Card annotations (icon + description + hint) — one centered block per
+    # card, shown only before a prediction run; once results exist the space
+    # belongs to the heatmap / table.
     output$card_desc_clone <- renderUI({
       if (is.null(clone_pred())) {
         div(class = "card-desc",
           icon("fire", style = "font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 0.35rem;"),
-          "Predicted viability of every clone for each drug (higher = more resistant). ",
+          "Predicted viability of every clone per drug (higher = more resistant).",
           br(),
-          "Shown as a heatmap after running prediction.")
+          "Select model & expression sources, then click ",
+          strong("Run Prediction"), "."
+        )
       } else {
         NULL
       }
@@ -378,38 +379,9 @@ mod_predict_server <- function(id, shared, main_session) {
       if (is.null(clone_pred())) {
         div(class = "card-desc",
           icon("user", style = "font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 0.35rem;"),
-          "Clone viabilities aggregated per patient using the selected mode ",
-          "(e.g. weighted_max).",
+          "Clone viabilities aggregated per patient (weighted_max).",
           br(),
-          "Table appears after running prediction.")
-      } else {
-        NULL
-      }
-    })
-
-    output$clone_pred_status <- renderUI({
-      if (is.null(clone_pred())) {
-        div(class = "text-muted", style = "text-align: center; padding: 2.5rem;",
-          "Select model and expression sources, configure aggregation, and click ",
-          strong("Run Prediction"),
-          br(),
-          span(style = "font-size: 0.82rem; opacity: 0.7;", "Check the prerequisites above for available data")
-        )
-      } else {
-        tagList(
-          span(class = "status-badge loaded",
-            span(class = "status-dot green"),
-            paste(nrow(clone_pred()), "clones x", ncol(clone_pred()), "drugs")
-          )
-        )
-      }
-    })
-
-    # Patient-level empty-state hint (before any prediction)
-    output$patient_status <- renderUI({
-      if (is.null(clone_pred())) {
-        div(class = "text-muted", style = "text-align: center; padding: 2rem;",
-          "Patient-level predictions will appear here after running prediction."
+          "Appears here after running prediction."
         )
       } else {
         NULL

@@ -760,6 +760,18 @@ mod_data_server <- function(id, shared) {
     observeEvent(input$depmap_file, {
       req(input$depmap_file)
       file <- input$depmap_file
+
+      # Pre-flight: deserializing an RDS needs roughly 2-4x its compressed
+      # size as free RAM. Warn early instead of crashing mid-read (the
+      # packaged 567 MB release is the known-good reference point).
+      fsize_mb <- file.size(file$datapath) / 1024^2
+      if (is.finite(fsize_mb) && fsize_mb > 700) {
+        showNotification(
+          sprintf("Large file (%.0f MB). Loading needs roughly 2-4x that in free RAM. Close other applications first, or use the built-in 567 MB 'Download & Load' above.",
+                  fsize_mb),
+          type = "warning", duration = 12)
+      }
+
       w <- Waiter$new(
         html = tagList(
           div(class = "spinner-ring"),
@@ -770,7 +782,25 @@ mod_data_server <- function(id, shared) {
       )
       w$show()
       tryCatch({
+        gc()  # reclaim memory before the big allocation
         DepMap <- readRDS(file$datapath)
+
+        # Validate the expected PERCEPTIONx structure so training does not
+        # later fail with a cryptic error about a missing component.
+        if (!is.list(DepMap)) {
+          stop("The file is not a list. Expected a DepMap.RDS from the PERCEPTIONx release (or an object with the same structure).")
+        }
+        required_fields <- c("secondary_prism", "secondary_screen_drugAnnotation",
+                             "expression_rnorm", "scRNA_complete", "scRNA_subset_rnorm",
+                             "CPM_scRNA_CCLE_rnorm", "annotation_20Q4",
+                             "metadata_CPM_scRNA", "expression_20Q4")
+        missing_fields <- setdiff(required_fields, names(DepMap))
+        if (length(missing_fields) > 0) {
+          stop("The RDS is missing required components: ",
+               paste(missing_fields, collapse = ", "),
+               ". Re-save it with these components, or use the built-in 'Download & Load' (567 MB, known-good).")
+        }
+
         depmap_env <- getFromNamespace(".depmap_env", "PERCEPTIONx")
         assign("DepMap", DepMap, envir = depmap_env)
         # Also write to .GlobalEnv so train_models() (which checks the global
@@ -781,7 +811,14 @@ mod_data_server <- function(id, shared) {
         showNotification(paste("DepMap loaded from file:", length(DepMap), "datasets"), type = "message")
       }, error = function(e) {
         w$hide()
-        showNotification(paste("Error reading file:", e$message), type = "error")
+        msg <- conditionMessage(e)
+        if (grepl("cannot allocate|failed to allocate", msg, ignore.case = TRUE)) {
+          showNotification("Out of memory: the file needs more free RAM than this machine has right now.", type = "error", duration = 15)
+          showNotification("Tips: close other applications; re-save the RDS containing only the components PERCEPTIONx needs; or use the built-in 567 MB 'Download & Load' instead.",
+                           type = "warning", duration = 20)
+        } else {
+          showNotification(paste("Error reading file:", msg), type = "error", duration = 10)
+        }
       })
     })
 

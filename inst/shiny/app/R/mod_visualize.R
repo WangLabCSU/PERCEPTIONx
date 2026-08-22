@@ -31,8 +31,7 @@ mod_visualize_ui <- function(id) {
                            "Clone Distribution" = "clone_dist",
                            "Clone Viability Lollipop" = "clone_kill",
                            "ROC Curve" = "roc",
-                           "Response Boxplot" = "boxplot",
-                           "Model Performance" = "model_perf"
+                           "Response Boxplot" = "boxplot"
                          ),
                          selected = "clone_dist"),
 
@@ -43,30 +42,15 @@ mod_visualize_ui <- function(id) {
                              options = list(maxItems = 1, placeholder = "Select a drug"))
             ),
 
-            # ROC comparison pair — shown only when the response has >2 groups
-            # (e.g. lung TN/RD/PD), since ROC needs exactly two classes.
-            uiOutput(ns("roc_pair_picker")),
+            # ROC comparison pair — shown ONLY when the ROC plot type is
+            # selected (and the response has >2 groups; see server side).
+            conditionalPanel(
+              condition = paste0("input['", ns("plot_type"), "'] == 'roc'"),
+              uiOutput(ns("roc_pair_picker"))
+            ),
 
             actionButton(ns("generate"), "Generate Plot", width = "100%",
                          class = "btn-primary btn-sm", icon = icon("wand-magic-sparkles")),
-
-            # Plot size controls
-            div(class = "viz-size-controls",
-              tags$label(class = "viz-size-label", icon("arrows-alt"), " Plot Size"),
-              div(class = "viz-size-row",
-                div(class = "viz-size-col",
-                  tags$span(class = "viz-size-mini-label", "Width"),
-                  numericInput(ns("plot_width"), NULL, value = 100, min = 50, max = 200, step = 10)
-                ),
-                div(class = "viz-size-col",
-                  tags$span(class = "viz-size-mini-label", "Height"),
-                  numericInput(ns("plot_height"), NULL, value = 100, min = 50, max = 200, step = 10)
-                )
-              ),
-              div(class = "viz-size-row",
-                sliderInput(ns("plot_text_size"), "Text size", min = 60, max = 160, value = 100, step = 10, post = "%", ticks = TRUE)
-              )
-            ),
 
             hr(),
 
@@ -76,8 +60,8 @@ mod_visualize_ui <- function(id) {
 
               radioButtons(ns("plot_type_advanced"), NULL,
                            choices = c(
-                             "Gene Expression" = "umap_gene",
-                             "Drug Viability" = "umap_viability"
+                             "Drug Viability" = "umap_viability",
+                             "Gene Expression" = "umap_gene"
                            ),
                            selected = character(0)),
 
@@ -97,6 +81,25 @@ mod_visualize_ui <- function(id) {
                 condition = paste0("input['", ns("plot_type_advanced"), "'] == 'umap_gene' || input['", ns("plot_type_advanced"), "'] == 'umap_viability'"),
                 actionButton(ns("generate_advanced"), "Generate Spatial Plot", width = "100%",
                              class = "btn-primary btn-sm", icon = icon("wand-magic-sparkles"))
+              )
+            ),
+
+            # Plot size controls — at the bottom so the spatial plots above
+            # are not crowded out.
+            div(class = "viz-size-controls",
+              tags$label(class = "viz-size-label", icon("arrows-alt"), " Plot Size"),
+              div(class = "viz-size-row",
+                div(class = "viz-size-col",
+                  tags$span(class = "viz-size-mini-label", "Width"),
+                  numericInput(ns("plot_width"), NULL, value = 100, min = 50, max = 200, step = 10)
+                ),
+                div(class = "viz-size-col",
+                  tags$span(class = "viz-size-mini-label", "Height"),
+                  numericInput(ns("plot_height"), NULL, value = 100, min = 50, max = 200, step = 10)
+                )
+              ),
+              div(class = "viz-size-row",
+                sliderInput(ns("plot_text_size"), "Text size", min = 60, max = 160, value = 100, step = 10, post = "%", ticks = TRUE)
               )
             )
           )
@@ -183,13 +186,16 @@ mod_visualize_server <- function(id, shared, main_session) {
           icon("info-circle"), " Response has ", length(grps), " groups — pick the two for the ROC:"),
         div(class = "viz-size-row",
           div(class = "viz-size-col",
-            selectizeInput(ns("roc_group_a"), "ROC Group A",
-                           choices = grps, selected = def[1], width = "100%",
-                           options = list(maxItems = 1))),
+            # selectize = FALSE: a native <select> keeps a constant width,
+            # unlike the selectize widget whose pill makes the box change
+            # width before/after a selection.
+            selectInput(ns("roc_group_a"), "ROC Group A",
+                        choices = grps, selected = def[1], width = "100%",
+                        selectize = FALSE)),
           div(class = "viz-size-col",
-            selectizeInput(ns("roc_group_b"), "ROC Group B",
-                           choices = grps, selected = def[2], width = "100%",
-                           options = list(maxItems = 1)))
+            selectInput(ns("roc_group_b"), "ROC Group B",
+                        choices = grps, selected = def[2], width = "100%",
+                        selectize = FALSE))
         )
       )
     })
@@ -380,7 +386,6 @@ mod_visualize_server <- function(id, shared, main_session) {
       clone_kill = c("predictions", "user_clones"),
       roc = c("patient_pred", "user_response"),
       boxplot = c("patient_pred", "user_response"),
-      model_perf = c("models"),
       umap_gene = c("predictions", "user_expr"),
       umap_viability = c("predictions")
     )
@@ -390,7 +395,6 @@ mod_visualize_server <- function(id, shared, main_session) {
       clone_kill = "Clone Viability Lollipop",
       roc = "ROC Curve",
       boxplot = "Response Boxplot",
-      model_perf = "Model Performance",
       umap_gene = "Gene Expression",
       umap_viability = "Drug Viability"
     )
@@ -666,10 +670,6 @@ mod_visualize_server <- function(id, shared, main_session) {
             p <- PERCEPTIONx::plot_response_boxplot(exp_vs_pred)
             p <- p + ggplot2::ggtitle(if (is_combo) "Combination" else drug)
             p
-          },
-
-          "model_perf" = {
-            PERCEPTIONx::plot_model_performance(shared$models)
           }
         )
 
@@ -938,11 +938,6 @@ mod_visualize_server <- function(id, shared, main_session) {
         title = "Response Boxplot",
         desc = "Compares predicted viability scores between Responders and Non-Responders. The p-value (Wilcoxon test) indicates whether the difference is statistically significant. A lower p-value suggests the model captures clinically meaningful differences.",
         requires = "Patient-level Predictions + Clinical Response"
-      ),
-      model_perf = list(
-        title = "Model Performance",
-        desc = "Summarizes cross-validation performance of the drug response models across bulk, pseudo-bulk, and single-cell datasets. Shows the number of drugs achieving various correlation thresholds between predicted and observed drug response.",
-        requires = "Trained Models"
       ),
       umap_gene = list(
         title = "Gene Expression",

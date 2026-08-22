@@ -24,8 +24,9 @@ mod_train_ui <- function(id) {
     ),
 
     fluidRow(style = "margin-top: 0.5rem;",
-      # Parameters Panel
-      column(5,
+      # Parameters Panel — align-self:flex-start keeps it at natural height
+      # when the results column grows after training (see styles.css).
+      column(5, class = "train-config-col",
         div(class = "card train-params-card animate-fade-in-up",
           div(class = "card-header",
             icon("sliders-h"), " Parameters"
@@ -74,10 +75,11 @@ mod_train_ui <- function(id) {
               selectInput(ns("model_type"), "Algorithm",
                           choices = c("Elastic Net (glmnet)" = "glmnet", "Random Forest" = "rf"),
                           selected = "glmnet", width = "100%"),
-              numericInput(ns("ncores"), "CPU Cores",
-                           value = 1, min = 1,
-                           max = max(1L, parallel::detectCores(), na.rm = TRUE), step = 1,
-                           width = "100%")
+              selectInput(ns("ncores"), "CPU Cores",
+                          choices = 1:max(1L, min(4L, parallel::detectCores(), na.rm = TRUE)),
+                          selected = 1, width = "100%"),
+              tags$small(class = "text-muted",
+                "Maximum 4 cores — hard cap for shared-server safety.")
             ),
 
             div(class = "train-action-row",
@@ -281,6 +283,16 @@ mod_train_server <- function(id, shared, main_session) {
           shared$model_cache[[nm]] <- result[[nm]]
           shared$model_active[[nm]] <- TRUE
         }
+        # A drug can still be skipped mid-training (feature ranking / model
+        # build failure) even though its name exists in DepMap — say so,
+        # otherwise the user just sees fewer ROC panels with no explanation.
+        failed_drugs <- setdiff(drugs, names(result))
+        if (length(failed_drugs) > 0) {
+          showNotification(paste0("No model produced for: ",
+                                  paste(failed_drugs, collapse = ", "),
+                                  " (feature ranking or model building failed — see console warnings)."),
+                           type = "warning", duration = 10)
+        }
         w$hide()
         showNotification("Training completed successfully!", type = "message")
       }, error = function(e) {
@@ -359,10 +371,28 @@ mod_train_server <- function(id, shared, main_session) {
       )
     })
 
-    # Validation ROC (default view after training)
+    # Validation ROC (default view after training). Rendered via plotly for
+    # interactivity. The AUC card layers are plotly-safe now: all text uses
+    # fixed colors and the color swatches are point markers (no fill-mapped
+    # rects / colored text that the converter renders unreliably).
     output$perf_roc_plot <- renderPlotly({
       req(trained())
       p <- PERCEPTIONx::plot_model_roc(trained(), base_size = 13)
+      # plot_model_roc drops a drug only when its held-out response data
+      # cannot be split into two classes at all — surface the reason instead
+      # of leaving a silent gap.
+      dropped <- attr(p, "dropped_drugs")
+      if (length(dropped) > 0) {
+        why <- attr(p, "dropped_reasons")
+        detail <- if (length(why)) {
+          paste(names(why), paste0("(", why, ")"), collapse = "; ")
+        } else {
+          paste(dropped, collapse = ", ")
+        }
+        showNotification(paste0("ROC not drawn for: ", detail,
+                                " — held-out cell lines have too few or non-varied drug responses in your DepMap data."),
+                         type = "warning", duration = 12)
+      }
       ggplotly(p) %>%
         layout(font = list(family = "Inter, sans-serif", size = 12))
     })
@@ -384,12 +414,18 @@ mod_train_server <- function(id, shared, main_session) {
     # opens instantly); it loads on demand when the first plot renders.
     output$perf_plots <- renderUI({
       req(trained())
+      # With several drugs the ROC panels are stacked vertically (one per
+      # drug; 2 columns once there are 5+), so grow the plot height per row
+      # instead of squashing them into the single-drug 340px frame.
+      n_models <- length(trained())
+      roc_ncol <- if (n_models <= 4) 1 else 2
+      roc_h <- if (n_models > 1) min(1500, 150 + 240 * ceiling(n_models / roc_ncol)) else 340
       div(class = "viz-plot-wrapper",
         tabsetPanel(
           tabPanel("Validation ROC",
-            plotlyOutput(ns("perf_roc_plot"), height = "340px"),
+            plotlyOutput(ns("perf_roc_plot"), height = paste0(roc_h, "px")),
             tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
-              "ROC of the predicted viability in stratifying the top vs bottom 50% observed response (median split, paper's convention), one curve per validation dataset (bulk / pseudo-bulk / single-cell) with AUC annotated in a box. 0.5 = random.")
+              "ROC of the predicted viability in stratifying the top vs bottom 50% observed response by rank (paper's convention), one curve per validation dataset (bulk / pseudo-bulk / single-cell) with AUC annotated in a box. 0.5 = random.")
           ),
           tabPanel("Performance Curve",
             plotlyOutput(ns("perf_plot"), height = "320px"),
@@ -430,15 +466,22 @@ mod_train_server <- function(id, shared, main_session) {
 
         fmt <- function(v, digits = 3) {
           if (is.na(v)) return("—")
-          if (v < 0.001) return("< 0.001")
           format(round(v, digits), nsmall = digits)
+        }
+
+        # p-value: always show the number (scientific notation when very
+        # small), never an abbreviated "< 0.001".
+        fmt_p <- function(v) {
+          if (is.na(v)) return("—")
+          if (v < 0.001) format(v, scientific = TRUE, digits = 2)
+          else format(round(v, 3), nsmall = 3)
         }
 
         tags$tr(
           tags$td(strong(d)),
-          tags$td(fmt(bulk$cor), tags$span(class = "text-muted", style = "font-size:0.72rem; display:block;", "p = ", fmt(bulk$p))),
-          tags$td(fmt(pseudo$cor), tags$span(class = "text-muted", style = "font-size:0.72rem; display:block;", "p = ", fmt(pseudo$p))),
-          tags$td(fmt(sc$cor), tags$span(class = "text-muted", style = "font-size:0.72rem; display:block;", "p = ", fmt(sc$p)))
+          tags$td(fmt(bulk$cor), tags$span(class = "text-muted", style = "font-size:0.72rem; display:block;", "p = ", fmt_p(bulk$p))),
+          tags$td(fmt(pseudo$cor), tags$span(class = "text-muted", style = "font-size:0.72rem; display:block;", "p = ", fmt_p(pseudo$p))),
+          tags$td(fmt(sc$cor), tags$span(class = "text-muted", style = "font-size:0.72rem; display:block;", "p = ", fmt_p(sc$p)))
         )
       })
 

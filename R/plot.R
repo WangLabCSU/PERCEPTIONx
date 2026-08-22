@@ -366,6 +366,14 @@ plot_clone_distribution <- function(clone_distribution,
 #'   plot_clone_viability(clone_kill, viability_var = "comb_viability")
 #' }
 #'
+# p-value display: always show the number (scientific notation when very
+# small) instead of an abbreviated "< 0.001".
+fmt_pval <- function(p) {
+  if (is.na(p) || !is.finite(p)) return("NA")
+  if (p < 0.001) format(p, scientific = TRUE, digits = 2)
+  else sprintf("%.3f", p)
+}
+
 # Short facet tag for a response label: R/NR for responder/resistant
 # spellings, otherwise the label itself (e.g. TN/RD/PD longitudinal time
 # points) so multi-group response data keeps its own grouping.
@@ -444,12 +452,10 @@ plot_clone_viability <- function(clone_viability,
   # deprecated" warning.
   has_weights <- !is.null(weights_var) && weights_var %in% colnames(clone_viability)
   if (has_weights) {
-    # Cap ONLY the size fed to the point geometry: a clone whose proportion
-    # exceeds 0.4 renders at exactly the circle size that 0.4 maps to on the
-    # natural scale (see scale_size below), so dominant clones never balloon.
-    # The underlying value is untouched — tooltips and sorting still use the
-    # true proportion via weights_var.
-    clone_viability$size_val <- pmin(clone_viability[[weights_var]], 0.4)
+    # Point size = clone proportion on its NATURAL 0..1 scale: relative sizes
+    # stay true (0.8 > 0.4), and the largest circle is bounded only by the
+    # size range (scale_size below), not by clamping the value.
+    clone_viability$size_val <- clone_viability[[weights_var]]
   }
   aes_mapping <- aes(y = .data[[viability_var]], x = clone_id,
                      color = .data[[viability_var]])
@@ -530,13 +536,16 @@ plot_clone_viability <- function(clone_viability,
   if (has_weights) {
     max_w <- max(clone_viability[[weights_var]], na.rm = TRUE)
     if (!is.finite(max_w) || max_w <= 0) max_w <- 1
-    # Size scale spans the FULL natural range (0 .. max proportion) so relative
-    # sizes stay true; size_val (pmin w at 0.4) then caps every rendered circle
-    # at exactly the size that 0.4 gets on this scale. Legend breaks are limited
-    # to the capped region so the legend matches the actual circle sizes.
-    p <- p + scale_size(range = c(1, 7),
+    # Point size = true proportion on its NATURAL 0..1 scale: a 0.8 clone is
+    # always visibly larger than a 0.4 clone (no clamping). The upper range is
+    # kept modest (5 instead of 7) so even 0.4 stays reasonably small. Legend
+    # breaks span the full 0..max_w range so the legend matches real circles.
+    size_breaks <- pretty(c(0, max_w), n = 3)
+    size_breaks <- size_breaks[size_breaks >= 0 & size_breaks <= max_w]
+    if (length(size_breaks) < 2) size_breaks <- c(0, max_w)
+    p <- p + scale_size(range = c(1, 5),
                         limits = c(0, max_w),
-                        breaks = seq(0, min(0.4, max_w), length.out = 3))
+                        breaks = size_breaks)
   } else {
     p <- p + guides(size = "none")
   }
@@ -788,11 +797,7 @@ plot_response_boxplot <- function(exp_vs_pred,
       wt <- tryCatch(test_fun(grp1, grp2, alternative = alternative),
                      error = function(e) NULL)
       if (!is.null(wt)) {
-        p_label <- if (wt$p.value < 0.001) {
-          "p < 0.001"
-        } else {
-          sprintf("p = %.3f", wt$p.value)
-        }
+        p_label <- sprintf("p = %s", fmt_pval(wt$p.value))
         y_max <- max(exp_vs_pred[[predicted_var]], na.rm = TRUE)
         if (is.finite(y_max)) {
           y_pos <- y_max + (y_max - min(exp_vs_pred[[predicted_var]], na.rm = TRUE)) * 0.10
@@ -817,11 +822,7 @@ plot_response_boxplot <- function(exp_vs_pred,
       kw <- tryCatch(stats::kruskal.test(test_data[[predicted_var]], test_data[[response_var]]),
                      error = function(e) NULL)
       if (!is.null(kw) && !is.na(kw$p.value)) {
-        p_label <- if (kw$p.value < 0.001) {
-          "Kruskal-Wallis p < 0.001"
-        } else {
-          sprintf("Kruskal-Wallis p = %.3f", kw$p.value)
-        }
+        p_label <- sprintf("Kruskal-Wallis p = %s", fmt_pval(kw$p.value))
         y_max <- max(test_data[[predicted_var]], na.rm = TRUE)
         y_min <- min(test_data[[predicted_var]], na.rm = TRUE)
         if (is.finite(y_max) && is.finite(y_min)) {
@@ -949,15 +950,15 @@ plot_model_performance <- function(performance_list,
 }
 
 # ---------------------------------------------------------------------------
-# Plot: validation ROC curves (top vs bottom 33%)
+# Plot: validation ROC curves (top vs bottom 50%)
 # ---------------------------------------------------------------------------
 
 #' Plot validation ROC curves for trained models
 #'
 #' For each model and each validation dataset (bulk, pseudo-bulk, single-cell),
-#' the observed response is stratified into the top vs bottom 50\% (resistant
-#' vs sensitive, median split — the PERCEPTION paper's convention, Extended
-#' Data Fig. 4C) and a ROC curve of the predicted
+#' the observed response is stratified into the top vs bottom 50\% by rank
+#' (resistant vs sensitive — the PERCEPTION paper's convention, Extended Data
+#' Fig. 4C) and a ROC curve of the predicted
 #' viability is drawn, one curve per dataset, with the AUC annotated in the
 #' legend. Higher AUC = the model stratifies better. This is the most
 #' informative single-model summary after training.
@@ -984,43 +985,82 @@ plot_model_roc <- function(performance_list, base_size = 13) {
     performance_list <- setNames(list(performance_list), "model")
   }
 
-  # Element keys inside $predVSgroundTruth -> human-readable dataset labels.
   ds_map <- c(pred_gt_bulk   = "bulk",
               pred_gt_mscRNA = "pseudo-bulk",
               pred_gt_scRNA  = "single-cell")
 
-  # Compute one ROC curve (fpr/tpr coordinates) per model per dataset.
+  # Per-drug collection. A drug is only dropped when NONE of its three
+  # validation datasets can produce a curve; the reason is recorded (with
+  # counts) so the app can tell the user exactly what happened.
+  dropped_reasons <- character()
   curve_rows <- lapply(names(performance_list), function(d) {
     m <- performance_list[[d]]
-    if (is.null(m$predVSgroundTruth)) return(NULL)
-    do.call(rbind, lapply(names(ds_map), function(k) {
+    if (is.null(m$predVSgroundTruth)) {
+      dropped_reasons[[d]] <<- "no prediction-vs-observed data stored in the model"
+      return(NULL)
+    }
+    ds_out <- lapply(names(ds_map), function(k) {
       df <- m$predVSgroundTruth[[k]]
-      if (is.null(df) || nrow(df) < 6) return(NULL)
-      if (!"Observed" %in% colnames(df)) return(NULL)
+      if (is.null(df) || nrow(df) < 6) {
+        return(list(rows = NULL,
+                    why = sprintf("%s: %d rows (<6 needed)", k,
+                                  if (is.null(df)) 0L else nrow(df))))
+      }
+      if (!"Observed" %in% colnames(df)) {
+        return(list(rows = NULL, why = sprintf("%s: missing 'Observed' column", k)))
+      }
       pred_col <- setdiff(colnames(df), "Observed")[1]
-      if (is.na(pred_col)) return(NULL)
+      if (is.na(pred_col)) {
+        return(list(rows = NULL, why = sprintf("%s: no prediction column", k)))
+      }
       obs  <- as.numeric(df[["Observed"]])
       pred <- as.numeric(df[[pred_col]])
-      # Top vs bottom 50% of the observed response = resistant vs sensitive
-      # (median split; the paper's convention, Extended Data Fig. 4C).
-      med <- stats::median(obs, na.rm = TRUE)
-      lab <- ifelse(obs <= med, "Sensitive", "Resistant")
-      keep <- !is.na(lab) & !is.na(pred)
-      if (sum(keep) < 4 || length(unique(lab[keep])) < 2) return(NULL)
+      keep <- !is.na(obs) & !is.na(pred)
+      if (sum(keep) < 4) {
+        return(list(rows = NULL,
+                    why = sprintf("%s: only %d valid observed-vs-predicted pairs", k, sum(keep))))
+      }
+      # Top vs bottom 50% BY RANK (the paper's convention, Extended Data
+      # Fig. 4C). ties.method="first" breaks ties by position: a value-based
+      # split `obs <= median(obs)` (or average-tie ranks) collapses heavy
+      # ties — e.g. many cell lines capped at AUC = 1 for a targeted drug —
+      # into a single class and makes the ROC impossible. First-tie ranks are
+      # always 1..n, so the median split always yields two balanced classes.
+      if (length(unique(obs[keep])) < 2) {
+        return(list(rows = NULL,
+                    why = sprintf("%s: all %d observed values are identical (no distinct split)", k, sum(keep))))
+      }
+      rnk <- rank(obs[keep], ties.method = "first")
+      lab <- ifelse(rnk > stats::median(rnk), "Resistant", "Sensitive")
       rocobj <- tryCatch(
-        pROC::roc(factor(lab[keep], levels = c("Sensitive", "Resistant")),
+        pROC::roc(factor(lab, levels = c("Sensitive", "Resistant")),
                   pred[keep], quiet = TRUE),
         error = function(e) NULL)
-      if (is.null(rocobj)) return(NULL)
+      if (is.null(rocobj)) {
+        return(list(rows = NULL, why = sprintf("%s: ROC computation failed", k)))
+      }
       a <- as.numeric(pROC::auc(rocobj))
       co <- as.data.frame(pROC::coords(rocobj, x = "all",
                                        ret = c("specificity", "sensitivity"),
                                        transpose = FALSE))
-      data.frame(fpr = 1 - co$specificity, tpr = co$sensitivity,
-                 Dataset = unname(ds_map[[k]]), Drug = d, AUC = a,
-                 stringsAsFactors = FALSE)
-    }))
+      list(rows = data.frame(fpr = 1 - co$specificity, tpr = co$sensitivity,
+                             Dataset = unname(ds_map[[k]]), Drug = d, AUC = a,
+                             stringsAsFactors = FALSE),
+           why = NULL)
+    })
+    reasons <- vapply(ds_out, function(x) if (is.null(x$why)) "" else x$why, character(1))
+    reasons <- reasons[nzchar(reasons)]
+    ok_rows <- do.call(rbind, lapply(ds_out, function(x) x$rows))
+    if (is.null(ok_rows)) {
+      dropped_reasons[[d]] <<- paste(reasons, collapse = "; ")
+      return(NULL)
+    }
+    ok_rows
   })
+  names(curve_rows) <- names(performance_list)
+  # Drugs that produced no ROC data at all — record them so the app can tell
+  # the user instead of silently showing fewer panels.
+  dropped_drugs <- names(curve_rows)[vapply(curve_rows, is.null, logical(1))]
   curve_rows <- curve_rows[!vapply(curve_rows, is.null, logical(1))]
   if (length(curve_rows) == 0) {
     stop("No prediction-vs-observed data available to compute validation ROC.")
@@ -1028,7 +1068,6 @@ plot_model_roc <- function(performance_list, base_size = 13) {
   df <- do.call(rbind, curve_rows)
   df$Dataset <- factor(df$Dataset, levels = c("bulk", "pseudo-bulk", "single-cell"))
 
-  # AUC per (Drug, Dataset), used by the bottom-right AUC panel.
   auc_lab <- do.call(rbind, lapply(
     split(df, interaction(df$Drug, df$Dataset, drop = TRUE)), function(sub) {
       data.frame(Drug = unique(sub$Drug), Dataset = unique(sub$Dataset),
@@ -1038,50 +1077,94 @@ plot_model_roc <- function(performance_list, base_size = 13) {
 
   dataset_colors <- c("bulk" = "#E67E22", "pseudo-bulk" = "#27AE60",
                       "single-cell" = "#2E86AB")
-  ds_levels <- c("bulk", "pseudo-bulk", "single-cell")
+  ds_levels  <- c("bulk", "pseudo-bulk", "single-cell")
 
-  # AUC summary panel: bottom-right box, one row per dataset —
-  #   [color swatch]  Dataset  AUC = X.XX   (per drug facet when multi-drug).
-  n_ds <- length(ds_levels)
-  x0 <- 0.56; x1 <- 1.12
-  row_h <- 0.10
-  y_top <- 0.90; y_bot <- y_top - (n_ds - 1) * row_h - 0.06
+  # 2-column layout (5+ drugs) gives narrow panels: the full dataset names
+  # collide with the AUC values there. Use compact but still readable labels —
+  # the top legend spells the full names out.
+  n_drugs_total <- length(unique(df$Drug))
+  short_mode <- n_drugs_total > 4
+  if (short_mode) {
+    ds_labels <- c("bulk" = "Bulk", "pseudo-bulk" = "Pseudo", "single-cell" = "SC")
+    label_size <- base_size * 0.23
+    value_size <- base_size * 0.26
+  } else {
+    ds_labels <- c("bulk" = "Bulk", "pseudo-bulk" = "Pseudo-bulk",
+                   "single-cell" = "Single-cell")
+    label_size <- base_size * 0.28
+    value_size <- base_size * 0.30
+  }
+
+  # ---- AUC card geometry parameters (data coordinates, with coord_cartesian) ----
+  n_ds     <- length(ds_levels)
+  box_x0   <- 0.60; box_x1 <- 1.16
+  header_h <- 0.055
+  row_h    <- 0.085
+  pad_bot  <- 0.02
+  box_y1   <- 0.33
+  box_y0   <- box_y1 - header_h - n_ds * row_h - pad_bot
+
+  swatch_x <- box_x0 + 0.07   # square marker center (plotly-safe color block)
+  label_x  <- box_x0 + 0.20   # all three labels left-aligned at this column
+  value_x  <- box_x1 - 0.14   # values right-aligned, comfortable inside the box
+
   box_bg <- data.frame(Drug = unique(df$Drug), stringsAsFactors = FALSE)
-  box_bg$x0 <- x0; box_bg$x1 <- x1; box_bg$ybot <- y_bot; box_bg$ytop <- y_top
-  combos <- expand.grid(Drug = unique(df$Drug), i = seq_len(n_ds),
-                        stringsAsFactors = FALSE)
-  auc_box <- do.call(rbind, lapply(seq_len(nrow(combos)), function(r) {
-    drg <- combos$Drug[r]; i <- combos$i[r]; ds <- ds_levels[i]
-    y_mid <- y_top - (i - 1) * row_h - row_h / 2
-    sub <- auc_lab[auc_lab$Drug == drg & auc_lab$Dataset == ds, ]
-    data.frame(Drug = drg, Dataset = ds, y_mid = y_mid,
-               AUC = if (nrow(sub)) sub$AUC[1] else NA_real_,
-               stringsAsFactors = FALSE)
+
+  auc_box <- do.call(rbind, lapply(unique(df$Drug), function(drg) {
+    do.call(rbind, lapply(seq_along(ds_levels), function(i) {
+      ds <- ds_levels[i]
+      y_mid <- box_y1 - header_h - (i - 0.5) * row_h
+      sub <- auc_lab[auc_lab$Drug == drg & auc_lab$Dataset == ds, ]
+      data.frame(Drug = drg, Dataset = ds, y_mid = y_mid,
+                 Label = ds_labels[[ds]],
+                 AUC = if (nrow(sub)) sub$AUC[1] else NA_real_,
+                 stringsAsFactors = FALSE)
+    }))
   }))
 
   p <- ggplot(df, aes(x = fpr, y = tpr, color = Dataset)) +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed",
                 color = "grey55", linewidth = 0.35) +
     geom_line(linewidth = 0.9) +
-    # AUC panel background
+    # shadow layer — constants passed directly (not aes()) so ggplot2 does not
+    # warn about recycling scalar aesthetics across the per-drug rows.
     geom_rect(data = box_bg,
-              aes(xmin = x0, xmax = x1, ymin = ybot, ymax = ytop),
-              fill = "white", color = "#dfe3ee", linewidth = 0.3,
+              xmin = box_x0 + 0.006, xmax = box_x1 + 0.006,
+              ymin = box_y0 - 0.006, ymax = box_y1 - 0.006,
+              fill = "grey70", color = NA, alpha = 0.30,
               inherit.aes = FALSE) +
-    # color swatch per dataset row
-    geom_rect(data = auc_box,
-              aes(xmin = x0 + 0.03, xmax = x0 + 0.07,
-                  ymin = y_mid - 0.032, ymax = y_mid + 0.032, fill = Dataset),
-              color = NA, inherit.aes = FALSE) +
-    scale_fill_manual(values = dataset_colors, guide = "none") +
-    # dataset name + AUC value
+    # card background
+    geom_rect(data = box_bg,
+              xmin = box_x0, xmax = box_x1, ymin = box_y0, ymax = box_y1,
+              fill = "white", color = "#d7dbe4", linewidth = 0.4,
+              inherit.aes = FALSE) +
+    # title "AUC" + separator line
+    geom_text(data = box_bg,
+              x = (box_x0 + box_x1) / 2, y = box_y1 - header_h / 2,
+              label = "AUC",
+              inherit.aes = FALSE, size = base_size * 0.28,
+              fontface = "bold", color = "grey35") +
+    geom_segment(data = box_bg,
+              x = box_x0 + 0.02, xend = box_x1 - 0.02,
+              y = box_y1 - header_h, yend = box_y1 - header_h,
+              inherit.aes = FALSE, color = "grey85", linewidth = 0.3) +
+    # each row: colored square marker + left-aligned dataset name + right-
+    # aligned value. Marker uses geom_point (renders reliably in plotly, unlike
+    # a fill-mapped geom_rect which can spread under the text).
+    geom_point(data = auc_box,
+               aes(x = swatch_x, y = y_mid, color = Dataset),
+               shape = 15, size = 3.2, inherit.aes = FALSE,
+               show.legend = FALSE) +
     geom_text(data = auc_box,
-              aes(x = x0 + 0.11, y = y_mid,
-                  label = sprintf("%s  AUC = %.2f", Dataset, AUC)),
-              hjust = 0, size = base_size * 0.27, color = "#1e2a4a",
-              inherit.aes = FALSE) +
+              aes(x = label_x, y = y_mid, label = Label),
+              inherit.aes = FALSE, hjust = 0, size = label_size,
+              color = "grey25") +
+    geom_text(data = auc_box,
+              aes(x = value_x, y = y_mid, label = sprintf("%.2f", AUC)),
+              inherit.aes = FALSE, hjust = 1, size = value_size,
+              fontface = "bold", color = "grey20") +
     scale_color_manual(values = dataset_colors) +
-    coord_cartesian(xlim = c(0, 1.18), ylim = c(0, 1)) +
+    coord_cartesian(xlim = c(0, 1.2), ylim = c(0, 1)) +
     theme_perception(base_size = base_size) +
     labs(x = "1 - Specificity (FPR)", y = "Sensitivity (TPR)",
          color = "Validation Dataset") +
@@ -1089,8 +1172,26 @@ plot_model_roc <- function(performance_list, base_size = 13) {
           legend.box = "horizontal",
           legend.box.spacing = unit(8, "pt"))
 
-  if (length(unique(df$Drug)) > 1) {
-    p <- p + facet_wrap(~ Drug, ncol = min(4, length(unique(df$Drug))))
+  # Multiple drugs: stack one panel per drug (full width) instead of squeezing
+  # them into a single row — narrow panels overlap the AUC box, strip labels
+  # and legend. With 5+ drugs a 2-column grid keeps the total height bounded
+  # while each panel stays wide enough. The UI grows the plot height to match
+  # (see mod_train.R).
+  n_drugs <- length(unique(df$Drug))
+  if (n_drugs > 1) {
+    roc_ncol <- if (n_drugs <= 4) 1 else 2
+    p <- p + facet_wrap(~ Drug, ncol = roc_ncol, strip.position = "top")
+  }
+
+  # Surface drugs that could not produce a ROC so the app can warn the user
+  # (otherwise a missing panel looks like a rendering bug).
+  if (length(dropped_drugs) > 0) {
+    why <- dropped_reasons[dropped_drugs]
+    warning("Validation ROC skipped for: ",
+            paste(names(why), paste0("(", why, ")"), collapse = "; "),
+            ". Data-dependent: held-out cell lines lack sufficient, varied drug responses.")
+    attr(p, "dropped_drugs") <- dropped_drugs
+    attr(p, "dropped_reasons") <- why
   }
   p
 }
