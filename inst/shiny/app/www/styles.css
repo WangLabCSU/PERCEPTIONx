@@ -1312,37 +1312,6 @@ body {
   font-size: 1.05rem;
 }
 
-/* --- Mini Chart Container --- */
-.mini-chart-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.4rem;
-  padding: 0 0.5rem;
-}
-
-.mini-chart-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  padding: 1.3rem;
-  transition: var(--transition);
-}
-
-.mini-chart-card:hover {
-  box-shadow: var(--shadow-md);
-  border-color: var(--primary-alpha-md);
-}
-
-.mini-chart-card h6 {
-  font-weight: 700;
-  color: var(--primary-dark);
-  margin-bottom: 0.8rem;
-  font-size: 0.88rem;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
 /* --- Buttons --- */
 .btn-primary {
   background: linear-gradient(135deg, var(--primary), var(--primary-light)) !important;
@@ -1750,59 +1719,6 @@ body {
   line-height: 1.7;
 }
 
-/* --- Workflow Steps (Legacy) --- */
-.workflow-steps {
-  display: flex;
-  justify-content: center;
-  gap: 0;
-  margin: 1.5rem 0;
-  flex-wrap: wrap;
-}
-
-.workflow-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0.8rem 1.2rem;
-  position: relative;
-}
-
-.workflow-step .step-circle {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 1rem;
-  box-shadow: 0 3px 10px rgba(58,79,138,0.25);
-  transition: var(--transition);
-}
-
-.workflow-step:hover .step-circle {
-  transform: scale(1.1);
-  box-shadow: 0 5px 18px rgba(58,79,138,0.35);
-}
-
-.workflow-step .step-label {
-  margin-top: 0.4rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.workflow-arrow {
-  display: flex;
-  align-items: center;
-  color: var(--primary);
-  font-size: 1.1rem;
-  opacity: 0.4;
-  padding-top: 0.5rem;
-}
-
 /* --- Demo Banner --- */
 .demo-banner {
   background: linear-gradient(135deg, var(--success-alpha), rgba(79,209,197,0.08));
@@ -1837,12 +1753,8 @@ body {
   .hero { padding: 2rem 1rem 1.5rem; }
   .feature-grid { grid-template-columns: 1fr; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); max-width: 100%; }
-  .guided-steps { grid-template-columns: 1fr; }
   .wf-step { width: 104px; }
   .wf-hint { margin: 0.6rem 0.6rem 0.9rem; }
-  .mini-chart-grid { grid-template-columns: 1fr; }
-  .workflow-steps { flex-direction: column; align-items: center; }
-  .workflow-arrow { transform: rotate(90deg); padding: 0; }
 }
 
 /* --- DT Table Customization --- */
@@ -2056,14 +1968,6 @@ table.dataTable thead th {
   color: var(--text-muted);
   margin: 0.3rem 0 0.6rem;
   line-height: 1.55;
-}
-
-.help-workflow-arrow {
-  text-align: center;
-  color: var(--primary);
-  opacity: 0.3;
-  padding: 0.3rem 0;
-  font-size: 0.9rem;
 }
 
 .help-data-grid {

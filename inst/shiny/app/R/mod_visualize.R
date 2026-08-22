@@ -1043,37 +1043,19 @@ mod_visualize_server <- function(id, shared, main_session) {
     output$download_png <- downloadHandler(
       filename = function() paste0(download_stem(), ".png"),
       content = function(file) {
-        p_obj <- current_plot()
-        if (inherits(p_obj, "plotly") || inherits(p_obj, "htmlwidget")) {
-          # Plotly object — use orca if available, else export via webshot
-          tryCatch(
-            plotly::orca(p_obj, file, scale = 2),
-            error = function(e) {
-              # Fallback: htmlwidget screenshot
-              htmlwidgets::saveWidget(p_obj, tempfile(fileext = ".html"))
-              showNotification("Plotly plot saved as interactive HTML (orca not available for PNG export)", type = "message")
-            }
-          )
-        } else {
-          PERCEPTIONx::export_plot_cairo(file, p_obj, format = "png", width = 10, height = 7, res = 600)
-        }
+        # current_plot() always holds a ggplot here (ggiraph conversion happens
+        # only at display time), so export straight via the Cairo backend —
+        # no orca / headless browser needed.
+        PERCEPTIONx::export_plot_cairo(file, current_plot(), format = "png",
+                                       width = 10, height = 7, res = 600)
       }
     )
 
     output$download_pdf <- downloadHandler(
       filename = function() paste0(download_stem(), ".pdf"),
       content = function(file) {
-        p_obj <- current_plot()
-        if (inherits(p_obj, "plotly") || inherits(p_obj, "htmlwidget")) {
-          tryCatch(
-            plotly::orca(p_obj, file),
-            error = function(e) {
-              showNotification("PDF export for plotly plots requires orca. Saved as HTML instead.", type = "warning")
-            }
-          )
-        } else {
-          PERCEPTIONx::export_plot_cairo(file, p_obj, format = "pdf", width = 10, height = 7)
-        }
+        PERCEPTIONx::export_plot_cairo(file, current_plot(), format = "pdf",
+                                       width = 10, height = 7)
       }
     )
 
