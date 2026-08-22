@@ -77,6 +77,22 @@ diverging_colors <- c("#2166AC", "#F7F7F7", "#B2182B")
 # Sequential scale for percentile/rank values (viridis family)
 sequential_colors <- c("#440154", "#3B528B", "#21908C", "#5DC863", "#FDE725")
 
+# Order labels naturally (letter prefix + trailing number): "1, 2, ..., 10, 12"
+# or "c1, c2, ..., c10" instead of the lexicographic "1, 10, 12, 2, ...".
+natural_levels <- function(x) {
+  lv <- unique(as.character(x))
+  parts <- strsplit(lv, "(?<=[^0-9])(?=[0-9])|(?<=[0-9])(?=[^0-9])", perl = TRUE)
+  pref <- vapply(parts, function(p) {
+    if (length(p) == 1L && grepl("^[0-9]+$", p)) "" else paste(p[c(TRUE, FALSE)], collapse = "")
+  }, character(1))
+  num <- vapply(parts, function(p) {
+    if (length(p) == 1L && grepl("^[0-9]+$", p)) as.integer(p)
+    else suppressWarnings(as.integer(paste(p[c(FALSE, TRUE)], collapse = "")))
+  }, integer(1))
+  num[is.na(num)] <- 0L
+  lv[order(pref, num)]
+}
+
 # ---------------------------------------------------------------------------
 # Plot: UMAP / t-SNE response
 # ---------------------------------------------------------------------------
@@ -203,6 +219,101 @@ plot_tsne_response <- function(tsne_data,
 }
 
 # ---------------------------------------------------------------------------
+# Plot: UMAP / t-SNE colored by clone identity
+# ---------------------------------------------------------------------------
+
+#' Plot UMAP colored by clone identity
+#'
+#' Single cells in the 2D embedding colored by clone identity — the spatial
+#' analogue of the paper's Extended Data Fig. 8a, showing at a glance which
+#' transcriptional subclones sit where.
+#'
+#' @param tsne_data Data frame with columns: X, Y, and the clone column.
+#' @param clone_col Character. Name of the column holding clone ids.
+#'        Default = "clone_id".
+#' @param title Character. Plot title. Default = NULL.
+#' @param color_label Character. Legend label. Default = "Clone".
+#' @param point_size Numeric. Point size. If NULL (default), auto-adapts to
+#'        the number of cells to avoid overplotting.
+#' @param base_size Numeric. Base font size. Default = 11.
+#' @param tooltip Logical. If TRUE (default) and \pkg{ggiraph} is installed,
+#'        points get hover tooltips (clone id).
+#' @param tooltip_col Character. Optional existing column used as the tooltip
+#'        text. Default = NULL (auto-builds from the clone id).
+#'
+#' @return A ggplot object.
+#'
+#' @export
+plot_clone_umap <- function(tsne_data,
+                            clone_col = "clone_id",
+                            title = NULL,
+                            color_label = "Clone",
+                            point_size = NULL,
+                            base_size = 11,
+                            tooltip = TRUE,
+                            tooltip_col = NULL) {
+
+  if (!all(c("X", "Y", clone_col) %in% colnames(tsne_data))) {
+    stop("tsne_data must contain columns: X, Y, and ", clone_col)
+  }
+
+  n_points <- nrow(tsne_data)
+
+  # Adaptive point size / alpha to prevent overplotting on large scRNA data.
+  if (is.null(point_size)) {
+    point_size <- if (n_points > 50000) 0.4
+                  else if (n_points > 20000) 0.5
+                  else if (n_points > 8000) 0.6
+                  else 0.8
+  }
+  point_alpha <- if (n_points > 50000) 0.35
+                 else if (n_points > 20000) 0.5
+                 else if (n_points > 8000) 0.65
+                 else 0.8
+
+  # Downsample extremely large datasets for smooth interactive rendering.
+  if (n_points > 50000) {
+    set.seed(42)
+    keep <- sample.int(n_points, 50000)
+    tsne_data <- tsne_data[keep, , drop = FALSE]
+    message("plot_clone_umap: downsampled to 50,000 points for rendering (n = ", n_points, ")")
+  }
+
+  # Stable, naturally ordered factor levels (1, 2, ..., 10 or c1, c2, ...) so
+  # legend order and color mapping stay consistent across plots.
+  clone_levels <- natural_levels(tsne_data[[clone_col]])
+  tsne_data[[clone_col]] <- factor(tsne_data[[clone_col]], levels = clone_levels)
+
+  # Tooltip for ggiraph interactivity.
+  tt_ok <- tooltip && requireNamespace("ggiraph", quietly = TRUE)
+  if (!is.null(tooltip_col) && tooltip_col %in% colnames(tsne_data)) {
+    tsne_data$tooltip_text <- tsne_data[[tooltip_col]]
+  } else {
+    tsne_data$tooltip_text <- as.character(tsne_data[[clone_col]])
+  }
+  tsne_data$data_id <- paste0("cell_", seq_len(nrow(tsne_data)))
+
+  p <- ggplot(tsne_data, aes(x = X, y = Y, color = .data[[clone_col]])) +
+    { if (tt_ok) ggiraph::geom_point_interactive(
+        aes(tooltip = tooltip_text, data_id = data_id),
+        size = point_size, alpha = point_alpha)
+      else geom_point(size = point_size, alpha = point_alpha) } +
+    scale_colour_manual(values = clone_palette(length(clone_levels)),
+                        drop = FALSE) +
+    theme_perception(base_size = base_size) +
+    labs(color = color_label, x = "", y = "") +
+    theme(legend.position = "top",
+          legend.key.height = unit(0.9, "lines"),
+          legend.key.width = unit(2.6, "lines"))
+
+  if (!is.null(title)) {
+    p <- p + ggtitle(title)
+  }
+
+  return(p)
+}
+
+# ---------------------------------------------------------------------------
 # Plot: Clone distribution
 # ---------------------------------------------------------------------------
 
@@ -264,6 +375,11 @@ plot_clone_distribution <- function(clone_distribution,
   key_num[is.na(key_num)] <- 0L
   clone_distribution$patients <- factor(clone_distribution$patients,
                                         levels = pat_levels[order(key_pref, key_num)])
+
+  # Same natural ordering for the clone labels, otherwise the legend sorts
+  # them lexicographically ("1", "10", "12", "2", ...). See natural_levels().
+  clone_distribution$clones <- factor(clone_distribution$clones,
+                                      levels = natural_levels(clone_distribution$clones))
 
   n_clones <- length(unique(clone_distribution$clones))
   n_patients <- length(unique(clone_distribution$patients))
