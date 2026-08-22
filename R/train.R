@@ -200,6 +200,10 @@ run_parallel_feature_ranking_bulk <- function(infunc_DrugsToUse,
                                               infunc_GOI,
                                               ncores = 4) {
 
+  # Cap cores (shared-server safety): never use more than 4 regardless of
+  # how many the caller (or the UI) requests.
+  ncores <- min(max(1L, as.integer(ncores)), 4L)
+
   idx <- seq_along(infunc_DrugsToUse)
 
   featuresRank_fromBulk <- run_parallel(
@@ -467,6 +471,10 @@ train_models <- function(drug_list = NULL,
                                     lambda_gradient = 20,
                                     lambda_range = c(0.0001, 1),
                                     cv_method = "cv") {
+
+  # Hard cap on CPU cores: on a shared deployment server the UI would otherwise
+  # expose ALL server cores to every user, letting one session hog the machine.
+  ncores <- min(max(1L, as.integer(ncores)), 4L)
 
   # ============================================================================
   # 1. Check DepMap data

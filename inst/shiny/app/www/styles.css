@@ -111,6 +111,12 @@ div.card > .card-body {
   height: auto !important;
 }
 
+/* Train module: parameters column stays at its natural height when the
+   results column grows after training (same as predict's config column). */
+.train-config-col {
+  align-self: flex-start !important;
+}
+
 /* Card annotation: centered muted description under card headers */
 .card-desc {
   display: block;
