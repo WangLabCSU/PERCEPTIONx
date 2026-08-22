@@ -366,6 +366,18 @@ plot_clone_distribution <- function(clone_distribution,
 #'   plot_clone_viability(clone_kill, viability_var = "comb_viability")
 #' }
 #'
+# Short facet tag for a response label: R/NR for responder/resistant
+# spellings, otherwise the label itself (e.g. TN/RD/PD longitudinal time
+# points) so multi-group response data keeps its own grouping.
+resp_short_tag <- function(rv) {
+  u <- toupper(trimws(as.character(rv)))
+  if (u %in% c("R", "RESPONDER", "SENSITIVE", "RESPONSE", "RESPONSIVE")) "R"
+  else if (u %in% c("NR", "NON-RESPONDER", "NONRESPONDER", "NON RESPONDER",
+                    "NON-RESPONSIVE", "NONRESPONSIVE", "RESISTANT", "RESISTANCE",
+                    "PROGRESSOR", "PROGRESSION")) "NR"
+  else u
+}
+
 #' @export
 plot_clone_viability <- function(clone_viability,
                                viability_var = "comb_viability",
@@ -394,13 +406,13 @@ plot_clone_viability <- function(clone_viability,
     clone_viability$patient <- factor(clone_viability$patient, levels = patient_order)
     clone_viability$facet_label <- vapply(as.character(clone_viability$patient), function(pat) {
       rv <- as.character(resp_map[pat, response_var])
-      tag <- if (toupper(rv) %in% c("R", "RESPONDER")) "R" else "NR"
+      tag <- resp_short_tag(rv)
       paste0(tag, " ", pat)
     }, character(1))
     # Two-line variant used by facet_wrap (top strip, no rotation)
     clone_viability$facet_label_wrap <- vapply(as.character(clone_viability$patient), function(pat) {
       rv <- as.character(resp_map[pat, response_var])
-      tag <- if (toupper(rv) %in% c("R", "RESPONDER")) "R" else "NR"
+      tag <- resp_short_tag(rv)
       paste0(tag, "\n", pat)
     }, character(1))
   } else {
@@ -720,11 +732,20 @@ plot_response_boxplot <- function(exp_vs_pred,
   }
   exp_vs_pred[[response_var]] <- resp_vec
 
-  # Group colors: responder = red, non-responder = blue
-  grp_colors <- c("#C13232", "#2E86AB")
-  if (length(levels(exp_vs_pred[[response_var]])) == 2) {
-    names(grp_colors) <- levels(exp_vs_pred[[response_var]])
+  # Group colors: keep R (red) / NR (blue) semantics for two groups; for 3+
+  # groups use a qualitative palette covering every level. Beyond the fixed
+  # 6-color palette, generate evenly-spaced hues (ggplot2's default scheme),
+  # so any number of response groups is supported.
+  n_lv <- length(levels(exp_vs_pred[[response_var]]))
+  fixed_pal <- c("#C13232", "#2E86AB", "#E8A13A", "#5A8A6A", "#8A5AC1", "#4A8FB8")
+  if (n_lv <= length(fixed_pal)) {
+    grp_colors <- fixed_pal[seq_len(n_lv)]
+  } else {
+    grp_colors <- grDevices::hcl(
+      h = seq(15, 375, length.out = n_lv + 1)[seq_len(n_lv)],
+      c = 100, l = 65)
   }
+  names(grp_colors) <- levels(exp_vs_pred[[response_var]])
 
   # Tooltip for ggiraph interactivity (hover shows group + predicted value).
   tt_ok <- tooltip && requireNamespace("ggiraph", quietly = TRUE)
@@ -755,8 +776,10 @@ plot_response_boxplot <- function(exp_vs_pred,
     scale_fill_manual(values = grp_colors) +
     scale_color_manual(values = grp_colors)
 
-  # Add significance bracket + p-value annotation
-  if (length(levels(exp_vs_pred[[response_var]])) == 2) {
+  # Statistical annotation: pairwise bracket for 2 groups; global
+  # Kruskal-Wallis test for 3+ groups (e.g. TN/RD/PD).
+  n_lv <- length(levels(exp_vs_pred[[response_var]]))
+  if (n_lv == 2) {
     lvls <- levels(exp_vs_pred[[response_var]])
     grp1 <- exp_vs_pred[[predicted_var]][exp_vs_pred[[response_var]] == lvls[1]]
     grp2 <- exp_vs_pred[[predicted_var]][exp_vs_pred[[response_var]] == lvls[2]]
@@ -784,6 +807,30 @@ plot_response_boxplot <- function(exp_vs_pred,
                      size = base_size * 0.3, hjust = 0.5, fontface = "italic",
                      color = "#1e2a4a") +
             coord_cartesian(ylim = c(NA, y_pos * 1.06))
+        }
+      }
+    }
+  } else if (n_lv > 2) {
+    test_data <- exp_vs_pred[!is.na(exp_vs_pred[[response_var]]) &
+                             !is.na(exp_vs_pred[[predicted_var]]), ]
+    if (nrow(test_data) >= 6 && length(unique(test_data[[response_var]])) >= 2) {
+      kw <- tryCatch(stats::kruskal.test(test_data[[predicted_var]], test_data[[response_var]]),
+                     error = function(e) NULL)
+      if (!is.null(kw) && !is.na(kw$p.value)) {
+        p_label <- if (kw$p.value < 0.001) {
+          "Kruskal-Wallis p < 0.001"
+        } else {
+          sprintf("Kruskal-Wallis p = %.3f", kw$p.value)
+        }
+        y_max <- max(test_data[[predicted_var]], na.rm = TRUE)
+        y_min <- min(test_data[[predicted_var]], na.rm = TRUE)
+        if (is.finite(y_max) && is.finite(y_min)) {
+          y_pos <- y_max + (y_max - y_min) * 0.08
+          p <- p +
+            annotate("text", x = (1 + n_lv) / 2, y = y_pos, label = p_label,
+                     size = base_size * 0.3, hjust = 0.5, fontface = "italic",
+                     color = "#1e2a4a") +
+            coord_cartesian(ylim = c(NA, y_pos * 1.10))
         }
       }
     }
