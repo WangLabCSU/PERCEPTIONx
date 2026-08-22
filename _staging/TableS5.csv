@@ -1,0 +1,20 @@
+"","PERCEPTION Extent of Response","Sample Name","Patient ID","Biopsy Type","Biopsy Site","Primary/Metastatic","Treatement Timepoint","Treatment start to tissue acquisition (days)","Treatment Hx","Line of Therapy","Treatment","respective_baseline","Change_resp","biopsy_from_treatment"
+"LT_S01",-1.81352707889211,"LT_S01","TH158","Core","Lung","Primary","RD","114","on firstline TKI","1st","erlotinib",0.830412595226324,-2.64393967411844,114
+"LT_S11",0.694140195673243,"LT_S11","TH169","Core","Lung","Primary","RD","15","on firstline TKI","1st","erlotinib",0.830412595226324,-0.13627239955308,15
+"LT_S13",-2.20038824484194,"LT_S13","TH169","Core","Lung","Primary","RD","81","on firstline TKI","1st","erlotinib",0.830412595226324,-3.03080084006826,81
+"LT_S21",1.13591429601427,"LT_S21","TH185","Thoracentesis","Pleura","Metastatic","PD","2","on firsline TKI","1st","erlotinib",0.830412595226324,0.305501700787951,2
+"LT_S28",-0.485475651863595,"LT_S28","TH185","Thoracentesis","Pleura","Metastatic","PD","68","on firsline TKI","1st","erlotinib",0.830412595226324,-1.31588824708992,68
+"LT_S48",2.35777377303654,"LT_S48","TH155","Resection","Brain","Metastatic","PD","510","on firstline TKI","1st","erlotinib",0.830412595226324,1.52736117781021,510
+"LT_S53",0.936046948083453,"LT_S53","TH067","Core","Liver","Metastatic","PD","275","Prior chemo/ TKI/IO","5th","erlotinib",0.830412595226324,0.10563435285713,275
+"LT_S07",0.656995511279481,"LT_S07","TH103","Thoracentesis","Pleura","Metastatic","PD","83","Prior TKI/ immunotherapy","6th","trametinib",0.580017759967372,0.076977751312109,83
+"LT_S08",0.19845312448553,"LT_S08","TH103","Thoracentesis","Pleura","Metastatic","PD","4","Prior TKI/ immunotherapy","6th","trametinib",0.580017759967372,-0.381564635481842,4
+"LT_S47",0.58981141957099,"LT_S47","TH220","Core","Liver","Metastatic","PD","169","Prior TKI/ immunotherapy","6th","trametinib",0.580017759967372,0.00979365960361844,169
+"LT_S42",-1.62730694376413,"LT_S42","TH158","Core","Lung","Primary","RD","211","prior TKI","2nd","osimertinib",0.861996031756308,-2.48930297552044,211
+"LT_S55",0.0554318185821267,"LT_S55","TH218","Core","Adrenal","Metastatic","RD","23","on firsline TKI","1st","osimertinib",0.861996031756308,-0.806564213174181,23
+"LT_S57",0.558999568352161,"LT_S57","TH226","Core","Lung","Primary","RD","16","on treatment","1st","osimertinib",0.861996031756308,-0.302996463404146,16
+"LT_S71",0.543095147980064,"LT_S71","TH236","Resection","Lung","Primary","RD","89","on treatment","1st","osimertinib",0.861996031756308,-0.318900883776244,89
+"LT_S82",0.183992139900089,"LT_S82","TH226","Core","Lung","Primary","PD","268","on firstline TKI","1st","osimertinib",0.861996031756308,-0.678003891856219,268
+"LT_S58",0.536621541383636,"LT_S58","TH179","Core","Lung","Primary","PD","331","on firsline TKI","1st","dabrafenib",0.463423881133582,0.073197660250054,331
+"LT_S78",0.787427275609596,"LT_S78","TH179_TAT","Resection","Lung","NA","PD","463","on firsline TKI","1st","dabrafenib",0.463423881133582,0.324003394476013,463
+"LT_S79",0.706618118761142,"LT_S79","TH179","Resection","Lung","Primary","PD","463","on firsline TKI","1st","dabrafenib",0.463423881133582,0.24319423762756,463
+"LT_S80",1.279689759458,"LT_S80","TH179","Resection","LN","Metastatic","PD","463","on firsline TKI","1st","dabrafenib",0.463423881133582,0.816265878324414,463

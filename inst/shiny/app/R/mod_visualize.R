@@ -43,6 +43,10 @@ mod_visualize_ui <- function(id) {
                              options = list(maxItems = 1, placeholder = "Select a drug"))
             ),
 
+            # ROC comparison pair — shown only when the response has >2 groups
+            # (e.g. lung TN/RD/PD), since ROC needs exactly two classes.
+            uiOutput(ns("roc_pair_picker")),
+
             actionButton(ns("generate"), "Generate Plot", width = "100%",
                          class = "btn-primary btn-sm", icon = icon("wand-magic-sparkles")),
 
@@ -142,16 +146,53 @@ mod_visualize_server <- function(id, shared, main_session) {
     # Track the drug (or "Combination") used by the last generated plot.
     current_drug <- reactiveVal(NULL)
 
-    # Map response labels to the canonical two classes R/NR; anything else
-    # (NA, empty, or extra categories like "PR"/"SD") becomes NA so no third
-    # group can appear in response-based plots.
-    to_rnr <- function(x) {
+    # Map response labels to canonical short classes: R/NR spellings collapse
+    # to R/NR; ANY other label (e.g. longitudinal time points TN/RD/PD) is kept
+    # as-is (uppercased) so multi-group response data is not silently dropped.
+    label_resp <- function(x) {
       y <- tolower(trimws(as.character(x)))
-      y[y %in% c("responder", "r")] <- "R"
-      y[y %in% c("non-responder", "nonresponder", "non_responder", "nr")] <- "NR"
-      y[!y %in% c("R", "NR")] <- NA_character_
+      y[y %in% c("responder", "response", "responsive", "r", "sensitive", "sensitivity")] <- "R"
+      y[y %in% c("non-responder", "nonresponder", "non responder", "non-responsive",
+                 "nonresponsive", "nr", "resistant", "resistance", "progressor",
+                 "progression", "non", "non_responder")] <- "NR"
+      keep <- !y %in% c("R", "NR")
+      y[keep] <- toupper(y[keep])
       y
     }
+
+    # Distinct response groups in the loaded clinical response (order of
+    # appearance): "R"/"NR" for two-class data, or TN/RD/PD for longitudinal
+    # time-point data, etc.
+    response_groups <- reactive({
+      cr <- shared$user_response
+      if (is.null(cr) || is.null(cr$response)) return(character(0))
+      grps <- unique(label_resp(cr$response))
+      grps[!is.na(grps) & nzchar(trimws(grps)) & grps != "NA"]
+    })
+
+    # ROC comparison pair picker: only shown when the response has >2 groups,
+    # since a ROC needs exactly two classes. Defaults to PD vs RD (progressed
+    # vs residual/responding) matching the paper's Fig. 4b semantics; TN
+    # (treatment-naive baseline) is excluded from that comparison.
+    output$roc_pair_picker <- renderUI({
+      grps <- response_groups()
+      if (length(grps) <= 2) return(NULL)
+      def <- if (all(c("PD", "RD") %in% grps)) c("PD", "RD") else grps[1:2]
+      tagList(
+        tags$small(class = "text-muted", style = "display: block; margin: 0.4rem 0 0.2rem;",
+          icon("info-circle"), " Response has ", length(grps), " groups — pick the two for the ROC:"),
+        div(class = "viz-size-row",
+          div(class = "viz-size-col",
+            selectizeInput(ns("roc_group_a"), "ROC Group A",
+                           choices = grps, selected = def[1], width = "100%",
+                           options = list(maxItems = 1))),
+          div(class = "viz-size-col",
+            selectizeInput(ns("roc_group_b"), "ROC Group B",
+                           choices = grps, selected = def[2], width = "100%",
+                           options = list(maxItems = 1)))
+        )
+      )
+    })
 
     # ---------------------------------------------------------------------
     # Combination (multi-drug) helpers — replicate the paper's pipeline
@@ -210,7 +251,7 @@ mod_visualize_server <- function(id, shared, main_session) {
       }
 
       if (!is.null(shared$user_response)) {
-        clone_viability_df$response <- to_rnr(shared$user_response$response[
+        clone_viability_df$response <- label_resp(shared$user_response$response[
           match(clone_viability_df$patient, shared$user_response$patient)
         ])
       }
@@ -453,13 +494,14 @@ mod_visualize_server <- function(id, shared, main_session) {
               )
             })
             clone_distribution <- do.call(rbind, clone_dist_list)
-            # Add response column for faceting (normalized to R/NR only, so no
-            # third group can appear; patients without a valid response are dropped)
+            # Add response column for faceting — keeps every group (R/NR, or
+            # TN/RD/PD longitudinal time points); patients without a valid
+            # response are dropped.
             if (!is.null(shared$user_response)) {
               clone_distribution$response <- shared$user_response$response[
                 match(clone_distribution$patients, shared$user_response$patient)
               ]
-              clone_distribution$response <- to_rnr(clone_distribution$response)
+              clone_distribution$response <- label_resp(clone_distribution$response)
               clone_distribution <- clone_distribution[!is.na(clone_distribution$response), ]
             }
             plot_clone_distribution <- PERCEPTIONx::plot_clone_distribution
@@ -535,7 +577,7 @@ mod_visualize_server <- function(id, shared, main_session) {
               stop("No matching clones between prediction matrix and clone annotation.")
             }
             if (!is.null(shared$user_response)) {
-              clone_viability_df$response <- to_rnr(shared$user_response$response[
+              clone_viability_df$response <- label_resp(shared$user_response$response[
                 match(clone_viability_df$patient, shared$user_response$patient)
               ])
               clone_viability_df <- clone_viability_df[!is.na(clone_viability_df$response), ]
@@ -558,25 +600,41 @@ mod_visualize_server <- function(id, shared, main_session) {
               # = most-resistant clone weighted by abundance (weighted_max).
               combo_df <- combo_clone_frame()
               pat_df <- combo_patient_frame(combo_df)
-              response_vec <- to_rnr(cr$response[match(pat_df$patient, cr$patient)])
+              rv <- label_resp(cr$response[match(pat_df$patient, cr$patient)])
               predictor_vec <- pat_df$combination
             } else {
               pp <- shared$patient_pred
               drug <- if (nchar(input$drug_name_common) > 0) input$drug_name_common else colnames(pp)[1]
-              response_vec <- to_rnr(cr$response[match(rownames(pp), cr$patient)])
+              rv <- label_resp(cr$response[match(rownames(pp), cr$patient)])
               predictor_vec <- pp[[drug]]
             }
-            # Drop patients without a valid R/NR response — NA must not silently
-            # become "NR" (that would bias the ROC / AUC).
-            keep <- !is.na(response_vec) & !is.na(predictor_vec)
-            response_vec <- response_vec[keep]
+            # Drop patients without a valid response — NA must never become a class
+            # (that would bias the ROC / AUC).
+            keep <- !is.na(rv) & !is.na(predictor_vec)
+            rv <- rv[keep]
             predictor_vec <- predictor_vec[keep]
-            # Convert to R/NR factor
-            response_vec <- factor(response_vec, levels = c("R", "NR"))
+            # ROC is binary: use the two groups directly when there are exactly
+            # two; otherwise use the pair selected in roc_pair_picker.
+            grps <- response_groups()
+            if (length(grps) > 2) {
+              a <- input$roc_group_a
+              b <- input$roc_group_b
+              if (is.null(a) || !(a %in% grps)) a <- if ("PD" %in% grps) "PD" else grps[1]
+              if (is.null(b) || !(b %in% grps)) b <- if ("RD" %in% grps) "RD" else grps[2]
+              sel <- unique(c(a, b))
+            } else {
+              sel <- grps
+            }
+            response_vec <- factor(rv, levels = sel)
+            keep2 <- !is.na(response_vec)
+            response_vec <- response_vec[keep2]
+            predictor_vec <- predictor_vec[keep2]
             # Auto-disable smoothing when sample size is small (< 10 patients)
             smooth <- length(response_vec) >= 10
+            title <- if (is_combo) "Combination" else drug
+            if (length(grps) > 2) title <- paste0(title, " — ", paste(sel, collapse = " vs "))
             PERCEPTIONx::plot_roc_curve(response = response_vec, predictor = predictor_vec,
-                           smooth_curve = smooth, title = if (is_combo) "Combination" else drug)
+                           smooth_curve = smooth, title = title)
           },
 
           "boxplot" = {
@@ -586,21 +644,21 @@ mod_visualize_server <- function(id, shared, main_session) {
               # combination score = most-resistant clone weighted by abundance.
               combo_df <- combo_clone_frame()
               pat_df <- combo_patient_frame(combo_df)
-              response_vec <- to_rnr(cr$response[match(pat_df$patient, cr$patient)])
+              rv <- label_resp(cr$response[match(pat_df$patient, cr$patient)])
               predictor_vec <- pat_df$combination
             } else {
               pp <- shared$patient_pred
               drug <- if (nchar(input$drug_name_common) > 0) input$drug_name_common else colnames(pp)[1]
-              response_vec <- to_rnr(cr$response[match(rownames(pp), cr$patient)])
+              rv <- label_resp(cr$response[match(rownames(pp), cr$patient)])
               predictor_vec <- pp[[drug]]
             }
-            # Drop patients without a valid R/NR response (NA must not silently
-            # become "NR", and extra categories must not form a third group).
-            keep <- !is.na(response_vec) & !is.na(predictor_vec)
-            response_vec <- response_vec[keep]
+            # Drop patients without a valid response; keep ALL response groups
+            # (2 for R/NR data, 3 for longitudinal time points like TN/RD/PD).
+            keep <- !is.na(rv) & !is.na(predictor_vec)
+            rv <- rv[keep]
             predictor_vec <- predictor_vec[keep]
             exp_vs_pred <- data.frame(
-              response = factor(response_vec, levels = c("R", "NR")),
+              response = factor(rv, levels = unique(rv)),
               predicted_viability = predictor_vec,
               stringsAsFactors = FALSE
             )

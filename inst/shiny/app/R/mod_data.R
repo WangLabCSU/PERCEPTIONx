@@ -93,6 +93,12 @@ normalize_response_labels <- function(x) {
   y[y %in% c("non-responder", "nonresponder", "non responder", "non-responsive",
              "nonresponsive", "nr", "resistant", "resistance", "progressor",
              "progression", "non", "non_responder")] <- "Non-responder"
+  # Longitudinal treatment time points (Maynard et al. Cell 2020; PERCEPTION
+  # Fig. 4 lung cohort): kept as canonical 3-group labels rather than being
+  # collapsed into R/NR.
+  y[y %in% c("tn", "treatment naive", "treatment-naive", "naive", "untreated")] <- "TN"
+  y[y %in% c("rd", "residual disease", "residual")] <- "RD"
+  y[y %in% c("pd", "progressive disease", "progressed", "progression disease")] <- "PD"
   y
 }
 
