@@ -1032,8 +1032,16 @@ mod_visualize_server <- function(id, shared, main_session) {
       )
     })
 
+    # A short, safe file stem for the CURRENTLY generated plot (not the
+    # selected radio, which can differ for spatial plots).
+    download_stem <- function() {
+      pt <- current_plot_type()
+      if (is.null(pt) || nchar(pt) == 0) pt <- input$plot_type
+      paste0(pt, "_", format(Sys.Date(), "%Y%m%d"))
+    }
+
     output$download_png <- downloadHandler(
-      filename = function() paste0(input$plot_type, "_", format(Sys.Date(), "%Y%m%d"), ".png"),
+      filename = function() paste0(download_stem(), ".png"),
       content = function(file) {
         p_obj <- current_plot()
         if (inherits(p_obj, "plotly") || inherits(p_obj, "htmlwidget")) {
@@ -1053,7 +1061,7 @@ mod_visualize_server <- function(id, shared, main_session) {
     )
 
     output$download_pdf <- downloadHandler(
-      filename = function() paste0(input$plot_type, "_", format(Sys.Date(), "%Y%m%d"), ".pdf"),
+      filename = function() paste0(download_stem(), ".pdf"),
       content = function(file) {
         p_obj <- current_plot()
         if (inherits(p_obj, "plotly") || inherits(p_obj, "htmlwidget")) {

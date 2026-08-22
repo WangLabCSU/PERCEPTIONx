@@ -470,7 +470,12 @@ train_models <- function(drug_list = NULL,
                                     alpha_gradient = 0.05,
                                     lambda_gradient = 20,
                                     lambda_range = c(0.0001, 1),
-                                    cv_method = "cv") {
+                                    cv_method = "cv",
+                                    progress_cb = NULL) {
+  # progress_cb: optional function(phase, i, n, drug) called as training
+  # advances — phase is "rank" (feature ranking done) or "train" (per drug,
+  # i/n with the drug name). Lets a Shiny app drive a progress bar during the
+  # long synchronous training loop.
 
   # Hard cap on CPU cores: on a shared deployment server the UI would otherwise
   # expose ALL server cores to every user, letting one session hog the machine.
@@ -550,6 +555,7 @@ train_models <- function(drug_list = NULL,
     infunc_GOI = GOI,
     ncores = ncores
   )
+  if (!is.null(progress_cb)) progress_cb("rank", 0L, length(drug_list), "")
 
   # ============================================================================
   # 7. Step 2: Train models for each drug with hyperparameter tuning
@@ -563,6 +569,7 @@ train_models <- function(drug_list = NULL,
   for (i in seq_along(drug_list)) {
     drug <- drug_list[i]
     message("  Processing: ", drug)
+    if (!is.null(progress_cb)) progress_cb("train", i, length(drug_list), drug)
 
     # Check if feature ranking succeeded
     features <- features_list[[i]]

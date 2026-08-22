@@ -102,6 +102,10 @@ mod_train_ui <- function(id) {
             # Progress
             uiOutput(ns("progress")),
 
+            # Model download — at the top so it never sits next to / competes
+            # with the plot image downloads inside the tabs below.
+            uiOutput(ns("download_btn")),
+
             # Model summary
             uiOutput(ns("model_summary")),
 
@@ -112,10 +116,7 @@ mod_train_ui <- function(id) {
             # Rendered dynamically only after training completes: keeps the
             # heavy plotly.js bundle OFF the initial page (so entering the
             # module is instant) and shows no empty frames before a run.
-            uiOutput(ns("perf_plots")),
-
-            # Download
-            uiOutput(ns("download_btn"))
+            uiOutput(ns("perf_plots"))
           )
         )
       )
@@ -264,6 +265,13 @@ mod_train_server <- function(id, shared, main_session) {
       )
       w$show()
 
+      # Drug-level progress bar (top-right) driven by train_models' callback.
+      # Works during the long synchronous training because shiny::Progress
+      # pushes messages to the client immediately, not when R returns.
+      prog <- shiny::Progress$new(session, min = 0, max = 1)
+      prog$set(message = "Feature ranking (Step 1/2)...", value = 0.05)
+      on.exit(prog$close(), add = TRUE)
+
       tryCatch({
         result <- PERCEPTIONx::train_models(
           drug_list = drugs,
@@ -273,7 +281,18 @@ mod_train_server <- function(id, shared, main_session) {
           k_features_values = input$k_features,
           model_type = input$model_type,
           ncores = input$ncores,
-          output_dir = tempdir()
+          output_dir = tempdir(),
+          progress_cb = function(phase, i, n, drug) {
+            if (phase == "rank") {
+              prog$set(value = 0.10,
+                       message = "Feature ranking done",
+                       detail = "Starting per-drug training")
+            } else {
+              prog$set(value = 0.10 + 0.90 * (i - 1) / n,
+                       message = sprintf("Training %d/%d: %s", i, n, drug),
+                       detail = "Elastic net tuning + single-cell refinement")
+            }
+          }
         )
         trained(result)
         shared$models <- result
@@ -375,9 +394,15 @@ mod_train_server <- function(id, shared, main_session) {
     # interactivity. The AUC card layers are plotly-safe now: all text uses
     # fixed colors and the color swatches are point markers (no fill-mapped
     # rects / colored text that the converter renders unreliably).
+    # Keep the ROC/performance ggplot objects so the tab download buttons can
+    # export crisp static images (export_plot_cairo) without needing orca.
+    roc_gg <- reactiveVal(NULL)
+    perf_gg <- reactiveVal(NULL)
+
     output$perf_roc_plot <- renderPlotly({
       req(trained())
       p <- PERCEPTIONx::plot_model_roc(trained(), base_size = 13)
+      roc_gg(p)
       # plot_model_roc drops a drug only when its held-out response data
       # cannot be split into two classes at all — surface the reason instead
       # of leaving a silent gap.
@@ -404,9 +429,44 @@ mod_train_server <- function(id, shared, main_session) {
       # tooltip = FALSE: return a plain ggplot (ggiraph geoms are not
       # convertible by ggplotly and would drop the point layers with warnings)
       p <- plot_model_performance(models, base_size = 13, tooltip = FALSE)
+      perf_gg(p)
       ggplotly(p, tooltip = c("x", "y", "colour")) %>%
         layout(font = list(family = "Inter, sans-serif", size = 12))
     })
+
+    output$download_roc_png <- downloadHandler(
+      filename = function() paste0("validation_roc_", format(Sys.Date(), "%Y%m%d"), ".png"),
+      content = function(file) {
+        p <- roc_gg()
+        if (is.null(p)) {
+          showNotification("Generate the ROC plot first.", type = "warning")
+          return()
+        }
+        PERCEPTIONx::export_plot_cairo(file, p, format = "png", width = 12, height = 10, res = 600)
+      }
+    )
+    output$download_roc_pdf <- downloadHandler(
+      filename = function() paste0("validation_roc_", format(Sys.Date(), "%Y%m%d"), ".pdf"),
+      content = function(file) {
+        p <- roc_gg()
+        if (is.null(p)) {
+          showNotification("Generate the ROC plot first.", type = "warning")
+          return()
+        }
+        PERCEPTIONx::export_plot_cairo(file, p, format = "pdf", width = 12, height = 10)
+      }
+    )
+    output$download_perf_png <- downloadHandler(
+      filename = function() paste0("performance_curve_", format(Sys.Date(), "%Y%m%d"), ".png"),
+      content = function(file) {
+        p <- perf_gg()
+        if (is.null(p)) {
+          showNotification("Generate the performance plot first.", type = "warning")
+          return()
+        }
+        PERCEPTIONx::export_plot_cairo(file, p, format = "png", width = 10, height = 7, res = 600)
+      }
+    )
 
     # Performance plots wrapper — only rendered after training completes so the
     # results card starts with just the hint and no empty plot frames. The
@@ -425,12 +485,19 @@ mod_train_server <- function(id, shared, main_session) {
           tabPanel("Validation ROC",
             plotlyOutput(ns("perf_roc_plot"), height = paste0(roc_h, "px")),
             tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
-              "ROC of the predicted viability in stratifying the top vs bottom 50% observed response by rank (paper's convention), one curve per validation dataset (bulk / pseudo-bulk / single-cell) with AUC annotated in a box. 0.5 = random.")
+              "ROC of the predicted viability in stratifying the top vs bottom 50% observed response by rank (paper's convention), one curve per validation dataset (bulk / pseudo-bulk / single-cell) with AUC annotated in a box. 0.5 = random."),
+            div(style = "margin-top: 0.4rem;",
+              downloadButton(ns("download_roc_png"), "PNG", class = "btn-outline-primary btn-sm"),
+              downloadButton(ns("download_roc_pdf"), "PDF", class = "btn-outline-primary btn-sm")
+            )
           ),
           tabPanel("Performance Curve",
             plotlyOutput(ns("perf_plot"), height = "320px"),
             tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
-              "For each threshold, the proportion of trained drugs whose predicted-observed Pearson correlation exceeds it (per dataset). Most informative when several drugs are trained together; with a single drug the curve is a simple step.")
+              "For each threshold, the proportion of trained drugs whose predicted-observed Pearson correlation exceeds it (per dataset). Most informative when several drugs are trained together; with a single drug the curve is a simple step."),
+            div(style = "margin-top: 0.4rem;",
+              downloadButton(ns("download_perf_png"), "PNG", class = "btn-outline-primary btn-sm")
+            )
           )
         )
       )

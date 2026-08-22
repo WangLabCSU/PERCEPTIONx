@@ -174,7 +174,7 @@ mod_data_ui <- function(id) {
             strong("Try it out! "),
             "Click the button below to load demo data (49 genes × 400 cells, 20 patients) and explore all features without uploading anything."
           ),
-          actionButton(ns("load_demo"), "Load Demo Data", class = "btn-demo btn-sm", icon = icon("play"))
+          uiOutput(ns("demo_btn"))
         )
       )
     ),
@@ -522,7 +522,21 @@ mod_data_server <- function(id, shared) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    # --- Auto-prepare in clone-level mode (skip clustering) ---
+    # Demo state: whether the loaded data/models came from the demo button.
+    # Drives the "Load Demo Data" <-> "Clear Demo Data" toggle.
+    demo_loaded <- reactiveVal(FALSE)
+
+    output$demo_btn <- renderUI({
+      if (demo_loaded()) {
+        actionButton(ns("load_demo"), "Clear Demo Data",
+                     class = "btn-danger btn-sm", icon = icon("trash"))
+      } else {
+        actionButton(ns("load_demo"), "Load Demo Data",
+                     class = "btn-demo btn-sm", icon = icon("play"))
+      }
+    })
+
+    # Auto-prepare in clone-level mode (skip clustering) ---
     # Runs whenever expression + mapping are both available and the user has
     # selected "Clone-level" in the Expression Matrix card. No button needed.
     auto_prepare_if_clone <- function() {
@@ -565,174 +579,27 @@ mod_data_server <- function(id, shared) {
       )
     })
 
-    # --- Load Demo Data ---
+    # --- Load / Clear Demo Data ---
     observeEvent(input$load_demo, {
-      set.seed(42)
-      gene_names <- c("TP53", "BRCA1", "EGFR", "MYC", "KRAS", "PIK3CA", "PTEN", "RB1",
-                       "APC", "BRAF", "CDH1", "CDKN2A", "ERBB2", "FGFR1", "ALK",
-                       "MET", "RET", "ROS1", "NRAS", "HRAS", "MAP2K1", "MAPK1",
-                       "JAK2", "STAT3", "MTOR", "AKT1", "AKT2", "CTNNB1", "SMAD4",
-                       "VHL", "NF1", "NF2", "STK11", "FBXW7", "ARID1A", "KDM5C",
-                       "KMT2D", "SETD2", "BAP1", "PBRM1", "NOTCH1", "NOTCH2",
-                       "NOTCH3", "JAK1", "JAK3", "SOX9", "IDH1", "IDH2", "FLT3")
-      n_cells <- 400
-      n_patients <- 20
-      cell_names <- paste0("CELL_", sprintf("%04d", 1:n_cells))
-      patient_names <- paste0("PAT_", sprintf("%03d", 1:n_patients))
-
-      # Clinical response — defined FIRST so expression can be structured around it
-      # 10 Responders + 10 Non-responders for meaningful box plots
-      response_labels <- c(rep("Responder", 10), rep("Non-responder", 10))
-      clinical_response <- data.frame(
-        patient = patient_names,
-        response = response_labels,
-        stringsAsFactors = FALSE
-      )
-      shared$user_response <- clinical_response
-
-      # Patient-Cell mapping
-      patient_assignment <- rep(patient_names, each = ceiling(n_cells / n_patients))[1:n_cells]
-      patient_mapping <- data.frame(
-        cell_id = cell_names,
-        patient_id = patient_assignment,
-        stringsAsFactors = FALSE
-      )
-      shared$user_mapping <- patient_mapping
-
-      # Build STRUCTURED expression so biomarker plots show meaningful correlation.
-      # Two drug-biomarker groups with OPPOSITE patterns:
-      #   - abemaciclib biomarkers (genes 1-5): HIGH in responders, LOW in non-responders
-      #   - erlotinib biomarkers (genes 6-10): LOW in responders, HIGH in non-responders
-      # Other genes are background noise.
-      # This guarantees: when models trained on similarly structured data predict
-      # on this expression, predictions correlate with the biomarker genes.
-      is_responder_cell <- clinical_response$response[match(patient_assignment, clinical_response$patient)] == "Responder"
-      abemaciclib_markers <- gene_names[1:5]   # TP53, BRCA1, EGFR, MYC, KRAS
-      erlotinib_markers   <- gene_names[6:10]  # PIK3CA, PTEN, RB1, APC, BRAF
-      noise_genes         <- gene_names[11:length(gene_names)]
-
-      expr_matrix <- matrix(0.1, nrow = length(gene_names), ncol = n_cells)
-      rownames(expr_matrix) <- gene_names
-      colnames(expr_matrix) <- cell_names
-
-      # abemaciclib markers: moderately HIGH in responders, LOW in non-responders
-      for (g in abemaciclib_markers) {
-        expr_matrix[g, is_responder_cell] <- pmax(rnorm(sum(is_responder_cell), mean = 8, sd = 3), 0.1)
-        expr_matrix[g, !is_responder_cell] <- pmax(rnorm(sum(!is_responder_cell), mean = 3, sd = 2), 0.1)
+      # Toggle: once the demo is loaded, the button becomes "Clear Demo Data".
+      if (demo_loaded()) {
+        shared$user_response <- NULL
+        shared$user_mapping  <- NULL
+        shared$user_expr     <- NULL
+        shared$prepared_data <- NULL
+        shared$user_clones   <- NULL
+        shared$predictions   <- NULL
+        shared$patient_pred  <- NULL
+        shared$models        <- NULL
+        shared$model_cache   <- list()
+        shared$model_active  <- list()
+        demo_loaded(FALSE)
+        showNotification("Demo data cleared. Upload your own data or load the demo again.",
+                         type = "message", duration = 5)
+        return()
       }
-      # erlotinib markers: OPPOSITE pattern (LOW in responders, HIGH in non-responders)
-      for (g in erlotinib_markers) {
-        expr_matrix[g, is_responder_cell] <- pmax(rnorm(sum(is_responder_cell), mean = 3, sd = 2), 0.1)
-        expr_matrix[g, !is_responder_cell] <- pmax(rnorm(sum(!is_responder_cell), mean = 8, sd = 3), 0.1)
-      }
-      # Noise genes: random uniform (no response signal)
-      for (g in noise_genes) {
-        expr_matrix[g, ] <- runif(n_cells, 0.5, 8)
-      }
-      storage.mode(expr_matrix) <- "numeric"
-      shared$user_expr <- expr_matrix
-
-      # Run prepare_data to get clone annotation, rank-normalized expression, clone counts
-      w <- Waiter$new(
-        html = tagList(
-          div(class = "spinner-ring"),
-          h4("Preparing demo data..."),
-          p(class = "text-muted", "Running Seurat clustering")
-        ),
-        color = "rgba(255,255,255,0.85)"
-      )
-      w$show()
-      tryCatch({
-        prepared <- PERCEPTIONx::prepare_data(
-          method = "umap",
-          expression_matrix = expr_matrix,
-          patient_mapping = patient_mapping,
-          seurat_resolution = 0.8,
-          seurat_dims = 10,
-          seurat_nfeatures = min(2000, length(gene_names))
-        )
-        shared$prepared_data <- prepared
-        shared$user_clones <- prepared$cell_clone_map
-        # Keep shared$user_expr as cell-level expression (NOT clone-level) for biomarker plots
-        w$hide()
-
-        # Train models on STRUCTURED training data that mirrors the demo expression
-        # pattern, so model features (informative genes) drive predictions.
-        if (requireNamespace("caret", quietly = TRUE) && requireNamespace("glmnet", quietly = TRUE)) {
-          # Generate structured training data with the same response-correlated pattern
-          make_structured_training <- function(marker_genes, direction, n_train = 160) {
-            # n_train samples: half "responder-like", half "non-responder-like"
-            x_train <- matrix(0, nrow = length(gene_names), ncol = n_train)
-            rownames(x_train) <- gene_names
-            half <- n_train %/% 2
-            responder_like <- seq_len(half)
-            nonresponder_like <- seq.int(half + 1, n_train)
-
-            # Marker genes follow the SAME pattern as demo expression
-            for (g in marker_genes) {
-              x_train[g, responder_like] <- pmax(rnorm(half, mean = 8, sd = 3), 0.1)
-              x_train[g, nonresponder_like] <- pmax(rnorm(half, mean = 3, sd = 2), 0.1)
-            }
-            # Noise genes
-            for (g in setdiff(gene_names, marker_genes)) {
-              x_train[g, ] <- runif(n_train, 0.5, 8)
-            }
-
-            # y = signed mean of marker gene expression, interpreted as VIABILITY
-            #   (high = resistant, low = sensitive):
-            #   direction = -1: high marker expr → low viability (responder sensitive)
-            #   direction = +1: high marker expr → high viability (responder resistant)
-            y_train <- direction * colMeans(x_train[marker_genes, , drop = FALSE])
-            y_train <- y_train + rnorm(n_train, sd = 0.3)  # small noise
-
-            train_df <- as.data.frame(cbind(y = y_train, t(x_train)))
-            train_df
-          }
-
-          make_drug_model <- function(drug_name, seed, marker_genes, direction) {
-            set.seed(seed)
-            train_df <- make_structured_training(marker_genes, direction, n_train = 160)
-
-            caret_model <- caret::train(
-              y ~ ., data = train_df,
-              method = "glmnet",
-              trControl = caret::trainControl(method = "cv", number = 3),
-              tuneLength = 3
-            )
-
-            obj <- list(
-              model = caret_model,
-              performance_in_scRNA = data.frame(estimate.cor = c(0.45, 0.38), p.value = c(0.001, 0.01)),
-              performance_in_bulk = data.frame(estimate.cor = c(0.55, 0.48), p.value = c(0.0001, 0.001)),
-              performance_in_pseudo_bulk = data.frame(estimate.cor = c(0.50, 0.42), p.value = c(0.0005, 0.005)),
-              predVSgroundTruth = list(pred_gt_scRNA = data.frame(Observed = rnorm(20), Test_pred_sc = rnorm(20))),
-              single_best = marker_genes[1]
-            )
-            attr(obj, "drug_name") <- drug_name
-            obj
-          }
-
-          # abemaciclib: markers HIGH in responders → direction -1 maps high expr
-          #   to LOW viability (responders sensitive)
-          # erlotinib: markers LOW in responders → direction +1 maps low expr
-          #   to LOW viability (responders sensitive)
-          shared$models <- list(
-            abemaciclib = make_drug_model("abemaciclib", 101, abemaciclib_markers, direction = -1),
-            erlotinib   = make_drug_model("erlotinib",   202, erlotinib_markers,   direction = +1)
-          )
-          shared$model_cache <- shared$models
-          shared$model_active <- list(abemaciclib = TRUE, erlotinib = TRUE)
-        }
-
-        n_clones <- ncol(prepared$clone_expression_rnorm)
-        showNotification(paste0("Demo data loaded: ", length(gene_names), " genes × ", n_cells,
-                                " cells, ", n_patients, " patients, ", n_clones,
-                                " clones detected. Models and predictions ready!"),
-                         type = "message", duration = 6)
-      }, error = function(e) {
-        w$hide()
-        showNotification(paste("Demo data preparation error:", e$message), type = "error", duration = 10)
-      })
+      # Shared demo pipeline (also used by the Home "Load Demo" button).
+      run_demo_pipeline(shared, on_success = function() demo_loaded(TRUE))
     })
 
     # --- Load DepMap (download) ---
@@ -998,6 +865,7 @@ mod_data_server <- function(id, shared) {
 
     # --- Upload Expression ---
     observeEvent(input$expr_file, {
+      demo_loaded(FALSE)  # user switched to their own data
       file <- input$expr_file
       w <- Waiter$new(
         html = tagList(
@@ -1054,6 +922,7 @@ mod_data_server <- function(id, shared) {
 
     # --- Upload Patient-Cell Mapping ---
     observeEvent(input$mapping_file, {
+      demo_loaded(FALSE)  # user switched to their own data
       file <- input$mapping_file
       tryCatch({
         df <- coerce_mapping_df(read_uploaded_table(file))
@@ -1191,6 +1060,7 @@ mod_data_server <- function(id, shared) {
 
     # --- Upload Clinical Response ---
     observeEvent(input$response_file, {
+      demo_loaded(FALSE)  # user switched to their own data
       file <- input$response_file
       tryCatch({
         df <- coerce_response_df(read_uploaded_table(file))
