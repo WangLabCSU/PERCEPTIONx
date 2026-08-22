@@ -302,9 +302,14 @@ plot_clone_umap <- function(tsne_data,
                         drop = FALSE) +
     theme_perception(base_size = base_size) +
     labs(color = color_label, x = "", y = "") +
+    # Compact legend: force 2 rows so a 15-clone palette (8+7) does not wrap
+    # into 3+ rows and compress the plot canvas.
+    guides(color = guide_legend(nrow = 2, keywidth = unit(0.7, "lines"),
+                                keyheight = unit(0.7, "lines"),
+                                override.aes = list(size = 2.5))) +
     theme(legend.position = "top",
-          legend.key.height = unit(0.9, "lines"),
-          legend.key.width = unit(2.6, "lines"))
+          legend.key.height = unit(0.7, "lines"),
+          legend.key.width = unit(0.7, "lines"))
 
   if (!is.null(title)) {
     p <- p + ggtitle(title)
@@ -967,7 +972,8 @@ plot_response_boxplot <- function(exp_vs_pred,
 #'
 #' @param performance_list Named list of model performance objects (from train_perception_models).
 #' @param threshold_range Numeric vector. Correlation thresholds to evaluate.
-#'        Default = seq(0.1, 0.6, 0.01).
+#'        Default = NULL (auto: from 0.1 up to at least 0.6, extended to the
+#'        highest observed correlation so the curve always reaches 0).
 #' @param base_size Numeric. Base font size. Default = 20.
 #' @param highlight_threshold Numeric. Threshold to highlight with vertical line.
 #'        Default = 0.3.
@@ -984,7 +990,7 @@ plot_response_boxplot <- function(exp_vs_pred,
 #'
 #' @export
 plot_model_performance <- function(performance_list,
-                                   threshold_range = seq(0.1, 0.6, 0.01),
+                                   threshold_range = NULL,
                                    base_size = 20,
                                    highlight_threshold = 0.3,
                                    tooltip = TRUE) {
@@ -1012,6 +1018,16 @@ plot_model_performance <- function(performance_list,
   cor_scRNA <- extract_col(performance_list, "performance_in_scRNA", "estimate.cor")
   cor_bulk  <- extract_col(performance_list, "performance_in_bulk", "estimate.cor")
   cor_pseudo <- extract_col(performance_list, "performance_in_pseudo_bulk", "estimate.cor")
+
+  # Threshold grid: by default extend past 0.6 whenever any model's correlation
+  # exceeds it, so the curve keeps dropping to 0 instead of being cut off
+  # mid-air. Round the upper end up to 2 decimals.
+  if (is.null(threshold_range)) {
+    all_cors <- c(cor_scRNA, cor_bulk, cor_pseudo)
+    hi <- suppressWarnings(max(0.6, ceiling(max(all_cors, na.rm = TRUE) * 100) / 100))
+    if (!is.finite(hi) || hi <= 0.1) hi <- 0.6
+    threshold_range <- seq(0.1, hi, 0.01)
+  }
 
   # Report the PROPORTION of models passing each threshold (not the raw count),
   # so the three datasets are directly comparable on the same 0–1 scale.

@@ -282,9 +282,12 @@ PAT_003    Responder")
     ),
 
     # Seurat Clustering & Preprocessing
+    # NOTE: deliberately no animate-fade-in-up here — the entrance animation
+    # (opacity/translate fill-mode) intermittently left this card's top half
+    # invisible until a scroll forced a repaint.
     fluidRow(style = "margin-top: 1rem;",
       column(12,
-        div(class = "card animate-fade-in-up",
+        div(class = "card",
           div(class = "card-header",
             icon("shapes"), " Clone Detection & Preprocessing"
           ),
