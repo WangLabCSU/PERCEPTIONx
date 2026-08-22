@@ -74,15 +74,44 @@ div.card > .card-body {
   margin-top: auto;
 }
 
-/* Predict module: results column should NOT stretch to match config column */
+/* Predict module: results column stretches to the config column height;
+   the two result cards share that height equally (e.g. the empty state
+   before any prediction), while content keeps its natural size afterwards. */
+.predict-results-col {
+  display: flex !important;
+  flex-direction: column !important;
+}
 .predict-results-col > .card {
+  flex: 1 1 0 !important;
   height: auto !important;
 }
 .predict-results-col .card-body > *:last-child {
   margin-top: 0;
 }
-.predict-results-col {
+
+/* Center the annotation (icon + text) block vertically inside the card. */
+.predict-results-col .card-body {
+  justify-content: center;
+}
+
+/* Train module: results column keeps its natural height instead of
+   stretching to match the parameters column (same as visualize). */
+.train-results-col {
   align-self: flex-start !important;
+}
+.train-results-col > .card {
+  flex: 0 0 auto !important;
+  height: auto !important;
+}
+
+/* Card annotation: centered muted description under card headers */
+.card-desc {
+  display: block;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.55;
+  margin-bottom: 0.6rem;
 }
 
 /* Seurat controls: left description, right params + button (button matches params row width) */
