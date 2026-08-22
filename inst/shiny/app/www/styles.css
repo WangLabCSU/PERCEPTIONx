@@ -1058,142 +1058,124 @@ body {
   margin-top: 0.2rem;
 }
 
-/* --- Guided Steps --- */
-.guided-steps {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.2rem;
-  padding: 0 0.5rem;
+/* --- Live workflow stepper (Ant-Design-style pipeline tracker) --- */
+.wf-steps {
+  display: flex;
+  align-items: flex-start;
+  padding: 1.1rem 1.25rem 0.4rem;
+  overflow-x: auto;
 }
-
-.step-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem 1.2rem 1.4rem;
+.wf-step {
+  flex: 0 0 auto;
+  width: 132px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  transition: var(--transition);
-  position: relative;
-  cursor: pointer;
-  overflow: hidden;
+}
+.wf-step-link {
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
+  text-decoration: none !important;
+  color: inherit;
 }
-
-.step-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--primary), var(--accent));
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.4s ease;
+.wf-step-link:hover .wf-node {
+  box-shadow: 0 6px 18px rgba(22, 92, 145, 0.28);
+  transform: scale(1.06);
 }
+.wf-step-link:hover .wf-step-title { color: var(--primary, #165C91); }
 
-.step-card:hover::before { transform: scaleX(1); }
-
-.step-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-hover);
-  border-color: var(--primary-alpha-md);
-}
-
-.step-card .step-head {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 0.7rem;
-  position: relative;
-}
-
-.step-card .step-number {
-  width: 40px;
-  height: 40px;
+.wf-node {
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
-  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 1rem;
-  box-shadow: 0 3px 10px rgba(22, 92, 145, 0.28);
-  margin: 0 0 0.55rem 0;
-  position: relative;
-  z-index: 1;
-  transition: var(--transition);
+  background: #fff;
+  border: 2px solid #c6cfdc;
+  color: #8a97ad;
+  transition: all 0.25s ease;
+}
+.wf-step.done .wf-node {
+  background: #27ae60;
+  border-color: #27ae60;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.35);
+}
+.wf-step.active .wf-node {
+  border-color: var(--primary, #165C91);
+  color: var(--primary, #165C91);
+  animation: wf-pulse 2s ease-in-out infinite;
+}
+/* Blocked step (e.g. Train needs DepMap): red outline only — used sparingly
+   since red reads as error. */
+.wf-step.blocked .wf-node {
+  border-color: #c13232;
+  color: #c13232;
+  animation: wf-blink 1.6s ease-in-out infinite;
+}
+.wf-step.blocked .wf-step-title { color: #c13232; }
+.wf-step.blocked .wf-step-status { color: #c13232; font-weight: 600; }
+@keyframes wf-blink {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(193, 50, 50, 0.12); }
+  50%      { box-shadow: 0 0 0 8px rgba(193, 50, 50, 0.04); }
+}
+.wf-step-title {
+  margin-top: 0.55rem;
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text, #1e2a4a);
+  transition: color 0.2s;
+}
+.wf-step.done .wf-step-title { color: #1f9d55; }
+.wf-step.active .wf-step-title { color: var(--primary, #165C91); }
+.wf-step-status {
+  font-size: 0.73rem;
+  color: var(--text-muted, #8a97ad);
+  margin-top: 0.15rem;
+}
+.wf-step.done .wf-step-status { color: #1f9d55; }
+.wf-step.active .wf-step-status { color: var(--primary, #165C91); font-weight: 600; }
+
+.wf-line {
+  flex: 1 1 auto;
+  min-width: 26px;
+  height: 3px;
+  margin-top: 20px;
+  border-radius: 2px;
+  background: #e3e8f0;
+  transition: background 0.35s ease;
+}
+.wf-line.filled {
+  background: linear-gradient(90deg, var(--primary, #165C91), #27ae60);
 }
 
-.step-card:hover .step-number {
-  transform: scale(1.12);
-  box-shadow: 0 5px 18px rgba(22, 92, 145, 0.38);
-}
-
-.step-card .step-icon {
-  width: 48px;
-  height: 48px;
+.wf-hint {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  color: var(--primary);
-  background: var(--primary-alpha);
-  border-radius: 12px;
-  margin: 0;
-  transition: var(--transition);
+  gap: 0.45rem;
+  margin: 0.7rem 1.25rem 1.05rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--primary-dark, #0f3d61);
+  background: rgba(22, 92, 145, 0.06);
+  border: 1px solid rgba(22, 92, 145, 0.14);
+}
+.wf-hint.wf-hint-warn {
+  color: #a02626;
+  background: rgba(193, 50, 50, 0.06);
+  border-color: rgba(193, 50, 50, 0.18);
 }
 
-.step-card:hover .step-number {
-  transform: scale(1.12);
-  box-shadow: 0 5px 18px rgba(22, 92, 145, 0.35);
-}
-
-/* Keep icon visible & non-blue on hover — lift only */
-.step-card:hover .step-icon {
-  background: var(--primary-alpha-md);
-  color: var(--primary-dark);
-  transform: scale(1.05);
-  box-shadow: 0 3px 12px rgba(22, 92, 145, 0.18);
-}
-
-.step-card .step-title {
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--text);
-  margin: 0.2rem 0 0.3rem;
-}
-
-.step-card .step-desc {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  line-height: 1.45;
-  margin-bottom: 0.8rem;
-  flex: 1;
-}
-
-.step-card .step-go {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg, #2f855a 0%, #38a169 100%);
-  border: none;
-  padding: 0.4rem 1rem 0.4rem 0.85rem;
-  border-radius: 2rem;
-  transition: var(--transition-fast);
-  box-shadow: 0 2px 10px rgba(47, 133, 90, 0.32);
-}
-
-.step-card:hover .step-go {
-  background: linear-gradient(135deg, #38a169 0%, #48bb78 100%);
-  color: #fff;
-  gap: 0.5rem;
-  box-shadow: 0 4px 16px rgba(47, 133, 90, 0.45);
-  transform: translateY(-1px);
+@keyframes wf-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(22, 92, 145, 0.14); }
+  50%      { box-shadow: 0 0 0 10px rgba(22, 92, 145, 0.05); }
 }
 
 /* --- Feature Cards --- */
@@ -1856,6 +1838,8 @@ body {
   .feature-grid { grid-template-columns: 1fr; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); max-width: 100%; }
   .guided-steps { grid-template-columns: 1fr; }
+  .wf-step { width: 104px; }
+  .wf-hint { margin: 0.6rem 0.6rem 0.9rem; }
   .mini-chart-grid { grid-template-columns: 1fr; }
   .workflow-steps { flex-direction: column; align-items: center; }
   .workflow-arrow { transform: rotate(90deg); padding: 0; }

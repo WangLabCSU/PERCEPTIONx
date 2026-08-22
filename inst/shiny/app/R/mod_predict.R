@@ -352,10 +352,15 @@ mod_predict_server <- function(id, shared, main_session) {
     })
 
     # Heatmap area — only rendered after a prediction run, so no empty
-    # heatmap frame shows before the user clicks Run Prediction.
+    # heatmap frame shows before the user clicks Run Prediction. Height grows
+    # with the number of clones so many rows are not squashed.
     output$clone_heatmap_area <- renderUI({
       req(clone_pred())
-      plotlyOutput(ns("clone_heatmap"), height = "400px")
+      mat <- clone_pred()
+      n_rows <- nrow(mat)
+      h <- if (is.null(n_rows) || n_rows <= 0) 400
+           else min(700, max(240, 140 + 16 * n_rows))
+      plotlyOutput(ns("clone_heatmap"), height = paste0(h, "px"))
     })
 
     # Card annotations (icon + description + hint) — one centered block per

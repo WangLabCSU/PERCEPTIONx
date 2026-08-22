@@ -29,6 +29,7 @@ if (!is.null(pkg_root) && file.exists(file.path(pkg_root, "DESCRIPTION"))) {
 }
 
 # Source modules
+source("R/shiny_helpers.R")
 source("R/mod_home.R")
 source("R/mod_data.R")
 source("R/mod_train.R")
