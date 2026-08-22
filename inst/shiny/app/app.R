@@ -77,6 +77,13 @@ ui <- page_navbar(
         if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
       });
 
+      // Replace a container's innerHTML. Used by the Home page to update the
+      // workflow stepper / data dashboard after the static first paint.
+      Shiny.addCustomMessageHandler('set-html', function(msg) {
+        var el = document.getElementById(msg.id);
+        if (el) el.innerHTML = msg.html;
+      });
+
       // Keep the viewport still when the hidden file input receives focus on
       // 'Browse...' click (Shiny positions it at top:-1e6px, so the browser
       // would otherwise scroll the page to the top). We must NOT

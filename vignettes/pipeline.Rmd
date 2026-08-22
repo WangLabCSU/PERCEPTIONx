@@ -168,7 +168,7 @@ The result is a matrix with cells as rows and drugs as columns, where lower valu
 ```r
 # Build clone_viability_df with patient and clone_id columns
 clone_viability_df <- data.frame(
-  patient  = strsplit_customv0(rownames(clone_viability), "_", 1),
+  patient  = sub("_.*", "", rownames(clone_viability)),
   clone_id = rownames(clone_viability),
   clone_viability,
   check.names = FALSE
