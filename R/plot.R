@@ -7,7 +7,7 @@
 #'
 #' @name plot_perception
 #' @keywords internal
-#' @importFrom ggplot2 ggplot aes geom_point geom_segment geom_boxplot geom_violin geom_bar geom_hline geom_line geom_vline geom_jitter geom_text coord_cartesian coord_equal theme theme_bw theme_void labs element_text element_rect element_line element_blank facet_grid facet_wrap vars scale_colour_gradientn scale_colour_gradient2 scale_fill_manual scale_color_manual scale_x_discrete scale_size margin unit guide_colourbar guides guide_legend ggtitle annotate rel
+#' @importFrom ggplot2 ggplot aes geom_point geom_segment geom_boxplot geom_violin geom_bar geom_hline geom_line geom_vline geom_jitter geom_text geom_rect coord_cartesian coord_equal theme theme_bw theme_void labs element_text element_rect element_line element_blank facet_grid facet_wrap vars scale_colour_gradientn scale_colour_gradient2 scale_fill_manual scale_color_manual scale_x_discrete scale_size margin unit guide_colourbar guides guide_legend ggtitle annotate rel
 #' @importFrom rlang .data
 #' @importFrom pROC ggroc roc auc smooth
 #' @importFrom stats t.test wilcox.test
@@ -955,8 +955,9 @@ plot_model_performance <- function(performance_list,
 #' Plot validation ROC curves for trained models
 #'
 #' For each model and each validation dataset (bulk, pseudo-bulk, single-cell),
-#' the observed response is stratified into the top vs bottom 33\% (resistant
-#' vs sensitive, as in the PERCEPTION paper) and a ROC curve of the predicted
+#' the observed response is stratified into the top vs bottom 50\% (resistant
+#' vs sensitive, median split — the PERCEPTION paper's convention, Extended
+#' Data Fig. 4C) and a ROC curve of the predicted
 #' viability is drawn, one curve per dataset, with the AUC annotated in the
 #' legend. Higher AUC = the model stratifies better. This is the most
 #' informative single-model summary after training.
@@ -1000,10 +1001,10 @@ plot_model_roc <- function(performance_list, base_size = 13) {
       if (is.na(pred_col)) return(NULL)
       obs  <- as.numeric(df[["Observed"]])
       pred <- as.numeric(df[[pred_col]])
-      # Top vs bottom 33% of the observed response = resistant vs sensitive.
-      q <- stats::quantile(obs, c(1 / 3, 2 / 3), na.rm = TRUE)
-      lab <- ifelse(obs <= q[1], "Sensitive",
-                    ifelse(obs >= q[2], "Resistant", NA_character_))
+      # Top vs bottom 50% of the observed response = resistant vs sensitive
+      # (median split; the paper's convention, Extended Data Fig. 4C).
+      med <- stats::median(obs, na.rm = TRUE)
+      lab <- ifelse(obs <= med, "Sensitive", "Resistant")
       keep <- !is.na(lab) & !is.na(pred)
       if (sum(keep) < 4 || length(unique(lab[keep])) < 2) return(NULL)
       rocobj <- tryCatch(
@@ -1027,28 +1028,60 @@ plot_model_roc <- function(performance_list, base_size = 13) {
   df <- do.call(rbind, curve_rows)
   df$Dataset <- factor(df$Dataset, levels = c("bulk", "pseudo-bulk", "single-cell"))
 
-  # AUC label position: end of each curve (per Dataset, per Drug when faceting).
+  # AUC per (Drug, Dataset), used by the bottom-right AUC panel.
   auc_lab <- do.call(rbind, lapply(
     split(df, interaction(df$Drug, df$Dataset, drop = TRUE)), function(sub) {
-      tail_row <- sub[which.max(sub$fpr), ]
-      data.frame(Drug = tail_row$Drug, Dataset = tail_row$Dataset,
-                 AUC = unique(sub$AUC), y = tail_row$tpr, stringsAsFactors = FALSE)
+      data.frame(Drug = unique(sub$Drug), Dataset = unique(sub$Dataset),
+                 AUC = unique(sub$AUC), stringsAsFactors = FALSE)
     }))
   rownames(auc_lab) <- NULL
 
   dataset_colors <- c("bulk" = "#E67E22", "pseudo-bulk" = "#27AE60",
                       "single-cell" = "#2E86AB")
+  ds_levels <- c("bulk", "pseudo-bulk", "single-cell")
+
+  # AUC summary panel: bottom-right box, one row per dataset —
+  #   [color swatch]  Dataset  AUC = X.XX   (per drug facet when multi-drug).
+  n_ds <- length(ds_levels)
+  x0 <- 0.56; x1 <- 1.12
+  row_h <- 0.10
+  y_top <- 0.90; y_bot <- y_top - (n_ds - 1) * row_h - 0.06
+  box_bg <- data.frame(Drug = unique(df$Drug), stringsAsFactors = FALSE)
+  box_bg$x0 <- x0; box_bg$x1 <- x1; box_bg$ybot <- y_bot; box_bg$ytop <- y_top
+  combos <- expand.grid(Drug = unique(df$Drug), i = seq_len(n_ds),
+                        stringsAsFactors = FALSE)
+  auc_box <- do.call(rbind, lapply(seq_len(nrow(combos)), function(r) {
+    drg <- combos$Drug[r]; i <- combos$i[r]; ds <- ds_levels[i]
+    y_mid <- y_top - (i - 1) * row_h - row_h / 2
+    sub <- auc_lab[auc_lab$Drug == drg & auc_lab$Dataset == ds, ]
+    data.frame(Drug = drg, Dataset = ds, y_mid = y_mid,
+               AUC = if (nrow(sub)) sub$AUC[1] else NA_real_,
+               stringsAsFactors = FALSE)
+  }))
 
   p <- ggplot(df, aes(x = fpr, y = tpr, color = Dataset)) +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed",
                 color = "grey55", linewidth = 0.35) +
     geom_line(linewidth = 0.9) +
-    geom_text(data = auc_lab,
-              aes(x = 1, y = y, label = sprintf("AUC = %.2f", AUC)),
-              hjust = 1.15, size = base_size * 0.28, color = "grey30",
-              show.legend = FALSE) +
+    # AUC panel background
+    geom_rect(data = box_bg,
+              aes(xmin = x0, xmax = x1, ymin = ybot, ymax = ytop),
+              fill = "white", color = "#dfe3ee", linewidth = 0.3,
+              inherit.aes = FALSE) +
+    # color swatch per dataset row
+    geom_rect(data = auc_box,
+              aes(xmin = x0 + 0.03, xmax = x0 + 0.07,
+                  ymin = y_mid - 0.032, ymax = y_mid + 0.032, fill = Dataset),
+              color = NA, inherit.aes = FALSE) +
+    scale_fill_manual(values = dataset_colors, guide = "none") +
+    # dataset name + AUC value
+    geom_text(data = auc_box,
+              aes(x = x0 + 0.11, y = y_mid,
+                  label = sprintf("%s  AUC = %.2f", Dataset, AUC)),
+              hjust = 0, size = base_size * 0.27, color = "#1e2a4a",
+              inherit.aes = FALSE) +
     scale_color_manual(values = dataset_colors) +
-    coord_cartesian(xlim = c(0, 1.12), ylim = c(0, 1)) +
+    coord_cartesian(xlim = c(0, 1.18), ylim = c(0, 1)) +
     theme_perception(base_size = base_size) +
     labs(x = "1 - Specificity (FPR)", y = "Sensitivity (TPR)",
          color = "Validation Dataset") +

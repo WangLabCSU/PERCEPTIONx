@@ -26,7 +26,7 @@ mod_predict_ui <- function(id) {
 
     fluidRow(style = "margin-top: 0.5rem;",
       # Configuration
-      column(4,
+      column(4, class = "predict-config-col",
         div(class = "card",
           div(class = "card-header",
             icon("cog"), " Configuration"
