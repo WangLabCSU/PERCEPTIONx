@@ -19,7 +19,8 @@ train_models(
   alpha_gradient = 0.05,
   lambda_gradient = 20,
   lambda_range = c(1e-04, 1),
-  cv_method = "cv"
+  cv_method = "cv",
+  progress_cb = NULL
 )
 }
 \arguments{

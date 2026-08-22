@@ -6,7 +6,7 @@
 \usage{
 plot_model_performance(
   performance_list,
-  threshold_range = seq(0.1, 0.6, 0.01),
+  threshold_range = NULL,
   base_size = 20,
   highlight_threshold = 0.3,
   tooltip = TRUE
@@ -16,7 +16,8 @@ plot_model_performance(
 \item{performance_list}{Named list of model performance objects (from train_perception_models).}
 
 \item{threshold_range}{Numeric vector. Correlation thresholds to evaluate.
-Default = seq(0.1, 0.6, 0.01).}
+Default = NULL (auto: from 0.1 up to at least 0.6, extended to the
+highest observed correlation so the curve always reaches 0).}
 
 \item{base_size}{Numeric. Base font size. Default = 20.}
 

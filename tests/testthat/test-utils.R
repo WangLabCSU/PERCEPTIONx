@@ -56,10 +56,3 @@ test_that("stripall2match normalizes strings", {
   # Should be lowercase with no spaces
   expect_false(grepl(" ", result))
 })
-
-test_that("strsplit_customv0 splits and extracts correctly", {
-  result <- strsplit_customv0("Patient_A_clone1", "_", 1)
-  expect_equal(result, "Patient")
-  result2 <- strsplit_customv0("Patient_A_clone1", "_", 3)
-  expect_equal(result2, "clone1")
-})

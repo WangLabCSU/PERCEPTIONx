@@ -609,11 +609,6 @@ textarea:focus {
   outline: none;
 }
 
-/* SelectInput: native select for crisp alignment */
-.select-input {
-  width: 100%;
-}
-
 /* Action buttons: same 38px height as inputs for grid alignment */
 .btn,
 .shiny-bound-action {
@@ -752,24 +747,6 @@ body {
 
 .nav-icon:hover { color: #fff; }
 
-/* --- Glass Card --- */
-.glass-card {
-  background: var(--bg-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.5);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  transition: var(--transition);
-  overflow: hidden;
-}
-
-.glass-card:hover {
-  box-shadow: var(--shadow-hover);
-  transform: translateY(-3px);
-  border-color: var(--primary-alpha-md);
-}
-
 /* --- Cards --- */
 .card {
   background: var(--bg-card);
@@ -870,19 +847,6 @@ body {
   line-height: 1.05;
   background: none;
   -webkit-text-fill-color: var(--primary);
-}
-
-.hero-badge {
-  display: inline-block;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--primary);
-  background: var(--primary-alpha);
-  border: 1px solid var(--primary-alpha-md);
-  padding: 0.22rem 0.7rem;
-  border-radius: 0.5rem;
-  transform: translateY(-2px);
 }
 
 .hero-tagline {
@@ -1578,11 +1542,6 @@ body {
   color: var(--text-muted);
 }
 
-.status-badge.error {
-  background: var(--error-alpha);
-  color: #9b2c2c;
-}
-
 .status-dot {
   width: 6px;
   height: 6px;
@@ -1592,16 +1551,6 @@ body {
 
 .status-dot.green { background: var(--success); }
 .status-dot.gray { background: #a0aec0; }
-.status-dot.red { background: var(--error); }
-
-/* --- Data Preview Table --- */
-.data-preview {
-  border-radius: var(--radius);
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-
-.data-preview .dataTables_wrapper { font-size: 0.82rem; }
 
 /* --- Plot Container --- */
 /* NOTE: Do NOT add styles to .plot-container — it collides with plotly's internal
@@ -1675,16 +1624,6 @@ body {
   to { opacity: 1; }
 }
 
-@keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-18px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.06); }
-}
-
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
@@ -1692,32 +1631,11 @@ body {
 
 .animate-fade-in-up { animation: fadeInUp 0.5s ease; opacity: 1; }
 .animate-fade-in { animation: fadeIn 0.4s ease forwards; }
-.animate-slide-in { animation: slideInLeft 0.4s ease forwards; }
-.animate-pulse { animation: pulse 2s ease-in-out infinite; }
 
 .delay-1 { animation-delay: 0.08s; }
 .delay-2 { animation-delay: 0.16s; }
 .delay-3 { animation-delay: 0.24s; }
 .delay-4 { animation-delay: 0.32s; }
-.delay-5 { animation-delay: 0.40s; }
-
-/* --- Help Page --- */
-.help-section { margin-bottom: 2rem; }
-
-.help-section h5 {
-  color: var(--primary);
-  font-weight: 700;
-  margin-bottom: 0.75rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.help-section p, .help-section li {
-  color: var(--text-muted);
-  font-size: 0.88rem;
-  line-height: 1.7;
-}
 
 /* --- Demo Banner --- */
 .demo-banner {
@@ -1749,7 +1667,6 @@ body {
 /* --- Responsive --- */
 @media (max-width: 768px) {
   .hero h1 { font-size: 1.5rem; }
-  .hero .subtitle { font-size: 0.85rem; }
   .hero { padding: 2rem 1rem 1.5rem; }
   .feature-grid { grid-template-columns: 1fr; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); max-width: 100%; }
@@ -1801,46 +1718,11 @@ table.dataTable thead th {
   box-shadow: none;
 }
 
-/* --- Sidebar Layout --- */
-.layout-sidebar {
-  display: grid;
-  grid-template-columns: 300px 1fr;
-  gap: 1.5rem;
-  min-height: calc(100vh - 120px);
-}
-
-.sidebar-panel {
-  position: sticky;
-  top: 1rem;
-  max-height: calc(100vh - 140px);
-  overflow-y: auto;
-}
-
-@media (max-width: 992px) {
-  .layout-sidebar { grid-template-columns: 1fr; }
-  .sidebar-panel { position: static; max-height: none; }
-}
-
 /* --- Tooltip --- */
 .tooltip-inner {
   background: var(--primary-dark);
   font-size: 0.78rem;
   border-radius: 0.4rem;
-}
-
-/* --- File Upload Zone --- */
-.upload-zone {
-  border: 2px dashed var(--border);
-  border-radius: var(--radius);
-  padding: 2rem;
-  text-align: center;
-  transition: var(--transition);
-  background: var(--bg-card);
-}
-
-.upload-zone:hover {
-  border-color: var(--primary);
-  background: var(--primary-alpha);
 }
 
 /* --- Shiny Notification --- */
@@ -1878,13 +1760,6 @@ table.dataTable thead th {
 /* --- Page Transition --- */
 .tab-pane { animation: fadeIn 0.3s ease; }
 
-/* --- Gradient Text Utility --- */
-.gradient-text {
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
 /* --- Divider --- */
 .section-divider {
   border: none;
@@ -1919,55 +1794,6 @@ table.dataTable thead th {
   font-weight: 700;
   margin: 0 0 0.15rem;
   font-size: 1.05rem;
-}
-
-.help-workflow {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding-left: 1rem;
-}
-
-.help-workflow-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  padding: 1rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius);
-  transition: var(--transition);
-}
-
-.help-workflow-step:hover {
-  border-color: var(--primary-alpha-md);
-  box-shadow: var(--shadow-sm);
-}
-
-.help-step-number {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.85rem;
-  flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(58,79,138,0.2);
-}
-
-.help-step-content {
-  flex: 1;
-}
-
-.help-step-content p {
-  font-size: 0.86rem;
-  color: var(--text-muted);
-  margin: 0.3rem 0 0.6rem;
-  line-height: 1.55;
 }
 
 .help-data-grid {
@@ -2011,35 +1837,6 @@ table.dataTable thead th {
 }
 
 .help-data-card code {
-  background: var(--primary-alpha);
-  padding: 0.1rem 0.35rem;
-  border-radius: 0.2rem;
-  font-size: 0.78rem;
-  color: var(--primary);
-}
-
-.help-list {
-  list-style: none;
-  padding-left: 0;
-}
-
-.help-list li {
-  padding: 0.6rem 0;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.help-list li:last-child {
-  border-bottom: none;
-}
-
-.help-param p {
-  font-size: 0.84rem;
-  color: var(--text-muted);
-  margin: 0.2rem 0 0;
-  line-height: 1.5;
-}
-
-.help-param code {
   background: var(--primary-alpha);
   padding: 0.1rem 0.35rem;
   border-radius: 0.2rem;
@@ -2451,11 +2248,13 @@ table.dataTable thead th {
 /* ============================================================
    6. Visualize sidebar — compact Plot Type card
    ============================================================ */
-/* Sidebar column: flex layout so Plot Type + Data Status fill full height */
+/* Sidebar column: stacked cards at natural height, never stretched by the
+   taller output column on the right (see align-self below). */
 .viz-sidebar-col {
   display: flex !important;
   flex-direction: column !important;
   gap: 0.6rem;
+  align-self: flex-start !important;  /* don't stretch to match right column */
 }
 
 /* Main column: aligned to top */

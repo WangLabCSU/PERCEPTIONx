@@ -84,9 +84,9 @@ clone_viability <- predict_drugs(
 )
 
 # Build clone_viability_matrix with patient and clone_id columns
-# (clone_ids from rownames, patients extracted via strsplit_customv0)
+# (clone_ids from rownames, patients extracted before the first "_")
 clone_viability_df <- data.frame(
-  patient = strsplit_customv0(rownames(clone_viability), "_", 1),
+  patient = sub("_.*", "", rownames(clone_viability)),
   clone_id = rownames(clone_viability),
   clone_viability,
   check.names = FALSE
@@ -214,7 +214,6 @@ plot_response_boxplot(
 |----------|-------------|
 | `err_handle()` | Error-safe evaluation (returns NA on error) |
 | `stripall2match()` | Normalize strings for fuzzy matching |
-| `strsplit_customv0()` | Split strings and extract elements |
 | `hypergeometric_test_for_twolists()` | Hypergeometric enrichment test |
 | `fdrcorr()` | FDR multiple testing correction |
 

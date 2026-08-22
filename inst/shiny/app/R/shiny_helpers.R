@@ -3,6 +3,164 @@
 # drift apart (e.g. the Home "Load Demo" button and the Data-tab demo button).
 
 # ---------------------------------------------------------------------------
+# Workflow stepper HTML (Home page)
+#
+# Pure renderer: builds the pipeline stepper + hint from a plain list of
+# shared state (reactiveValuesToList(shared) or the initial empty list).
+# It is called BOTH at UI build time (static first paint — no server round
+# trip, so the section shows instantly) and on the server whenever shared
+# state changes (HTML is pushed to the browser via the 'set-html' handler).
+#
+# @param shared A list mirroring the app's shared reactiveValues.
+# @param ns     Namespace function for the actionLink ids (identity when
+#               no namespacing is needed).
+# ---------------------------------------------------------------------------
+workflow_stepper_html <- function(shared, ns = identity) {
+  data_ok    <- !is.null(shared$prepared_data) ||
+                (!is.null(shared$user_expr) && !is.null(shared$user_clones))
+  train_ok   <- !is.null(shared$models) && length(shared$models) > 0
+  predict_ok <- !is.null(shared$predictions)
+  done <- c(data_ok, train_ok, predict_ok, FALSE)
+
+  # "Active" = the first incomplete step (the user's next action).
+  active_idx <- which(!done)[1]
+  if (is.na(active_idx)) active_idx <- 4L
+
+  # Red "blocked" state — used SPARINGLY (red reads as error). Only for
+  # Train when the user has data but no DepMap reference and no models:
+  # training is genuinely impossible until one of those is provided.
+  depmap_ok <- !is.null(shared$depmap)
+  blocked2 <- data_ok && !train_ok && !depmap_ok
+
+  step_defs <- list(
+    list(id = "wf_1", title = "Load Data"),
+    list(id = "wf_2", title = "Train"),
+    list(id = "wf_3", title = "Predict"),
+    list(id = "wf_4", title = "Visualize")
+  )
+  status_done <- c("Data ready", "Model ready", "Predictions ready", "Complete")
+  status_next <- c("Start here", "Next step", "Next step", "Next step")
+  status_todo <- c("Pending",  "Pending",  "Pending",  "Pending")
+
+  step_html <- lapply(seq_along(step_defs), function(i) {
+    st <- if (done[i]) "done"
+          else if (i == 2L && blocked2) "blocked"
+          else if (i == active_idx) "active"
+          else "todo"
+    label <- if (done[i]) status_done[i]
+             else if (i == 2L && blocked2) "Needs DepMap"
+             else if (i == active_idx) status_next[i]
+             else status_todo[i]
+    node <- if (done[i]) icon("check", style = "font-size: 1.05rem;")
+            else if (i == 2L && blocked2) icon("triangle-exclamation", style = "font-size: 1rem;")
+            else tags$span(i)
+    tags$div(class = paste("wf-step", st),
+      actionLink(ns(step_defs[[i]]$id), NULL, class = "wf-step-link",
+        div(class = "wf-node", node),
+        div(class = "wf-step-title", step_defs[[i]]$title),
+        div(class = "wf-step-status", label)
+      )
+    )
+  })
+
+  # Connector lines between steps — filled once the NEXT step is done.
+  lines <- lapply(seq_len(length(step_defs) - 1), function(i)
+    div(class = paste("wf-line", if (done[i + 1]) "filled" else "")))
+
+  children <- list()
+  for (i in seq_along(step_defs)) {
+    children[[length(children) + 1]] <- step_html[[i]]
+    if (i < length(step_defs)) children[[length(children) + 1]] <- lines[[i]]
+  }
+
+  hint <- if (blocked2) {
+    "Data is ready, but training needs the DepMap reference — load it in the Data tab (or load pre-trained models) first."
+  } else switch(active_idx,
+    "1" = "Start: load data — or click Load Demo to try the whole pipeline instantly.",
+    "2" = "Data ready -> next: train (or load) a drug response model.",
+    "3" = "Model ready -> next: run clone- and patient-level prediction.",
+    "4" = "Predictions ready -> go to Visualize to generate plots.",
+    "All steps complete -> everything is ready. Explore the tabs!"
+  )
+
+  tagList(
+    div(class = "wf-steps", children),
+    div(class = if (blocked2) "wf-hint wf-hint-warn" else "wf-hint",
+        icon(if (blocked2) "triangle-exclamation" else "circle-info"), hint)
+  )
+}
+
+# ---------------------------------------------------------------------------
+# Data status dashboard HTML (Home page)
+#
+# Same pattern as workflow_stepper_html(): pure renderer used both for the
+# static first paint and for subsequent server-side updates.
+# ---------------------------------------------------------------------------
+data_dashboard_html <- function(shared) {
+  # DepMap stats (only computed when data is loaded)
+  depmap_cell_lines <- if (!is.null(shared$depmap) && !is.null(shared$depmap$expression_rnorm))
+    ncol(shared$depmap$expression_rnorm) else NULL
+  depmap_drugs <- if (!is.null(shared$depmap) && !is.null(shared$depmap$secondary_prism))
+    nrow(shared$depmap$secondary_prism) else NULL
+  depmap_sc_models <- if (!is.null(shared$depmap) && !is.null(shared$depmap$scRNA_complete))
+    ncol(shared$depmap$scRNA_complete) else NULL
+
+  items <- list(
+    list(name = "DepMap Reference", icon_name = "database",
+         loaded = !is.null(shared$depmap),
+         detail = if (!is.null(shared$depmap))
+           paste0(if (!is.null(depmap_cell_lines)) paste0(depmap_cell_lines, " cell lines, "),
+                  if (!is.null(depmap_drugs)) paste0(depmap_drugs, " drugs"),
+                  if (!is.null(depmap_sc_models)) paste0(", ", depmap_sc_models, " scRNA-seq profiles"))
+         else "Not loaded"),
+    list(name = "Expression Matrix", icon_name = "table",
+         loaded = !is.null(shared$user_expr),
+         detail = if (!is.null(shared$user_expr))
+           paste0(nrow(shared$user_expr), " genes x ", ncol(shared$user_expr), " clones")
+         else "Not loaded"),
+    list(name = "Clone Map (Seurat)", icon_name = "layer-group",
+         loaded = !is.null(shared$prepared_data),
+         detail = if (!is.null(shared$prepared_data))
+           paste0(ncol(shared$prepared_data$clone_expression_rnorm), " clones, ",
+                  nrow(shared$prepared_data$clone_counts), " patients")
+         else "Not loaded"),
+    list(name = "Clinical Response", icon_name = "heartbeat",
+         loaded = !is.null(shared$user_response),
+         detail = if (!is.null(shared$user_response))
+           paste0(nrow(shared$user_response), " patients")
+         else "Not loaded"),
+    list(name = "Drug Models", icon_name = "cube",
+         loaded = !is.null(shared$models),
+         detail = if (!is.null(shared$models))
+           paste0(length(shared$models), " model(s): ",
+                  paste(names(shared$models), collapse = ", "))
+         else "Not loaded"),
+    list(name = "Predictions", icon_name = "microscope",
+         loaded = !is.null(shared$predictions),
+         detail = if (!is.null(shared$predictions))
+           paste0(nrow(shared$predictions), " clones x ", ncol(shared$predictions), " drugs")
+         else "Not loaded")
+  )
+
+  tagList(
+    div(class = "dashboard-grid",
+      lapply(items, function(item) {
+        div(class = paste("dashboard-card", if (item$loaded) "card-loaded" else "card-empty"),
+          div(class = "dashboard-card-icon", icon(item$icon_name)),
+          div(class = "dashboard-card-body",
+            div(class = "dashboard-card-name", item$name),
+            div(class = "dashboard-card-detail", item$detail)
+          ),
+          div(class = "dashboard-card-status",
+            span(class = paste("status-dot", if (item$loaded) "green" else "gray"))
+          )
+        )
+      })
+    )
+  )
+}
+
+# ---------------------------------------------------------------------------
 # Demo data pipeline (single source of truth)
 #
 # Builds the demo expression matrix, runs Seurat clustering via prepare_data(),
