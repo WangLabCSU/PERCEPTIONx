@@ -149,8 +149,6 @@ mod_visualize_server <- function(id, shared, main_session) {
     current_plot <- reactiveVal(NULL)
     # Track which plot type was last generated (defined here, before use).
     current_plot_type <- reactiveVal(NULL)
-    # Track the drug (or "Combination") used by the last generated plot.
-    current_drug <- reactiveVal(NULL)
 
     # Map response labels to canonical short classes: R/NR spellings collapse
     # to R/NR; ANY other label (e.g. longitudinal time points TN/RD/PD) is kept
@@ -681,7 +679,6 @@ mod_visualize_server <- function(id, shared, main_session) {
         if (!is.null(p)) {
           current_plot(p)
           current_plot_type(pt)
-          current_drug(if (is_combo) "Combination" else if (exists("drug", inherits = FALSE)) drug else "")
           w$hide()
           showNotification(paste0(plot_labels[[pt]], " generated successfully"), type = "message")
         } else {
@@ -957,7 +954,7 @@ mod_visualize_server <- function(id, shared, main_session) {
       ),
       boxplot = list(
         title = "Response Boxplot",
-        desc = "Compares predicted viability scores between Responders and Non-Responders. The p-value (Wilcoxon test) indicates whether the difference is statistically significant. A lower p-value suggests the model captures clinically meaningful differences.",
+        desc = "Patient-level predicted viability scores per clinical response group. Two groups (R/NR): p-value is a one-sided Wilcoxon test asking whether responders are predicted more sensitive (lower viability). Three or more groups (e.g. TN/RD/PD): p-value is a global Kruskal-Wallis test asking whether any group differs. Non-parametric tests keep the p-value valid even with the small patient sample sizes inherent to clinical response data.",
         requires = "Patient-level Predictions + Clinical Response"
       ),
       umap_gene = list(
@@ -978,8 +975,16 @@ mod_visualize_server <- function(id, shared, main_session) {
     )
 
     output$plot_explanation <- renderUI({
-      pt <- current_plot_type()
-      if (is.null(pt) || nchar(pt) == 0 || is.null(current_plot())) return(NULL)
+      # Follow the currently SELECTED plot type (spatial radio takes priority
+      # when active), so the annotation updates the moment the radio changes —
+      # not only after Generate is clicked. A selected-but-not-yet-generated
+      # type previews its own explanation.
+      pt <- if (!is.null(input$plot_type_advanced) && nzchar(input$plot_type_advanced)) {
+        input$plot_type_advanced
+      } else {
+        input$plot_type
+      }
+      if (is.null(pt) || nchar(pt) == 0) return(NULL)
 
       info <- plot_explanations[[pt]]
       if (is.null(info)) return(NULL)
@@ -987,18 +992,6 @@ mod_visualize_server <- function(id, shared, main_session) {
       # Prefix title for spatial plots
       display_title <- if (pt %in% c("umap_gene", "umap_viability", "umap_clone"))
         paste(reduction_label(), info$title) else info$title
-
-      # Extra note when the last plot used Combination mode (IDA + weighted_max).
-      combo_note <- NULL
-      if (identical(current_drug(), "Combination") &&
-          pt %in% c("clone_kill", "boxplot", "roc")) {
-        combo_note <- div(class = "info-box",
-          style = "border-left-color: var(--accent); margin: 0.6rem 0 0.8rem 0; font-size: 0.82rem; line-height: 1.55;",
-          icon("flask"),
-          tags$span(style = "font-weight: 600;", " Combination mode (IDA): "),
-          "each drug's clone-level viability is z-scored across all clones; the per-clone combination viability is the minimum across drugs (the single most effective drug). Patient-level score = most-resistant clone weighted by its abundance (weighted_max), the strategy the paper selected (AUC 0.83)."
-        )
-      }
 
       # Clone-level input without a count column falls back to equal weights;
       # say so explicitly so users do not misread the proportions.
@@ -1020,7 +1013,6 @@ mod_visualize_server <- function(id, shared, main_session) {
         div(class = "card-body",
           h6(strong(display_title)),
           p(class = "text-muted", style = "font-size: 0.85rem; line-height: 1.5;", info$desc),
-          combo_note,
           equal_weight_note,
           tags$span(class = "viz-explanation-req",
             icon("clipboard-check", style = "font-size: 0.75rem;"),
