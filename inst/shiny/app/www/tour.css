@@ -1,6 +1,6 @@
 /* First-visit guided tour (custom, no external dependency) */
 
-/* Dimmed backdrop behind the highlighted element */
+/* Full-screen dim used for centered steps (welcome / closing). */
 #tour-backdrop {
   position: fixed;
   inset: 0;
@@ -15,15 +15,21 @@
   pointer-events: auto;
 }
 
-/* Spotlight ring + full-page hole around the target element.
-   A huge box-shadow simulates "punching a hole" in the backdrop. */
-.tour-target {
-  position: relative;
+/* Spotlight "hole": a fixed, transparent box over the target that carries
+   BOTH the inset highlight ring AND a huge outset box-shadow that dims the
+   rest of the page. Being a root-level fixed element at z-index 3100 it dims
+   everything below it regardless of the target's own stacking context, and
+   because box-shadow follows the element's border-radius, the dimming hole
+   gets the SAME rounded corners as the ring. */
+#tour-spotlight {
+  position: fixed;
   z-index: 3100;
-  box-shadow: 0 0 0 4px var(--accent, #E8985D),
-              0 0 0 9999px rgba(10, 18, 34, 0.45);
+  background: transparent;
+  pointer-events: none;
+  display: none;
   border-radius: 8px;
-  transition: box-shadow 0.2s ease;
+  box-shadow: inset 0 0 0 3px var(--accent, #C13232),
+              0 0 0 9999px rgba(10, 18, 34, 0.45);
 }
 
 /* Tooltip bubble */
