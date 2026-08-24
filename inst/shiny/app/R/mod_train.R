@@ -215,6 +215,19 @@ mod_train_server <- function(id, shared, main_session) {
       unique(d)
     })
 
+    # Waiter overlay + in-place progress updater. Stored in a reactiveVal so
+    # BOTH the job-submission handler and the async polling observer can show,
+    # update, and hide the same overlay.
+    train_waiter <- reactiveVal(NULL)
+    set_train_overlay <- function(stage, detail, value) {
+      pct <- round(100 * max(0, min(1, value)))
+      session$sendCustomMessage("set-html", list(id = ns("trn_stage"), html = stage))
+      session$sendCustomMessage("set-html", list(id = ns("trn_detail"), html = detail))
+      session$sendCustomMessage("set-html",
+        list(id = ns("trn_bar"),
+             html = paste0("<div class='train-progress-bar' style='width: ", pct, "%;'></div>")))
+    }
+
     # Train
     observeEvent(input$train, {
       # Validate
@@ -256,15 +269,13 @@ mod_train_server <- function(id, shared, main_session) {
       }
 
       # ONE overlay layer: spinner + stage text + progress bar live together
-      # inside the same waiter overlay. The bar/text are updated in place via
-      # the 'set-html' handler (no shiny::Progress top-right bar underneath the
-      # translucent overlay — that stacked look was confusing, and its hide
-      # message could be lost on long runs).
+      # inside the same waiter overlay. Stored in train_waiter() so the async
+      # polling observer can keep updating it and finally hide it.
       w <- Waiter$new(
         html = tagList(
           div(class = "spinner-ring"),
           h4("Training model..."),
-          p(id = ns("trn_stage"), class = "text-muted", "Feature ranking (Step 1/2)..."),
+          p(id = ns("trn_stage"), class = "text-muted", "Submitting background job..."),
           p(id = ns("trn_detail"), class = "text-muted",
             style = "font-size: 0.82rem; opacity: 0.75;",
             "Elastic net tuning + single-cell refinement"),
@@ -278,70 +289,99 @@ mod_train_server <- function(id, shared, main_session) {
         ),
         color = "rgba(255,255,255,0.85)"
       )
+      train_waiter(w)
       w$show()
 
-      # In-place updates of the overlay (avoids rebuilding the spinner, which
-      # would restart its animation on every drug).
-      set_train_overlay <- function(stage, detail, value) {
-        pct <- round(100 * max(0, min(1, value)))
-        session$sendCustomMessage("set-html",
-          list(id = ns("trn_stage"), html = stage))
-        session$sendCustomMessage("set-html",
-          list(id = ns("trn_detail"), html = detail))
-        session$sendCustomMessage("set-html",
-          list(id = ns("trn_bar"),
-               html = paste0("<div class='train-progress-bar' style='width: ", pct, "%;'></div>")))
-      }
-
+      # Training runs in a SEPARATE R process (callr worker, see async_jobs.R):
+      # the main Shiny thread is never blocked, so the UI / other users stay
+      # responsive. We submit a job, then the polling observer below tracks it.
       tryCatch({
-        result <- PERCEPTIONx::train_models(
-          drug_list = drugs,
-          cancer_type = input$cancer_type,
-          exclude_cancer = input$exclude_cancer,
-          GOI = goi,
+        params <- list(
+          drug_list         = drugs,
+          cancer_type       = input$cancer_type,
+          exclude_cancer    = input$exclude_cancer,
+          GOI               = goi,
           k_features_values = input$k_features,
-          model_type = input$model_type,
-          ncores = input$ncores,
-          output_dir = tempdir(),
-          progress_cb = function(phase, i, n, drug) {
-            if (phase == "rank") {
-              set_train_overlay("Feature ranking done", "Starting per-drug training", 0.05)
-            } else if (phase == "done") {
-              # All drugs built — fill the bar before the overlay is removed.
-              set_train_overlay("All drugs trained", "Saving model files...", 1)
-            } else {
-              # Bar is divided evenly across drugs: drug i starts at (i-1)/n
-              # (never below the 5% shown during feature ranking).
-              set_train_overlay(sprintf("Training %d/%d: %s", i, n, drug),
-                                "Elastic net tuning + single-cell refinement",
-                                max(0.05, (i - 1) / n))
-            }
-          }
+          model_type        = input$model_type,
+          ncores            = input$ncores,
+          output_dir        = tempdir()
         )
+        jobid <- submit_train_job(shared, params)
+        shared$active_job <- jobid
+        shared$active_job_drugs <- drugs
+        showNotification(sprintf("Training job %s running in the background — you can keep using the app.",
+                                 jobid),
+                         type = "message", duration = 6)
+      }, error = function(e) {
+        w$hide()
+        train_waiter(NULL)
+        showNotification(paste("Failed to start training job:", e$message), type = "error", duration = 10)
+      })
+    })
+
+    # Poll the background training job every second; drive the overlay and
+    # finalize when the worker reports done / error.
+    observe({
+      jobid <- shared$active_job
+      if (is.null(jobid)) return()
+      st <- tryCatch(read_job_state(shared, jobid),
+                     error = function(e) list(status = "error", message = conditionMessage(e)))
+      w <- train_waiter()
+
+      if (st$status == "done") {
+        job_dir <- file.path(shared$jobs_dir, jobid)
+        result <- tryCatch(readRDS(file.path(job_dir, "result.rds")), error = function(e) NULL)
+        requested_drugs <- shared$active_job_drugs %||% character(0)
+        shared$active_job <- NULL
+        shared$active_job_drugs <- NULL
+        if (!is.null(w)) { w$hide(); train_waiter(NULL) }
+        if (is.null(result)) {
+          showNotification("Background job finished but produced no result (see console).",
+                           type = "error", duration = 10)
+          return()
+        }
         trained(result)
         shared$models <- result
-        # Also cache permanently and mark active
         if (is.null(shared$model_cache)) shared$model_cache <- list()
         for (nm in names(result)) {
           shared$model_cache[[nm]] <- result[[nm]]
           shared$model_active[[nm]] <- TRUE
         }
-        # A drug can still be skipped mid-training (feature ranking / model
-        # build failure) even though its name exists in DepMap — say so,
-        # otherwise the user just sees fewer ROC panels with no explanation.
-        failed_drugs <- setdiff(drugs, names(result))
+        failed_drugs <- setdiff(requested_drugs, names(result))
         if (length(failed_drugs) > 0) {
           showNotification(paste0("No model produced for: ",
                                   paste(failed_drugs, collapse = ", "),
                                   " (feature ranking or model building failed — see console warnings)."),
                            type = "warning", duration = 10)
         }
-        w$hide()
         showNotification("Training completed successfully!", type = "message")
-      }, error = function(e) {
-        w$hide()
-        showNotification(paste("Training error:", e$message), type = "error")
-      })
+        return()
+      }
+      if (st$status == "error") {
+        shared$active_job <- NULL
+        shared$active_job_drugs <- NULL
+        if (!is.null(w)) { w$hide(); train_waiter(NULL) }
+        showNotification(paste("Training job failed:", st$message), type = "error", duration = 12)
+        return()
+      }
+      # running / queued → keep the overlay in sync
+      if (!is.null(w)) {
+        if (st$status == "queued") {
+          set_train_overlay("Waiting for background worker",
+                            "Loading DepMap in the worker process (first run only)...", 0.02)
+        } else if (identical(st$phase, "rank")) {
+          set_train_overlay("Feature ranking", "Elastic net tuning + single-cell refinement", 0.05)
+        } else if (identical(st$phase, "done")) {
+          set_train_overlay("All drugs trained", "Saving model files...", 1)
+        } else {
+          n <- if (is.null(st$n) || !is.finite(st$n) || st$n <= 0) 1 else st$n
+          i <- if (is.null(st$i) || is.na(st$i)) 0 else st$i
+          set_train_overlay(sprintf("Training %d/%d: %s", i, n, st$drug),
+                            "Elastic net tuning + single-cell refinement",
+                            max(0.05, (i - 1) / n))
+        }
+      }
+      invalidateLater(1000, session)
     })
 
     # Reset

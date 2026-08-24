@@ -617,6 +617,9 @@ mod_data_server <- function(id, shared) {
       tryCatch({
         shared$depmap <- PERCEPTIONx::load_depmap(dest = tempdir(), read = TRUE, mirror = use_mirror,
                                                    timeout_seconds = 600, retries = 2)
+        # Remember where the file lives so the background training worker can
+        # read the same DepMap from disk (it cannot share the parent's memory).
+        shared$depmap_path <- file.path(tempdir(), "DepMap.RDS")
         w$hide()
         showNotification("DepMap data loaded successfully", type = "message")
       }, error = function(e) {
@@ -677,6 +680,9 @@ mod_data_server <- function(id, shared) {
         # env, and whose PSOCK workers export from it) can see DepMap.
         assign("DepMap", DepMap, envir = .GlobalEnv)
         shared$depmap <- DepMap
+        # Record the source file so the background training worker (callr) can
+        # load the identical DepMap from disk in its own process.
+        shared$depmap_path <- file$datapath
         w$hide()
         showNotification(paste("DepMap loaded from file:", length(DepMap), "datasets"), type = "message")
       }, error = function(e) {
