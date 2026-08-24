@@ -640,18 +640,21 @@ plot_clone_viability <- function(clone_viability,
           legend.key.size = unit(13, "pt"),
           axis.title.y = element_text(margin = margin(r = 6)))
 
-  # Color scale: diverging blue-white-red (sensitive -> neutral -> resistant)
+  # Color scale: viridis sequential by default (dark = low/sensitive,
+  # yellow = high/resistant) — the same ramp as the Gene Expression / Drug
+  # Viability UMAPs, so z-scored viability looks the same everywhere. The
+  # diverging blue-white-red scale remains available via viridis_scale = FALSE.
   if (viridis_scale) {
+    p <- p + scale_colour_gradientn(
+      colours = sequential_colors,
+      breaks = function(limits) pretty(limits, n = 4)
+    )
+  } else {
     p <- p + scale_colour_gradient2(low = diverging_colors[1],
                                     mid = diverging_colors[2],
                                     high = diverging_colors[3],
                                     midpoint = 0,
                                     breaks = function(limits) pretty(limits, n = 4))
-  } else {
-    p <- p + scale_colour_gradientn(
-      colours = sequential_colors,
-      breaks = function(limits) pretty(limits, n = 4)
-    )
   }
 
   if (has_weights) {
@@ -907,8 +910,12 @@ plot_response_boxplot <- function(exp_vs_pred,
     scale_fill_manual(values = grp_colors) +
     scale_color_manual(values = grp_colors)
 
-  # Statistical annotation: pairwise bracket for 2 groups; global
-  # Kruskal-Wallis test for 3+ groups (e.g. TN/RD/PD).
+  # Statistical annotation: pairwise bracket for 2 groups (one-sided Wilcoxon,
+  # alternative = first group < second); for 3-4 groups pairwise two-sided
+  # Wilcoxon tests on every combination with BH (FDR) multiple-testing
+  # correction; for 5+ groups a single Kruskal-Wallis omnibus test (too many
+  # brackets to read). A global Kruskal-Wallis only says "at least one group
+  # differs" — it cannot say WHICH pairs differ, so pairwise is used instead.
   n_lv <- length(levels(exp_vs_pred[[response_var]]))
   if (n_lv == 2) {
     lvls <- levels(exp_vs_pred[[response_var]])
@@ -941,19 +948,64 @@ plot_response_boxplot <- function(exp_vs_pred,
     test_data <- exp_vs_pred[!is.na(exp_vs_pred[[response_var]]) &
                              !is.na(exp_vs_pred[[predicted_var]]), ]
     if (nrow(test_data) >= 6 && length(unique(test_data[[response_var]])) >= 2) {
-      kw <- tryCatch(stats::kruskal.test(test_data[[predicted_var]], test_data[[response_var]]),
-                     error = function(e) NULL)
-      if (!is.null(kw) && !is.na(kw$p.value)) {
-        p_label <- sprintf("Kruskal-Wallis p = %s", fmt_pval(kw$p.value))
-        y_max <- max(test_data[[predicted_var]], na.rm = TRUE)
-        y_min <- min(test_data[[predicted_var]], na.rm = TRUE)
-        if (is.finite(y_max) && is.finite(y_min)) {
-          y_pos <- y_max + (y_max - y_min) * 0.08
-          p <- p +
-            annotate("text", x = (1 + n_lv) / 2, y = y_pos, label = p_label,
-                     size = base_size * 0.3, hjust = 0.5, fontface = "italic",
-                     color = "#1e2a4a") +
-            coord_cartesian(ylim = c(NA, y_pos * 1.10))
+      lvls <- levels(exp_vs_pred[[response_var]])
+      if (n_lv <= 4) {
+        # Pairwise Wilcoxon rank-sum tests (two-sided: no directional hypothesis
+        # among arbitrary groups like PD/RD/TN), BH-adjusted across all pairs.
+        combos <- combn(seq_along(lvls), 2, simplify = FALSE)
+        res_list <- lapply(combos, function(ij) {
+          g1 <- test_data[[predicted_var]][test_data[[response_var]] == lvls[ij[1]]]
+          g2 <- test_data[[predicted_var]][test_data[[response_var]] == lvls[ij[2]]]
+          if (length(g1) < 2 || length(g2) < 2) return(NULL)
+          wt <- tryCatch(wilcox.test(g1, g2), error = function(e) NULL)
+          if (is.null(wt)) return(NULL)
+          data.frame(i = ij[1], j = ij[2], p = wt$p.value)
+        })
+        res_df <- do.call(rbind, res_list)
+        if (!is.null(res_df) && nrow(res_df) > 0) {
+          res_df$p_adj <- stats::p.adjust(res_df$p, method = "BH")
+          y_max <- max(test_data[[predicted_var]], na.rm = TRUE)
+          y_min <- min(test_data[[predicted_var]], na.rm = TRUE)
+          if (is.finite(y_max) && is.finite(y_min)) {
+            span <- y_max - y_min
+            for (k in seq_len(nrow(res_df))) {
+              y_pos <- y_max + span * (0.06 + 0.07 * k)
+              x1 <- res_df$i[k]; x2 <- res_df$j[k]
+              p_label <- sprintf("adj. p = %s", fmt_pval(res_df$p_adj[k]))
+              p <- p +
+                annotate("segment", x = x1, xend = x1,
+                         y = y_pos - span * 0.012, yend = y_pos,
+                         color = "#1e2a4a", linewidth = 0.4) +
+                annotate("segment", x = x2, xend = x2,
+                         y = y_pos - span * 0.012, yend = y_pos,
+                         color = "#1e2a4a", linewidth = 0.4) +
+                annotate("segment", x = x1, xend = x2, y = y_pos, yend = y_pos,
+                         color = "#1e2a4a", linewidth = 0.4) +
+                annotate("text", x = (x1 + x2) / 2, y = y_pos + span * 0.025,
+                         label = p_label, size = base_size * 0.28, hjust = 0.5,
+                         fontface = "italic", color = "#1e2a4a")
+            }
+            p <- p +
+              labs(caption = "Pairwise Wilcoxon rank-sum tests (two-sided), BH-adjusted p-values") +
+              coord_cartesian(ylim = c(NA, y_max + span * (0.06 + 0.07 * (nrow(res_df) + 1))))
+          }
+        }
+      } else {
+        # Many groups — a single global omnibus test (too many brackets to read).
+        kw <- tryCatch(stats::kruskal.test(test_data[[predicted_var]], test_data[[response_var]]),
+                       error = function(e) NULL)
+        if (!is.null(kw) && !is.na(kw$p.value)) {
+          p_label <- sprintf("Kruskal-Wallis p = %s", fmt_pval(kw$p.value))
+          y_max <- max(test_data[[predicted_var]], na.rm = TRUE)
+          y_min <- min(test_data[[predicted_var]], na.rm = TRUE)
+          if (is.finite(y_max) && is.finite(y_min)) {
+            y_pos <- y_max + (y_max - y_min) * 0.08
+            p <- p +
+              annotate("text", x = (1 + n_lv) / 2, y = y_pos, label = p_label,
+                       size = base_size * 0.3, hjust = 0.5, fontface = "italic",
+                       color = "#1e2a4a") +
+              coord_cartesian(ylim = c(NA, y_pos * 1.10))
+          }
         }
       }
     }
