@@ -659,12 +659,13 @@ plot_clone_viability <- function(clone_viability,
     if (!is.finite(max_w) || max_w <= 0) max_w <- 1
     # Point size = true proportion on its NATURAL 0..1 scale: a 0.8 clone is
     # always visibly larger than a 0.4 clone (no clamping). The upper range is
-    # kept modest (5 instead of 7) so even 0.4 stays reasonably small. Legend
-    # breaks span the full 0..max_w range so the legend matches real circles.
+    # kept modest (3 instead of 5) so high-abundance clones do not dominate the
+    # panel. Legend breaks span the full 0..max_w range so the legend matches
+    # real circles. Tune here if the lollipop balls look too big/small.
     size_breaks <- pretty(c(0, max_w), n = 3)
     size_breaks <- size_breaks[size_breaks >= 0 & size_breaks <= max_w]
     if (length(size_breaks) < 2) size_breaks <- c(0, max_w)
-    p <- p + scale_size(range = c(1, 5),
+    p <- p + scale_size(range = c(1, 3),
                         limits = c(0, max_w),
                         breaks = size_breaks)
   } else {
