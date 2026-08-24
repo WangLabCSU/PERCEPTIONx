@@ -172,10 +172,31 @@ feature_ranking_bulk <- function(infunc_drugName,
     message("  Common cell lines: ", length(common_cellLines))
   }
 
-  # Compute correlations
+  # Compute correlations — vectorized across ALL genes in one pass.
+  # The previous per-gene cor.test loop is O(n_genes) R-level function calls
+  # (~5 minutes for 15k genes x 306 lines); a single cor() + pt() pass gives
+  # bit-identical Pearson r and p-values in well under a second.
   infunc_response_matchedSubset <- unlist(infunc_response[common_cellLines])
-  cor_profile <- t(apply(DepMap$expression_rnorm[infunc_GOI, common_cellLines], 1, function(x)
-    unlist(cor.test_trimmed_v0(x, infunc_response_matchedSubset, method = "pearson"))))
+  X <- DepMap$expression_rnorm[infunc_GOI, common_cellLines, drop = FALSE]
+  y <- as.numeric(infunc_response_matchedSubset)
+
+  # Same complete-case semantics as the old per-gene cor.test: drop response
+  # NAs up front, then each gene uses its own complete cells.
+  y_ok <- !is.na(y)
+  X <- X[, y_ok, drop = FALSE]
+  y <- y[y_ok]
+
+  ok <- !is.na(X)                        # per-gene complete-cell mask
+  n_eff <- rowSums(ok)
+  r <- as.numeric(cor(t(X), y, use = "pairwise.complete.obs"))
+  df <- n_eff - 2L
+  t_stat <- sqrt(df) * r / sqrt(1 - r^2)
+  pval <- 2 * pt(-abs(t_stat), df)
+  pval[!is.finite(t_stat) | is.na(r) | df < 1L] <- NA
+  r[!is.finite(t_stat)] <- NA            # constant rows (sd = 0) -> NA, like cor.test
+
+  cor_profile <- cbind(p.value = pval, estimate.cor = r)
+  rownames(cor_profile) <- rownames(X)
   cor_profile <- cor_profile[order(abs(cor_profile[, 2]), decreasing = TRUE), ]
 
   return(cor_profile)
@@ -184,13 +205,19 @@ feature_ranking_bulk <- function(infunc_drugName,
 
 #' Parallel feature ranking for multiple drugs
 #'
-#' Runs feature_ranking_bulk in parallel for a list of drugs.
+#' Runs feature_ranking_bulk for a list of drugs.
+#'
+#' NOTE: feature ranking is fully vectorized (~0.15 s per drug over 15k genes),
+#' so this deliberately runs SERIALLY. The old Windows PSOCK path serialized
+#' the 567 MB DepMap into every worker (clusterExport) and then still failed —
+#' workers are clean R sessions without the package's internal helpers — before
+#' silently falling back to serial; that cost ~10x for zero benefit.
 #'
 #' @param infunc_DrugsToUse Character vector. Drug names to rank features for.
 #' @param id_cancerType Character. Cancer type. Default = "PanCan".
 #' @param infunc_exclude_cancer Character. Cancer type to exclude. Default = "PanCan".
 #' @param infunc_GOI Character vector. Genes of Interest.
-#' @param ncores Integer. Number of cores for parallel processing. Default = 4.
+#' @param ncores Integer. Kept for API compatibility; ignored (see NOTE above).
 #'
 #' @return A list of feature ranking results, one per drug.
 #' @export
@@ -200,21 +227,15 @@ run_parallel_feature_ranking_bulk <- function(infunc_DrugsToUse,
                                               infunc_GOI,
                                               ncores = 4) {
 
-  # Cap cores (shared-server safety): never use more than 4 regardless of
-  # how many the caller (or the UI) requests.
-  ncores <- min(max(1L, as.integer(ncores)), 4L)
-
   idx <- seq_along(infunc_DrugsToUse)
 
-  featuresRank_fromBulk <- run_parallel(
+  featuresRank_fromBulk <- lapply(
     idx,
     function(x)
       err_handle(feature_ranking_bulk(infunc_drugName = infunc_DrugsToUse[x],
                                       infunc_cancerType = id_cancerType,
                                       infunc_GOI = infunc_GOI,
-                                      exclude_cancer = infunc_exclude_cancer)),
-    ncores = ncores,
-    export = "DepMap"
+                                      exclude_cancer = infunc_exclude_cancer))
   )
 
   names(featuresRank_fromBulk) <- infunc_DrugsToUse
@@ -570,6 +591,7 @@ train_models <- function(drug_list = NULL,
     drug <- drug_list[i]
     message("  Processing: ", drug)
     if (!is.null(progress_cb)) progress_cb("train", i, length(drug_list), drug)
+    t_drug0 <- Sys.time()
 
     # Check if feature ranking succeeded
     features <- features_list[[i]]
@@ -650,6 +672,8 @@ train_models <- function(drug_list = NULL,
     # Clean up
     rm(Raw_models_output)
     gc()
+    cat(sprintf("[train] %s built %s in %.1fs\n", format(Sys.time(), "%H:%M:%OS3"),
+                drug, as.numeric(Sys.time() - t_drug0)))
   }
 
   # Assign names and filter out NULL entries (failed drugs)
@@ -657,15 +681,28 @@ train_models <- function(drug_list = NULL,
   for_output_lung_Test_vglm <- for_output_lung_Test_vglm[!sapply(for_output_lung_Test_vglm, is.null)]
   Tuned_models_output <- for_output_lung_Test_vglm
 
-  # ============================================================================
-  # 8. Save all models to a single RDS file
-  # ============================================================================
   timestamp <- format(training_start, "%Y%m%d_%H%M%S")
   save_filename <- paste0("PERCEPTIONx_models_", cancer_type,
                           "_ex", exclude_cancer, "_", timestamp, ".RDS")
   save_path <- file.path(output_dir, save_filename)
 
-  saveRDS(Tuned_models_output, save_path)
+  # Strip formula/call environment references before serialization. The model's
+  # formula/call point into the build frame -> package env -> (inside Shiny)
+  # session/globals; saveRDS traverses that chain and would serialize the whole
+  # 7 GB DepMap, stalling for minutes. Only the DISK copy is stripped — the
+  # models returned to the caller keep call/terms intact.
+  strip_model_env <- function(m) {
+    if (is.list(m) && inherits(m$model, "train")) {
+      m$model$call <- NULL
+      if (!is.null(m$model$terms)) attr(m$model$terms, ".Environment") <- baseenv()
+    }
+    m
+  }
+  t_save0 <- Sys.time()
+  out_for_save <- lapply(Tuned_models_output, strip_model_env)
+  saveRDS(out_for_save, save_path)
+  cat(sprintf("[train] %s saved RDS in %.1fs\n", format(Sys.time(), "%H:%M:%OS3"),
+              as.numeric(Sys.time() - t_save0)))
   message("\nAll models saved to: ", save_path)
 
   successful <- sum(!sapply(Tuned_models_output, function(x) length(x) == 1 && is.na(x)))

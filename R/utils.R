@@ -23,46 +23,6 @@ count_row_NAs <- function(df){
 err_handle <- function(x){ tryCatch(x, error=function(e){NA}) }
 
 
-# Run a function over a list in parallel, with a Windows fallback.
-#
-# On Unix-like systems (Linux, macOS) this uses parallel::mclapply, which forks
-# the current R process and shares memory via copy-on-write (fast, low overhead).
-# On Windows forking is unavailable, so it falls back to a PSOCK cluster built
-# with parallel::makeCluster + parallel::parLapply. Objects referenced from the
-# global environment (e.g. DepMap) must be passed via `export` on Windows.
-#
-# Never fails hard: if the cluster cannot be created or a parallel job errors,
-# it warns and falls back to serial lapply().
-run_parallel <- function(X, FUN, ncores = 1, export = NULL) {
-  ncores <- max(1L, as.integer(ncores)[1L])
-  if (ncores == 1L || length(X) < 2L) {
-    return(lapply(X, FUN))
-  }
-
-  if (.Platform$OS.type != "windows") {
-    return(parallel::mclapply(X, FUN, mc.cores = ncores))
-  }
-
-  cl <- tryCatch(parallel::makeCluster(ncores), error = function(e) NULL)
-  if (is.null(cl)) {
-    warning("Could not start a parallel cluster; running serially.", call. = FALSE)
-    return(lapply(X, FUN))
-  }
-  on.exit(parallel::stopCluster(cl), add = TRUE)
-
-  tryCatch({
-    if (!is.null(export)) {
-      parallel::clusterExport(cl, export, envir = .GlobalEnv)
-    }
-    parallel::parLapply(cl, X, FUN)
-  }, error = function(e) {
-    warning("Parallel execution failed (", conditionMessage(e),
-            "); running serially.", call. = FALSE)
-    lapply(X, FUN)
-  })
-}
-
-
 # Strip all non-char and non-numeric and make lower case
 # this is primarily to facilitate inconsistent naming comparison (eg. drugNames)
 stripall2match <- function(x){

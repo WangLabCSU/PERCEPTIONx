@@ -184,7 +184,7 @@ mod_visualize_server <- function(id, shared, main_session) {
       def <- if (all(c("PD", "RD") %in% grps)) c("PD", "RD") else grps[1:2]
       tagList(
         tags$small(class = "text-muted", style = "display: block; margin: 0.4rem 0 0.2rem;",
-          icon("info-circle"), " Response has ", length(grps), " groups — pick the two for the ROC:"),
+          icon("info-circle"), " Response has ", length(grps), " groups. Pick two for ROC:"),
         div(class = "viz-size-row",
           div(class = "viz-size-col",
             # selectize = FALSE: a native <select> keeps a constant width,

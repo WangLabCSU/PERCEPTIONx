@@ -175,7 +175,7 @@ plot_response_boxplot(
 | `get_response_matrix()` | Extract drug response data from DepMap |
 | `get_cellLine_list()` | Get training/test cell line split |
 | `feature_ranking_bulk()` | Rank features by correlation with drug response |
-| `run_parallel_feature_ranking_bulk()` | Parallel feature ranking for multiple drugs |
+| `run_parallel_feature_ranking_bulk()` | Feature ranking for multiple drugs (vectorized; serial is faster than the old Windows cluster) |
 | `build_on_BULK_v2()` | Build a single-drug model (glmnet or random forest) |
 
 ### 4.4 Prediction
