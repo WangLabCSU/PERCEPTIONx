@@ -1,4 +1,29 @@
 # Prediction Module
+
+# Empty-state card annotations. Rendered STATICALLY in the UI: the results
+# cards live in a hidden nav tab, so server-rendered uiOutput content arrives
+# only after the tab is shown / an event fires (same trap as the Home page
+# stepper). The server just clears — or restores — them via the 'set-html'
+# handler once predictions exist.
+clone_desc_html <- function() {
+  div(class = "card-desc",
+    icon("fire", style = "font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 0.35rem;"),
+    "Predicted viability of every clone per drug (higher = more resistant).",
+    br(),
+    "Select model & expression sources, then click ",
+    strong("Run Prediction"), "."
+  )
+}
+
+patient_desc_html <- function() {
+  div(class = "card-desc",
+    icon("user", style = "font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 0.35rem;"),
+    "Clone viabilities aggregated per patient (weighted_max).",
+    br(),
+    "Appears here after running prediction."
+  )
+}
+
 mod_predict_ui <- function(id) {
   ns <- NS(id)
   tagList(
@@ -92,7 +117,7 @@ mod_predict_ui <- function(id) {
             icon("fire"), " Clone-Level Predictions"
           ),
           div(class = "card-body",
-            uiOutput(ns("card_desc_clone")),
+            div(id = ns("clone_desc"), clone_desc_html()),
             uiOutput(ns("clone_heatmap_area"))
           )
         ),
@@ -103,7 +128,7 @@ mod_predict_ui <- function(id) {
             icon("user"), " Patient-Level Predictions"
           ),
           div(class = "card-body",
-            uiOutput(ns("card_desc_patient")),
+            div(id = ns("patient_desc"), patient_desc_html()),
             uiOutput(ns("patient_table_area")),
             uiOutput(ns("patient_download"))
           )
@@ -363,34 +388,17 @@ mod_predict_server <- function(id, shared, main_session) {
       plotlyOutput(ns("clone_heatmap"), height = paste0(h, "px"))
     })
 
-    # Card annotations (icon + description + hint) — one centered block per
-    # card, shown only before a prediction run; once results exist the space
-    # belongs to the heatmap / table.
-    output$card_desc_clone <- renderUI({
-      if (is.null(clone_pred())) {
-        div(class = "card-desc",
-          icon("fire", style = "font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 0.35rem;"),
-          "Predicted viability of every clone per drug (higher = more resistant).",
-          br(),
-          "Select model & expression sources, then click ",
-          strong("Run Prediction"), "."
-        )
-      } else {
-        NULL
-      }
-    })
-
-    output$card_desc_patient <- renderUI({
-      if (is.null(clone_pred())) {
-        div(class = "card-desc",
-          icon("user", style = "font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 0.35rem;"),
-          "Clone viabilities aggregated per patient (weighted_max).",
-          br(),
-          "Appears here after running prediction."
-        )
-      } else {
-        NULL
-      }
+    # Card annotations (icon + description + hint) are statically pre-rendered
+    # in the UI (visible on first paint). Clear them once predictions exist,
+    # and restore them if a later run produces no result again.
+    observe({
+      has_res <- !is.null(clone_pred())
+      session$sendCustomMessage("set-html",
+        list(id = ns("clone_desc"),
+             html = if (has_res) "" else as.character(clone_desc_html())))
+      session$sendCustomMessage("set-html",
+        list(id = ns("patient_desc"),
+             html = if (has_res) "" else as.character(patient_desc_html())))
     })
 
     # Patient table
