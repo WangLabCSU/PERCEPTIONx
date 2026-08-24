@@ -268,8 +268,12 @@ mod_train_server <- function(id, shared, main_session) {
           p(id = ns("trn_detail"), class = "text-muted",
             style = "font-size: 0.82rem; opacity: 0.75;",
             "Elastic net tuning + single-cell refinement"),
-          div(class = "train-progress-track",
-            div(id = ns("trn_bar"), class = "train-progress-bar", style = "width: 5%;")
+          # NB: the id sits on the TRACK. set-html replaces the bar inside it
+          # with a fresh .train-progress-bar whose width % is therefore relative
+          # to the full track. (Putting the id on the bar itself caused a bar
+          # nested inside a 5%-wide bar — the visible fill never moved.)
+          div(id = ns("trn_bar"), class = "train-progress-track",
+            div(class = "train-progress-bar", style = "width: 5%;")
           )
         ),
         color = "rgba(255,255,255,0.85)"
@@ -301,11 +305,16 @@ mod_train_server <- function(id, shared, main_session) {
           output_dir = tempdir(),
           progress_cb = function(phase, i, n, drug) {
             if (phase == "rank") {
-              set_train_overlay("Feature ranking done", "Starting per-drug training", 0.10)
+              set_train_overlay("Feature ranking done", "Starting per-drug training", 0.05)
+            } else if (phase == "done") {
+              # All drugs built — fill the bar before the overlay is removed.
+              set_train_overlay("All drugs trained", "Saving model files...", 1)
             } else {
+              # Bar is divided evenly across drugs: drug i starts at (i-1)/n
+              # (never below the 5% shown during feature ranking).
               set_train_overlay(sprintf("Training %d/%d: %s", i, n, drug),
                                 "Elastic net tuning + single-cell refinement",
-                                0.10 + 0.90 * (i - 1) / n)
+                                max(0.05, (i - 1) / n))
             }
           }
         )
