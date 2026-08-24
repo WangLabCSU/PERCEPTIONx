@@ -591,7 +591,6 @@ train_models <- function(drug_list = NULL,
     drug <- drug_list[i]
     message("  Processing: ", drug)
     if (!is.null(progress_cb)) progress_cb("train", i, length(drug_list), drug)
-    t_drug0 <- Sys.time()
 
     # Check if feature ranking succeeded
     features <- features_list[[i]]
@@ -672,8 +671,6 @@ train_models <- function(drug_list = NULL,
     # Clean up
     rm(Raw_models_output)
     gc()
-    cat(sprintf("[train] %s built %s in %.1fs\n", format(Sys.time(), "%H:%M:%OS3"),
-                drug, as.numeric(Sys.time() - t_drug0)))
   }
 
   # All drugs processed — final tick so a progress bar reaches 100%.
@@ -701,11 +698,8 @@ train_models <- function(drug_list = NULL,
     }
     m
   }
-  t_save0 <- Sys.time()
   out_for_save <- lapply(Tuned_models_output, strip_model_env)
   saveRDS(out_for_save, save_path)
-  cat(sprintf("[train] %s saved RDS in %.1fs\n", format(Sys.time(), "%H:%M:%OS3"),
-              as.numeric(Sys.time() - t_save0)))
   message("\nAll models saved to: ", save_path)
 
   successful <- sum(!sapply(Tuned_models_output, function(x) length(x) == 1 && is.na(x)))
