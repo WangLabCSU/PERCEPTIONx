@@ -17,27 +17,27 @@
   var steps = [
     {
       center: true,
-      title: 'Welcome to PERCEPTION-shiny',
+      title: 'Welcome to PERCEPTION-shiny!',
       text: 'This tool predicts patient response and resistance to cancer treatment ' +
             'from single-cell transcriptomics. Take 30 seconds to walk through the core workflow.'
     },
     {
       target: '#home-go_demo',
       title: 'Try it instantly',
-      text: 'Click "Load Demo" to load demo data (49 genes \u00d7 400 cells + 2 pretrained models). ' +
-            'No uploads needed \u2014 explore every feature right away.'
+      text: 'Click "Load Demo" to load demo data (49 genes × 400 cells + 2 pretrained models). ' +
+            'No uploads needed. Explore every feature right away.'
     },
     {
       target: 'a[data-value="data"]',
       title: 'Data',
       text: 'Upload your own expression matrix, clinical response, and clone annotations, ' +
-            'or load the DepMap reference data here.'
+            'or load the DepMap reference data and pretrained models here.'
     },
     {
       target: 'a[data-value="train"]',
       title: 'Train',
-      text: 'Train drug-response models (elastic net / random forest) on DepMap expression data. ' +
-            'Training runs asynchronously in a background process, so the UI stays responsive.'
+      text: 'Train drug-response models on DepMap expression data. ' +
+            'If the drugs you need are not listed in the pretrained models, try to train a new model here.'
     },
     {
       target: 'a[data-value="predict"]',
@@ -48,7 +48,7 @@
     {
       target: 'a[data-value="visualize"]',
       title: 'Visualize',
-      text: 'ROC curves, response boxplots, clone-viability lollipops, and UMAP spatial views ' +
+      text: 'After prediction, you can visualize ROC curves, response boxplots, clone-viability lollipops, and UMAP spatial views ' +
             'to interpret response and resistance.'
     },
     {
