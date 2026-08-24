@@ -13,20 +13,55 @@ library(ggplot2)
 # exceed Shiny's default 5 MB limit.
 options(shiny.maxRequestSize = 1 * 1024^3)  # 1 GB (DepMap.RDS is ~567 MB)
 
-# Auto-detect package root: works from inst/shiny/app/ -> repo root
-# Falls back to installed PERCEPTIONx package if devtools not available.
-pkg_root <- if (requireNamespace("devtools", quietly = TRUE)) {
-  normalizePath(file.path(getwd(), "..", "..", ".."), mustWork = FALSE)
-} else {
-  NULL
+# Long synchronous tasks (model training, large uploads/parsing) block the
+# single R thread, so the browser heartbeat cannot be answered while they run.
+# The default heartbeat timeout is 60s — multi-drug training can exceed that,
+# the browser drops the WebSocket, and the "hiding" messages (waiter, progress)
+# are lost, leaving spinners stuck on screen. Raise it so sessions survive.
+options(shiny.heartbeat.timeout = 1800)  # 30 minutes, then consider dead
+
+# Auto-detect package root robustly, regardless of how the app is launched
+# (cd inst/shiny/app && Rscript app.R, shiny::runApp("inst/shiny/app") from the
+# repo root, RStudio "Run App", etc.). Each candidate directory must contain a
+# DESCRIPTION; only then do we load the LIVE repo code via devtools. Without
+# this, a cwd mismatch silently falls back to the INSTALLED PERCEPTIONx — i.e.
+# stale code that misses recent fixes (e.g. the vectorized feature ranking).
+pkg_root <- NULL
+script_dir <- tryCatch(dirname(sys.frame(1)$ofile), error = function(e) NULL)
+candidates <- c(
+  if (!is.null(script_dir)) file.path(script_dir, "..", "..", ".."),
+  file.path(getwd(), "..", "..", ".."),  # cwd = inst/shiny/app
+  file.path(getwd(), "..", ".."),        # cwd = inst/shiny
+  file.path(getwd(), ".."),              # cwd = inst
+  file.path(getwd())                     # cwd = repo root
+)
+for (cand in candidates) {
+  if (!is.null(cand) && file.exists(file.path(cand, "DESCRIPTION"))) {
+    pkg_root <- normalizePath(cand)
+    break
+  }
 }
-if (!is.null(pkg_root) && file.exists(file.path(pkg_root, "DESCRIPTION"))) {
+if (!is.null(pkg_root)) {
   suppressMessages(devtools::load_all(pkg_root, quiet = TRUE))
+  cat("[app] Live repo code loaded from:", pkg_root, "\n")
 } else if (requireNamespace("PERCEPTIONx", quietly = TRUE)) {
+  warning("Repo root not detected (launched from an unusual directory); ",
+          "falling back to the INSTALLED PERCEPTIONx package.")
   library(PERCEPTIONx)
+  cat("[app] WARNING: using INSTALLED PERCEPTIONx (repo root not found) — ",
+      "stale code, vectorized feature ranking is NOT active.\n")
 } else {
   stop("Neither devtools (with repo) nor PERCEPTIONx is available. Please install PERCEPTIONx.")
 }
+
+# Sanity check: the vectorized feature ranking is the single most important
+# recent fix (turns a ~5 min per-drug cor.test loop into <1 s). Print whether
+# the loaded code actually has it, so a stale-package load is obvious at boot.
+vec_rank_ok <- tryCatch(
+  length(grep("pairwise.complete.obs",
+              deparse(get("feature_ranking_bulk", asNamespace("PERCEPTIONx"))))) > 0,
+  error = function(e) FALSE)
+cat("[app] Vectorized feature ranking active:", vec_rank_ok, "\n")
 
 # Source modules
 source("R/shiny_helpers.R")

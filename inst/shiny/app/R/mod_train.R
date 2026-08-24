@@ -255,22 +255,39 @@ mod_train_server <- function(id, shared, main_session) {
         }
       }
 
+      # ONE overlay layer: spinner + stage text + progress bar live together
+      # inside the same waiter overlay. The bar/text are updated in place via
+      # the 'set-html' handler (no shiny::Progress top-right bar underneath the
+      # translucent overlay — that stacked look was confusing, and its hide
+      # message could be lost on long runs).
       w <- Waiter$new(
         html = tagList(
           div(class = "spinner-ring"),
           h4("Training model..."),
-          p(class = "text-muted", "This may take a few seconds")
+          p(id = ns("trn_stage"), class = "text-muted", "Feature ranking (Step 1/2)..."),
+          p(id = ns("trn_detail"), class = "text-muted",
+            style = "font-size: 0.82rem; opacity: 0.75;",
+            "Elastic net tuning + single-cell refinement"),
+          div(class = "train-progress-track",
+            div(id = ns("trn_bar"), class = "train-progress-bar", style = "width: 5%;")
+          )
         ),
         color = "rgba(255,255,255,0.85)"
       )
       w$show()
 
-      # Drug-level progress bar (top-right) driven by train_models' callback.
-      # Works during the long synchronous training because shiny::Progress
-      # pushes messages to the client immediately, not when R returns.
-      prog <- shiny::Progress$new(session, min = 0, max = 1)
-      prog$set(message = "Feature ranking (Step 1/2)...", value = 0.05)
-      on.exit(prog$close(), add = TRUE)
+      # In-place updates of the overlay (avoids rebuilding the spinner, which
+      # would restart its animation on every drug).
+      set_train_overlay <- function(stage, detail, value) {
+        pct <- round(100 * max(0, min(1, value)))
+        session$sendCustomMessage("set-html",
+          list(id = ns("trn_stage"), html = stage))
+        session$sendCustomMessage("set-html",
+          list(id = ns("trn_detail"), html = detail))
+        session$sendCustomMessage("set-html",
+          list(id = ns("trn_bar"),
+               html = paste0("<div class='train-progress-bar' style='width: ", pct, "%;'></div>")))
+      }
 
       tryCatch({
         result <- PERCEPTIONx::train_models(
@@ -284,13 +301,11 @@ mod_train_server <- function(id, shared, main_session) {
           output_dir = tempdir(),
           progress_cb = function(phase, i, n, drug) {
             if (phase == "rank") {
-              prog$set(value = 0.10,
-                       message = "Feature ranking done",
-                       detail = "Starting per-drug training")
+              set_train_overlay("Feature ranking done", "Starting per-drug training", 0.10)
             } else {
-              prog$set(value = 0.10 + 0.90 * (i - 1) / n,
-                       message = sprintf("Training %d/%d: %s", i, n, drug),
-                       detail = "Elastic net tuning + single-cell refinement")
+              set_train_overlay(sprintf("Training %d/%d: %s", i, n, drug),
+                                "Elastic net tuning + single-cell refinement",
+                                0.10 + 0.90 * (i - 1) / n)
             }
           }
         )

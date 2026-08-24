@@ -1757,6 +1757,25 @@ table.dataTable thead th {
   font-size: 0.88rem;
 }
 
+/* Training overlay progress bar — lives INSIDE the waiter overlay (same layer
+   as the spinner) so the two never appear stacked/disconnected. */
+.train-progress-track {
+  width: 70%;
+  max-width: 420px;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(22, 92, 145, 0.12);
+  margin: 1rem auto 0;
+  overflow: hidden;
+}
+
+.train-progress-bar {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--primary, #165C91), var(--accent, #E8985D));
+  transition: width 0.3s ease;
+}
+
 /* --- Page Transition --- */
 .tab-pane { animation: fadeIn 0.3s ease; }
 
