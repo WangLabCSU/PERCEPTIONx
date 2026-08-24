@@ -676,6 +676,9 @@ train_models <- function(drug_list = NULL,
                 drug, as.numeric(Sys.time() - t_drug0)))
   }
 
+  # All drugs processed — final tick so a progress bar reaches 100%.
+  if (!is.null(progress_cb)) progress_cb("done", length(drug_list), length(drug_list), "")
+
   # Assign names and filter out NULL entries (failed drugs)
   names(for_output_lung_Test_vglm) <- drug_list
   for_output_lung_Test_vglm <- for_output_lung_Test_vglm[!sapply(for_output_lung_Test_vglm, is.null)]
