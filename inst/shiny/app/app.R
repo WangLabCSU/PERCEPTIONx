@@ -43,25 +43,13 @@ for (cand in candidates) {
 }
 if (!is.null(pkg_root)) {
   suppressMessages(devtools::load_all(pkg_root, quiet = TRUE))
-  cat("[app] Live repo code loaded from:", pkg_root, "\n")
 } else if (requireNamespace("PERCEPTIONx", quietly = TRUE)) {
   warning("Repo root not detected (launched from an unusual directory); ",
           "falling back to the INSTALLED PERCEPTIONx package.")
   library(PERCEPTIONx)
-  cat("[app] WARNING: using INSTALLED PERCEPTIONx (repo root not found) — ",
-      "stale code, vectorized feature ranking is NOT active.\n")
 } else {
   stop("Neither devtools (with repo) nor PERCEPTIONx is available. Please install PERCEPTIONx.")
 }
-
-# Sanity check: the vectorized feature ranking is the single most important
-# recent fix (turns a ~5 min per-drug cor.test loop into <1 s). Print whether
-# the loaded code actually has it, so a stale-package load is obvious at boot.
-vec_rank_ok <- tryCatch(
-  length(grep("pairwise.complete.obs",
-              deparse(get("feature_ranking_bulk", asNamespace("PERCEPTIONx"))))) > 0,
-  error = function(e) FALSE)
-cat("[app] Vectorized feature ranking active:", vec_rank_ok, "\n")
 
 # Source modules
 source("R/shiny_helpers.R")

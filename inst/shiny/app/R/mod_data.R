@@ -843,7 +843,6 @@ mod_data_server <- function(id, shared) {
         drug_local <- d
         btn_id <- paste0("toggle_", gsub("[^A-Za-z0-9]", "_", drug_local))
         observeEvent(input[[btn_id]], {
-          cat(file = stderr(), paste0("[DEBUG] toggle fired for: ", drug_local, "\n"))
           is_active <- isTRUE(shared$model_active[[drug_local]])
           if (is_active) {
             # Deactivate: remove from active models but keep in cache
