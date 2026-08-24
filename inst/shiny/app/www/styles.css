@@ -1629,8 +1629,12 @@ body {
   100% { background-position: 200% 0; }
 }
 
-.animate-fade-in-up { animation: fadeInUp 0.5s ease; opacity: 1; }
-.animate-fade-in { animation: fadeIn 0.4s ease forwards; }
+/* Entrance animations are disabled: key content (demo button, icons,
+   annotations, cards) must appear INSTANTLY on load / tab switch. The classes
+   stay in the HTML for compatibility but no longer animate; hover transitions
+   elsewhere still provide interactive feedback. */
+.animate-fade-in-up { animation: none; opacity: 1; }
+.animate-fade-in { animation: none; opacity: 1; }
 
 .delay-1 { animation-delay: 0.08s; }
 .delay-2 { animation-delay: 0.16s; }
@@ -1776,8 +1780,8 @@ table.dataTable thead th {
   transition: width 0.3s ease;
 }
 
-/* --- Page Transition --- */
-.tab-pane { animation: fadeIn 0.3s ease; }
+/* --- Page Transition (instant: no fade so tab content shows immediately) --- */
+.tab-pane { animation: none; }
 
 /* --- Divider --- */
 .section-divider {
@@ -2019,7 +2023,7 @@ table.dataTable thead th {
   background: linear-gradient(135deg, rgba(49, 151, 149, 0.25), rgba(79, 209, 197, 0.12));
   z-index: -1;
   opacity: 0;
-  animation: cardGlowIn 0.6s ease forwards;
+  animation: cardGlowIn 0.3s ease forwards;
 }
 
 @keyframes cardGlowIn {

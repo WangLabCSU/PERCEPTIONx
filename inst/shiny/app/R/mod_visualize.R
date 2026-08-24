@@ -317,7 +317,10 @@ mod_visualize_server <- function(id, shared, main_session) {
       list(X = coords[[x_col]][idx], Y = coords[[y_col]][idx])
     }
 
-    # Safe scale: 0—1 using percentiles. Falls back to min-max if range01 fails.
+    # Safe 0-1 scaling (5th-95th percentile, clamped; min-max fallback). Used
+    # by the spatial plots so both Drug Viability and Gene Expression share the
+    # same 0-1 viridis colour scale — matching the paper's Extended Data Fig. 2
+    # ("intensity of the color denotes the extent of predicted killing").
     safe_range01 <- function(x) {
       if (length(x) == 0L) stop("empty input to safe_range01")
       r <- tryCatch(PERCEPTIONx::range01(x), error = function(e) NULL)
@@ -664,6 +667,15 @@ mod_visualize_server <- function(id, shared, main_session) {
             keep <- !is.na(rv) & !is.na(predictor_vec)
             rv <- rv[keep]
             predictor_vec <- predictor_vec[keep]
+            # z-score so the y-axis matches the (z-score) label and the same
+            # viability scale as the lollipop / UMAP. Rank-based tests are
+            # invariant to this monotone transform, so p-values are unchanged.
+            predictor_vec <- if (length(predictor_vec) > 1 &&
+                                 is.finite(sd(predictor_vec)) && sd(predictor_vec) > 0) {
+              as.numeric(scale(predictor_vec))
+            } else {
+              predictor_vec
+            }
             exp_vs_pred <- data.frame(
               response = factor(rv, levels = unique(rv)),
               predicted_viability = predictor_vec,
@@ -751,13 +763,14 @@ mod_visualize_server <- function(id, shared, main_session) {
                 umap_data <- data.frame(
                   X = xy$X,
                   Y = xy$Y,
-                  expression = scale(cell_expr)[, 1],
+                  # 0-1 (5th-95th pct) so the colour scale never implies
+                  # negative expression — same scale as Drug Viability.
+                  expression = safe_range01(cell_expr),
                   row.names = common_cells
                 )
                 PERCEPTIONx::plot_tsne_response(umap_data, color_var = "expression",
-                                                title = gene, color_label = "Expression (z-score)",
-                                                palette = "diverging", midpoint = 0,
-                                                base_size = 11)
+                                                title = gene, color_label = "Expression (0-1)",
+                                                palette = "viridis", base_size = 11)
               }
             }
           },
@@ -784,7 +797,17 @@ mod_visualize_server <- function(id, shared, main_session) {
                 NULL
               } else {
                 raw_vals <- cell_viability[kill_common]
-                scaled_vals <- safe_range01(raw_vals)
+                # z-score so viability shares ONE scale across all plots
+                # (lollipop, boxplot, UMAP): 0 = cohort mean, + = resistant.
+                # The 0 is conveyed by the colorbar number — the diverging
+                # "white = 0" crutch is not required; viridis matches Gene
+                # Expression (dark = low, yellow = high).
+                scaled_vals <- if (length(raw_vals) > 1 &&
+                                   is.finite(sd(raw_vals)) && sd(raw_vals) > 0) {
+                  as.numeric(scale(raw_vals))
+                } else {
+                  raw_vals
+                }
                 xy <- get_embedding_xy(umap_coords, kill_common)
                 # Defensive: ensure all columns have the same length
                 n <- length(kill_common)
@@ -796,7 +819,7 @@ mod_visualize_server <- function(id, shared, main_session) {
                   row.names = kill_common
                 )
                 PERCEPTIONx::plot_tsne_response(umap_data, color_var = "viability_scaled",
-                                                title = drug, color_label = "Predicted Viability",
+                                                title = drug, color_label = "Predicted Viability (z-score)",
                                                 palette = "viridis", base_size = 11)
               }
             }
@@ -954,17 +977,17 @@ mod_visualize_server <- function(id, shared, main_session) {
       ),
       boxplot = list(
         title = "Response Boxplot",
-        desc = "Patient-level predicted viability scores per clinical response group. Two groups (R/NR): p-value is a one-sided Wilcoxon test asking whether responders are predicted more sensitive (lower viability). Three or more groups (e.g. TN/RD/PD): p-value is a global Kruskal-Wallis test asking whether any group differs. Non-parametric tests keep the p-value valid even with the small patient sample sizes inherent to clinical response data.",
+        desc = "Patient-level predicted viability (z-score) per clinical response group. Two groups (R/NR): p-value is a one-sided Wilcoxon test asking whether responders are predicted more sensitive (lower viability). Three or more groups (e.g. TN/RD/PD): pairwise two-sided Wilcoxon tests with BH (FDR) multiple-testing correction — the adj. p on each bracket tells you which specific pairs differ. Non-parametric tests keep the p-value valid even with the small patient sample sizes inherent to clinical response data.",
         requires = "Patient-level Predictions + Clinical Response"
       ),
       umap_gene = list(
         title = "Gene Expression",
-        desc = "Shows the expression level of a selected gene across all single cells in the 2D embedding space. Color gradient indicates expression intensity — brighter colors = higher expression. Use this to examine how a gene's expression pattern relates to the transcriptional subclone landscape.",
+        desc = "Shows the expression level of a selected gene (0-1 normalized, 5th-95th percentile) across all single cells in the 2D embedding space. Yellow = higher expression, dark = lower expression — same colour scale as Drug Viability (paper Extended Data Fig. 2 style). Use this to examine how a gene's expression pattern relates to the transcriptional subclone landscape.",
         requires = "Clone-level Predictions + Expression Matrix + 2D embedding coordinates"
       ),
       umap_viability = list(
         title = "Drug Viability",
-        desc = "Shows the predicted drug viability score across all single cells in the 2D embedding space. Color gradient indicates viability — brighter = higher viability (more resistant), darker = lower viability (more sensitive). Use this to identify which regions of the embedding (i.e., which subclones) are most affected by a given drug.",
+        desc = "Shows the predicted drug viability (z-score: 0 = cohort mean across clones, higher = more resistant) across all single cells in the 2D embedding space. Yellow = high viability (resistant), dark = low viability (sensitive) — same viridis ramp and z-score scale as the lollipop and boxplot. Use this to identify which regions of the embedding (i.e., which subclones) are most affected by a given drug.",
         requires = "Clone-level Predictions + 2D embedding coordinates (auto-generated by Seurat)"
       ),
       umap_clone = list(
