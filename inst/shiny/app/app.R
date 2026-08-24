@@ -51,8 +51,13 @@ if (!is.null(pkg_root)) {
   stop("Neither devtools (with repo) nor PERCEPTIONx is available. Please install PERCEPTIONx.")
 }
 
+# Background worker (callr) must load the SAME live repo code — remember where
+# it is so async_jobs.R can hand the path to the worker process.
+options(perception.pkg_root = pkg_root)
+
 # Source modules
 source("R/shiny_helpers.R")
+source("R/async_jobs.R")
 source("R/mod_home.R")
 source("R/mod_data.R")
 source("R/mod_train.R")
@@ -93,6 +98,9 @@ ui <- page_navbar(
     # always fetch the newest stylesheet after a restart (no stale cache).
     tags$head(tags$link(rel = "stylesheet",
                         href = paste0("styles.css?v=", format(Sys.time(), "%Y%m%d%H%M%S")))),
+    tags$head(tags$link(rel = "stylesheet",
+                        href = paste0("tour.css?v=", format(Sys.time(), "%Y%m%d%H%M%S")))),
+    tags$head(tags$script(src = paste0("tour.js?v=", format(Sys.time(), "%Y%m%d%H%M%S")))),
     tags$head(tags$link(rel = "icon", href = "favicon.svg", type = "image/svg+xml")),
     tags$head(tags$script(HTML("
       Shiny.addCustomMessageHandler('scroll-to', function(id) {
@@ -124,6 +132,14 @@ ui <- page_navbar(
     ")))
   ),
   nav_spacer(),
+  nav_item(tagList(
+    tags$a(
+      href = "#",
+      id = "tour-start",
+      icon("circle-question", class = "nav-icon"),
+      title = "Guided tour"
+    )
+  )),
   nav_item(tagList(
     tags$a(
       href = "https://github.com/WangLabCSU/PERCEPTIONx/blob/main/docs/PERCEPTION-shiny.md",
