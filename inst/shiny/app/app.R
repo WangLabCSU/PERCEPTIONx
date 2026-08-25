@@ -197,6 +197,8 @@ server <- function(input, output, session) {
   # Shared reactive values
   shared <- reactiveValues(
     depmap = NULL,
+    depmap_path = NULL,
+    depmap_is_standard = FALSE,
     models = NULL,
     user_expr = NULL,
     user_mapping = NULL,
