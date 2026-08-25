@@ -13,7 +13,14 @@
 # ---------------------------------------------------------------------------
 extract_depmap_meta <- function(depmap_path, cache_file = NULL) {
   if (!is.null(cache_file) && file.exists(cache_file)) {
-    return(readRDS(cache_file))
+    # Only trust a cache that is newer than the source DepMap.RDS itself:
+    # if the RDS was replaced (re-download / different version) the cached
+    # genes/drugs would be silently stale. A corrupt cache falls through to
+    # a full re-extraction instead of erroring.
+    if (file.mtime(cache_file) >= file.mtime(depmap_path)) {
+      cached <- tryCatch(readRDS(cache_file), error = function(e) NULL)
+      if (!is.null(cached)) return(cached)
+    }
   }
   DepMap <- readRDS(depmap_path)
   if (!is.list(DepMap)) {

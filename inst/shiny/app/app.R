@@ -224,6 +224,35 @@ server <- function(input, output, session) {
   # OTHER sessions' DepMap.RDS that a background worker may still need to read
   # from disk (built-in downloads all share tempdir()/DepMap.RDS), breaking
   # their training. R's tempdir() is cleaned up by the OS on process exit.
+
+  session$onSessionEnded(function() {
+    # 1. Kill THIS session's background workers. callr's supervise = TRUE only
+    # kills children when the WHOLE server process exits, so without this every
+    # session leaks its worker (each one holds that session's data in RAM —
+    # prepared Seurat objects, prediction matrices, or even a full uploaded
+    # DepMap) until the server restarts. The training MASTER is server-wide
+    # and must NOT be touched; shared$train_worker is always the per-session
+    # custom worker, shared$task_worker the prepare/demo/predict/plot worker.
+    tw <- shared$task_worker
+    if (!is.null(tw) && inherits(tw, "r_process") && tw$is_alive()) {
+      tw$kill()
+    }
+    cw <- shared$train_worker
+    if (!is.null(cw) && inherits(cw, "r_process") && cw$is_alive()) {
+      cw$kill()
+    }
+    # 2. Drop this session's private job dirs (perception_tasks/<id> and, for
+    # uploaded DepMap users, perception_jobs_custom/<id>). They are session-
+    # scoped — no other session can be reading them — and any job that was
+    # mid-flight has been aborted by the kill above.
+    for (dir_key in c("task_jobs_dir", "jobs_dir")) {
+      d <- shared[[dir_key]]
+      if (!is.null(d) && nzchar(d) &&
+          grepl("perception_tasks|perception_jobs_custom", d, fixed = FALSE)) {
+        unlink(d, recursive = TRUE)
+      }
+    }
+  })
 }
 
 shinyApp(ui, server)

@@ -335,6 +335,12 @@ PERCEPTION-shiny is the interactive web dashboard (built with Shiny) that
 wraps the whole pipeline — data loading, model training, prediction, and
 visualization — in a point-and-click interface.
 
+Heavy computation (training, clustering, prediction, plotting) runs in
+background worker processes, so the UI never blocks other users; the main
+process keeps only lightweight DepMap metadata. See `docs/PERCEPTION-shiny.md`
+for the async architecture and the `PERCEPTION_WORKERS` /
+`PERCEPTION_WORKER_IDLE_MINUTES` deployment options.
+
 ## 7.1 Launch
 
 ```r

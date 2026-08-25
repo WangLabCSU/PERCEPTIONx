@@ -267,6 +267,12 @@ mod_help_ui <- function(id) {
               div(class = "help-faq-a",
                 "Enable the ", strong("Mirror"), " checkbox (default ON) to use mirror download. If still failing, download the files manually from GitHub Releases and use the file upload option."
               )
+            ),
+            div(class = "help-faq-item",
+              div(class = "help-faq-q", icon("question-circle"), " Why doesn't the interface freeze during training / clustering / prediction?"),
+              div(class = "help-faq-a",
+                "All heavy computation (model training, Seurat clustering, prediction, plot math) runs in ", strong("background worker processes"), ", not in the interface. The UI polls and shows progress, so other pages stay responsive. If a worker ever stops unexpectedly, the app shows \"Background worker stopped\" instead of spinning forever — just submit again."
+              )
             )
           )
         ),

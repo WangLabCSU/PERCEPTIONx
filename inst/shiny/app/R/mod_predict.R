@@ -142,6 +142,9 @@ mod_predict_server <- function(id, shared, main_session) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
+    # Guards against double-submitting the predict task (rapid double clicks).
+    pred_busy <- reactiveVal(FALSE)
+
     # Prerequisites check
     output$prereq_check <- renderUI({
       missing <- c()
@@ -226,6 +229,11 @@ mod_predict_server <- function(id, shared, main_session) {
         showNotification("No expression data available. Load or upload data first.", type = "error")
         return()
       }
+      if (pred_busy()) {
+        showNotification("A prediction is already running", type = "warning", duration = 5)
+        return()
+      }
+      pred_busy(TRUE)
 
       # Pre-check: gene overlap between model features and expression data
       # (check ALL models, not just the first one)
@@ -301,12 +309,13 @@ mod_predict_server <- function(id, shared, main_session) {
           legacy_clones = legacy_clones,
           mode          = input$agg_mode
         )),
-        error = function(e) { w$hide(); NULL }
+        error = function(e) { pred_busy(FALSE); w$hide(); NULL }
       )
       if (is.null(jobid)) return()
 
       poll_task(shared, session, jobid,
         on_done = function(res) {
+          pred_busy(FALSE)
           w$hide()
           clone_pred(res$clone_pred)
           patient_pred(res$patient_pred)
@@ -315,6 +324,7 @@ mod_predict_server <- function(id, shared, main_session) {
           showNotification("Prediction complete (background worker)", type = "message")
         },
         on_error = function(msg) {
+          pred_busy(FALSE)
           w$hide()
           showNotification(paste("Prediction error:", msg), type = "error", duration = 10)
         })
