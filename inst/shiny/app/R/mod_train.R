@@ -310,10 +310,27 @@ mod_train_server <- function(id, shared, main_session) {
     })
 
     # Poll the background training job every second; drive the overlay and
-    # finalize when the worker reports done / error.
+    # finalize when the worker reports done / error. Also detects a DEAD
+    # worker (master OOM-killed / custom worker crashed): without this the
+    # job would spin "queued" forever because status.txt never appears.
     observe({
       jobid <- shared$active_job
       if (is.null(jobid)) return()
+      worker_alive <- if (isTRUE(shared$depmap_is_standard)) {
+        m <- getOption("perception.master")
+        is.null(m) || m$is_alive()   # NULL = not yet spawned = still recoverable
+      } else {
+        w <- shared$train_worker
+        is.null(w) || w$is_alive()
+      }
+      if (!worker_alive) {
+        shared$active_job <- NULL
+        shared$active_job_drugs <- NULL
+        if (!is.null(train_waiter())) { train_waiter()$hide(); train_waiter(NULL) }
+        showNotification("The background training worker stopped unexpectedly (it may have run out of memory or been killed). Please try again.",
+                         type = "error", duration = 12)
+        return()
+      }
       st <- tryCatch(read_job_state(shared, jobid),
                      error = function(e) list(status = "error", message = conditionMessage(e)))
       w <- train_waiter()
@@ -324,6 +341,9 @@ mod_train_server <- function(id, shared, main_session) {
         requested_drugs <- shared$active_job_drugs %||% character(0)
         shared$active_job <- NULL
         shared$active_job_drugs <- NULL
+        # Result is in memory now — drop the on-disk job dir (models can be
+        # large) so the shared jobs pool does not accumulate GBs over time.
+        unlink(job_dir, recursive = TRUE)
         if (!is.null(w)) { w$hide(); train_waiter(NULL) }
         if (is.null(result)) {
           showNotification("Background job finished but produced no result (see console).",
@@ -350,6 +370,7 @@ mod_train_server <- function(id, shared, main_session) {
       if (st$status == "error") {
         shared$active_job <- NULL
         shared$active_job_drugs <- NULL
+        unlink(file.path(shared$jobs_dir, jobid), recursive = TRUE)
         if (!is.null(w)) { w$hide(); train_waiter(NULL) }
         showNotification(paste("Training job failed:", st$message), type = "error", duration = 12)
         return()

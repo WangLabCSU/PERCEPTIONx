@@ -77,7 +77,16 @@ train_master_main <- function(pkg_root, jobs_dir, max_parallel, idle_minutes) {
   run_train_job <- function(job_dir) {
     status_file <- file.path(job_dir, "status.txt")
     progress_file <- file.path(job_dir, "progress.txt")
-    params <- readRDS(file.path(job_dir, "params.rds"))
+    params <- tryCatch(
+      readRDS(file.path(job_dir, "params.rds")),
+      error = function(e) structure(list(message = conditionMessage(e)),
+                                    class = "perception_job_error")
+    )
+    if (inherits(params, "perception_job_error")) {
+      writeLines(sprintf("error|Failed to read job params: %s", params$message),
+                 status_file)
+      return(invisible(TRUE))
+    }
     out <- tryCatch(
       PERCEPTIONx::train_models(
         drug_list         = params$drug_list,
@@ -120,19 +129,47 @@ train_master_main <- function(pkg_root, jobs_dir, max_parallel, idle_minutes) {
       file.remove(request_file)
       if (!is.null(p) && !identical(p, depmap_path)) depmap_path <- p
     }
+    # Pending jobs are needed both for DepMap-load error reporting and for
+    # claiming below, so compute them once per loop iteration.
+    # Only dirs with a "ready" marker are claimable: the app writes
+    # params.rds FIRST, then the marker. Without this handshake a big,
+    # slow saveRDS (e.g. a large expression matrix) could be claimed
+    # mid-write and read as a truncated/corrupt file.
+    pending <- list.dirs(jobs_dir, recursive = FALSE, full.names = TRUE)
+    pending <- pending[!vapply(pending, function(j)
+      file.exists(file.path(j, "status.txt")), logical(1))]
+    pending <- pending[vapply(pending, function(j)
+      file.exists(file.path(j, "ready")), logical(1))]
+
     if (!is.null(depmap_path) && is.null(DepMap)) {
       message("[master] loading DepMap from ", depmap_path)
-      DepMap <- readRDS(depmap_path)
-      assign_depmap(DepMap)
-      message("[master] DepMap ready (", length(DepMap), " datasets)")
-      last_activity <- Sys.time()
+      loaded <- tryCatch(
+        readRDS(depmap_path),
+        error = function(e) structure(list(message = conditionMessage(e)),
+                                      class = "perception_job_error")
+      )
+      if (inherits(loaded, "perception_job_error")) {
+        # A bad file must never crash the master (that would strand every
+        # queued job as "queued" forever). Report the failure to each pending
+        # job and drop the path so a fresh notify can retry.
+        message("[master] DepMap load FAILED: ", loaded$message)
+        for (j in pending) {
+          writeLines(sprintf("error|DepMap load failed: %s", loaded$message),
+                     file.path(j, "status.txt"))
+        }
+        DepMap <- NULL
+        depmap_path <- NULL
+        last_activity <- Sys.time()
+      } else {
+        DepMap <- loaded
+        assign_depmap(DepMap)
+        message("[master] DepMap ready (", length(DepMap), " datasets)")
+        last_activity <- Sys.time()
+      }
     }
 
     # 2. Claim pending jobs (file.create wins; only this master claims, so no
     #    double-processing).
-    pending <- list.dirs(jobs_dir, recursive = FALSE, full.names = TRUE)
-    pending <- pending[!vapply(pending, function(j)
-      file.exists(file.path(j, "status.txt")), logical(1))]
     claimed <- character(0)
     for (j in pending) {
       if (file.create(file.path(j, "status.txt"))) claimed <- c(claimed, j)
@@ -200,7 +237,16 @@ train_custom_main <- function(pkg_root, depmap_path, jobs_dir, poll_secs = 1L) {
   run_train_job <- function(job_dir) {
     status_file <- file.path(job_dir, "status.txt")
     progress_file <- file.path(job_dir, "progress.txt")
-    params <- readRDS(file.path(job_dir, "params.rds"))
+    params <- tryCatch(
+      readRDS(file.path(job_dir, "params.rds")),
+      error = function(e) structure(list(message = conditionMessage(e)),
+                                    class = "perception_job_error")
+    )
+    if (inherits(params, "perception_job_error")) {
+      writeLines(sprintf("error|Failed to read job params: %s", params$message),
+                 status_file)
+      return(invisible(TRUE))
+    }
     out <- tryCatch(
       PERCEPTIONx::train_models(
         drug_list         = params$drug_list,
@@ -228,11 +274,25 @@ train_custom_main <- function(pkg_root, depmap_path, jobs_dir, poll_secs = 1L) {
   }
 
   message("[custom-worker] loading DepMap from ", depmap_path)
-  DepMap <- readRDS(depmap_path)
+  DepMap <- tryCatch(
+    readRDS(depmap_path),
+    error = function(e) structure(list(message = conditionMessage(e)),
+                                  class = "perception_job_error")
+  )
+  if (inherits(DepMap, "perception_job_error")) {
+    # The uploaded file may already be gone (e.g. its session ended and
+    # Shiny cleaned up the upload). Nothing useful left to do: exit, and
+    # let the app's worker-death detection surface the failure.
+    message("[custom-worker] DepMap load FAILED: ", DepMap$message)
+    quit(save = "no")
+  }
   assign_depmap(DepMap)
   message("[custom-worker] DepMap ready, polling ", jobs_dir)
   while (TRUE) {
+    # Only claim dirs whose params.rds is fully written (see master note).
     pending <- list.dirs(jobs_dir, recursive = FALSE, full.names = TRUE)
+    pending <- pending[vapply(pending, function(j)
+      file.exists(file.path(j, "ready")), logical(1))]
     for (j in pending) {
       if (!file.exists(file.path(j, "status.txt")) &&
           file.create(file.path(j, "status.txt"))) {
@@ -287,7 +347,16 @@ notify_master_depmap <- function(depmap_path) {
 ensure_custom_worker <- function(shared) {
   if (isTRUE(shared$worker_alive) && !is.null(shared$train_worker) &&
       shared$train_worker$is_alive()) {
-    return(invisible(TRUE))
+    # The worker already loaded SOME DepMap into memory. If the user has since
+    # uploaded a DIFFERENT file, keep the worker but make it reload: training
+    # must use the current upload, never a stale copy.
+    if (identical(shared$worker_depmap_path, shared$depmap_path)) {
+      return(invisible(TRUE))
+    }
+    old_dir <- shared$jobs_dir
+    shared$train_worker$kill()
+    shared$worker_alive <- FALSE
+    if (!is.null(old_dir) && dir.exists(old_dir)) unlink(old_dir, recursive = TRUE)
   }
   if (is.null(shared$depmap_path)) {
     stop("DepMap file path is unknown. Please load DepMap data first (Data tab).")
@@ -305,6 +374,7 @@ ensure_custom_worker <- function(shared) {
   shared$jobs_dir <- jobs_dir
   shared$train_worker <- worker
   shared$worker_alive <- TRUE
+  shared$worker_depmap_path <- shared$depmap_path
   invisible(TRUE)
 }
 
@@ -325,6 +395,9 @@ submit_train_job <- function(shared, params) {
   job_dir <- file.path(jobs_dir, jobid)
   dir.create(job_dir, recursive = TRUE, showWarnings = FALSE)
   saveRDS(params, file.path(job_dir, "params.rds"))
+  # Handshake: params.rds must be fully written BEFORE the worker is allowed
+  # to claim this job (workers only pick up dirs with the ready marker).
+  file.create(file.path(job_dir, "ready"))
   file.create(file.path(job_dir, "progress.txt"))
   shared$active_job <- jobid
   shared$jobs_dir <- jobs_dir
@@ -838,11 +911,25 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 1L) {
 
   message("[session-worker] started, polling ", jobs_dir)
   while (TRUE) {
+    # Only claim dirs whose params.rds is fully written (see master note).
     pending <- list.dirs(jobs_dir, recursive = FALSE, full.names = TRUE)
+    pending <- pending[vapply(pending, function(j)
+      file.exists(file.path(j, "ready")), logical(1))]
     for (j in pending) {
       status_file <- file.path(j, "status.txt")
       if (!file.exists(status_file) && file.create(status_file)) {
-        params <- readRDS(file.path(j, "params.rds"))
+        params <- tryCatch(
+          readRDS(file.path(j, "params.rds")),
+          error = function(e) structure(list(message = conditionMessage(e)),
+                                        class = "perception_job_error")
+        )
+        if (inherits(params, "perception_job_error")) {
+          # A corrupt params file must not crash the worker (that would strand
+          # every later job in this session's queue).
+          writeLines(sprintf("error|Failed to read job params: %s", params$message),
+                     status_file)
+          next
+        }
         out <- tryCatch(
           switch(params$task,
             prepare = run_prepare(params$args),
@@ -896,6 +983,9 @@ submit_session_task <- function(shared, task, args) {
   job_dir <- file.path(shared$task_jobs_dir, jobid)
   dir.create(job_dir, recursive = TRUE, showWarnings = FALSE)
   saveRDS(list(task = task, args = args), file.path(job_dir, "params.rds"))
+  # Handshake: params.rds must be fully written BEFORE the worker is allowed
+  # to claim this job (workers only pick up dirs with the ready marker).
+  file.create(file.path(job_dir, "ready"))
   file.create(file.path(job_dir, "progress.txt"))
   shared$active_task <- jobid
   invisible(jobid)
@@ -919,17 +1009,32 @@ read_task_state <- function(shared, jobid) {
 
 # Poll a generic task every second until it finishes, then run on_done(result)
 # or on_error(message). The observer destroys itself when the task resolves,
-# so one call per submission is enough (no manual cleanup needed).
+# so one call per submission is enough (no manual cleanup needed). If the
+# session worker died mid-task (is_alive == FALSE) the poll gives up with an
+# actionable error instead of spinning forever.
 poll_task <- function(shared, session, jobid, on_done, on_error = NULL,
                       poll_ms = 1000) {
   obs <- NULL
   obs <- observe({
     st <- read_task_state(shared, jobid)
+    # Helper: drop the finished job's on-disk files (result is already in
+    # memory). Guard against a NULL jobs dir — file.path(NULL, id) would
+    # degrade to a bare relative path that unlink could resolve in cwd.
+    cleanup_job_dir <- function() {
+      tj <- shared$task_jobs_dir
+      if (!is.null(tj) && nzchar(tj)) unlink(file.path(tj, jobid), recursive = TRUE)
+    }
     if (st$status == "done") {
       obs$destroy()
+      # Result is already in memory (st$result): the on-disk job dir is no
+      # longer needed. Remove it so tempdir does not fill with big result.rds
+      # files over a long-running server (params.rds + result.rds can be
+      # many MB per predict/plot/prepare call).
+      cleanup_job_dir()
       on_done(st$result)
     } else if (st$status == "error") {
       obs$destroy()
+      cleanup_job_dir()
       if (!is.null(on_error)) {
         on_error(st$message)
       } else {
@@ -937,7 +1042,20 @@ poll_task <- function(shared, session, jobid, on_done, on_error = NULL,
                          type = "error", duration = 10)
       }
     } else {
-      invalidateLater(poll_ms, session)
+      w <- shared$task_worker
+      if (!is.null(w) && !w$is_alive()) {
+        # Worker crashed/exited without finishing: give up with a clear error.
+        obs$destroy()
+        cleanup_job_dir()
+        if (!is.null(on_error)) {
+          on_error("Background worker stopped unexpectedly. Please try again.")
+        } else {
+          showNotification("Background worker stopped unexpectedly. Please try again.",
+                           type = "error", duration = 10)
+        }
+      } else {
+        invalidateLater(poll_ms, session)
+      }
     }
   })
   invisible(obs)

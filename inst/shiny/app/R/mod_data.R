@@ -526,6 +526,11 @@ mod_data_server <- function(id, shared) {
     # Drives the "Load Demo Data" <-> "Clear Demo Data" toggle.
     demo_loaded <- reactiveVal(FALSE)
 
+    # Guards against double-submitting a background prepare task (rapid double
+    # clicks on Run Seurat / auto-prepare would otherwise queue duplicate jobs
+    # whose results race each other).
+    prep_busy <- reactiveVal(FALSE)
+
     output$demo_btn <- renderUI({
       if (demo_loaded()) {
         actionButton(ns("load_demo"), "Clear Demo Data",
@@ -542,6 +547,8 @@ mod_data_server <- function(id, shared) {
     auto_prepare_if_clone <- function() {
       if (!identical(input$expr_format, "clone")) return(invisible(NULL))
       if (is.null(shared$user_expr) || is.null(shared$user_mapping)) return(invisible(NULL))
+      if (prep_busy()) return(invisible(NULL))   # a prepare task is already running
+      prep_busy(TRUE)
       w <- Waiter$new(
         html = tagList(
           div(class = "spinner-ring"),
@@ -557,11 +564,12 @@ mod_data_server <- function(id, shared) {
           patient_mapping   = shared$user_mapping,
           skip_clustering   = TRUE
         )),
-        error = function(e) { w$hide(); NULL }
+        error = function(e) { prep_busy(FALSE); w$hide(); NULL }
       )
       if (is.null(jobid)) return(invisible(NULL))
       poll_task(shared, session, jobid,
         on_done = function(prepared) {
+          prep_busy(FALSE)
           w$hide()
           shared$prepared_data <- prepared
           shared$user_clones <- prepared$cell_clone_map
@@ -571,6 +579,7 @@ mod_data_server <- function(id, shared) {
                            type = "message", duration = 5)
         },
         on_error = function(msg) {
+          prep_busy(FALSE)
           w$hide()
           showNotification(paste("Auto-prepare error:", msg), type = "error", duration = 10)
         })
@@ -628,8 +637,26 @@ mod_data_server <- function(id, shared) {
         PERCEPTIONx::load_depmap(dest = tempdir(), read = FALSE, mirror = use_mirror,
                                  timeout_seconds = 600, retries = 2)
         depmap_path <- file.path(tempdir(), "DepMap.RDS")
-        shared$depmap_meta <- extract_depmap_meta(
-          depmap_path, cache_file = file.path(tempdir(), "DepMap_meta.RDS"))
+        shared$depmap_meta <- tryCatch(
+          extract_depmap_meta(depmap_path, cache_file = file.path(tempdir(), "DepMap_meta.RDS")),
+          error = function(e2) {
+            msg2 <- conditionMessage(e2)
+            # A corrupt/truncated file from an interrupted download would
+            # otherwise poison EVERY later session (file.exists() makes
+            # load_depmap skip re-downloading). Detect and delete it so the
+            # next click re-downloads a clean copy. Memory errors must NOT
+            # delete anything — the file may be fine.
+            corrupt <- grepl(paste0("error reading from connection|unknown input format|",
+                                   "cannot open the connection|not a list|",
+                                   "missing required components"), msg2, ignore.case = TRUE)
+            if (corrupt) {
+              unlink(depmap_path)
+              unlink(file.path(tempdir(), "DepMap_meta.RDS"))
+              stop("Downloaded DepMap.RDS is corrupt (incomplete download?) — it was deleted. ",
+                   "Please click 'Download & Load' again.", call. = FALSE)
+            }
+            stop(e2)
+          })
         # Remember where the file lives so the background training worker can
         # read the same DepMap from disk (it cannot share the parent's memory).
         shared$depmap_path <- depmap_path
@@ -1006,6 +1033,11 @@ mod_data_server <- function(id, shared) {
     # --- Run Seurat Clustering (prepare_data) — background worker ---
     observeEvent(input$run_seurat, {
       req(shared$user_expr, shared$user_mapping)
+      if (prep_busy()) {
+        showNotification("A preparation task is already running", type = "warning", duration = 5)
+        return()
+      }
+      prep_busy(TRUE)
       w <- Waiter$new(
         html = tagList(
           div(class = "spinner-ring"),
@@ -1023,11 +1055,12 @@ mod_data_server <- function(id, shared) {
           seurat_resolution = input$seurat_resolution,
           seurat_dims       = input$seurat_dims
         )),
-        error = function(e) { w$hide(); NULL }
+        error = function(e) { prep_busy(FALSE); w$hide(); NULL }
       )
       if (is.null(jobid)) return()
       poll_task(shared, session, jobid,
         on_done = function(res) {
+          prep_busy(FALSE)
           w$hide()
           shared$prepared_data <- res
           shared$user_clones <- res$cell_clone_map
@@ -1037,6 +1070,7 @@ mod_data_server <- function(id, shared) {
                            type = "message", duration = 5)
         },
         on_error = function(msg) {
+          prep_busy(FALSE)
           w$hide()
           showNotification(paste("Clustering error:", msg), type = "error", duration = 10)
         })

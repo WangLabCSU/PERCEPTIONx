@@ -149,6 +149,8 @@ mod_visualize_server <- function(id, shared, main_session) {
     current_plot <- reactiveVal(NULL)
     # Track which plot type was last generated (defined here, before use).
     current_plot_type <- reactiveVal(NULL)
+    # Guards against double-submitting a plot task (rapid double clicks).
+    viz_busy <- reactiveVal(FALSE)
 
     # Map response labels to canonical short classes: R/NR spellings collapse
     # to R/NR; ANY other label (e.g. longitudinal time points TN/RD/PD) is kept
@@ -369,6 +371,12 @@ mod_visualize_server <- function(id, shared, main_session) {
       )
       w$show()
 
+      if (viz_busy()) {
+        showNotification("A plot is already being generated", type = "warning", duration = 5)
+        return()
+      }
+      viz_busy(TRUE)
+
       pd <- shared$prepared_data
       jobid <- tryCatch(
         submit_session_task(shared, "plot", list(
@@ -391,12 +399,13 @@ mod_visualize_server <- function(id, shared, main_session) {
             roc_group_b = input$roc_group_b
           )
         )),
-        error = function(e) { w$hide(); NULL }
+        error = function(e) { viz_busy(FALSE); w$hide(); NULL }
       )
       if (is.null(jobid)) return()
 
       poll_task(shared, session, jobid,
         on_done = function(res) {
+          viz_busy(FALSE)
           w$hide()
           if (!is.null(res$plot)) {
             current_plot(res$plot)
@@ -409,6 +418,7 @@ mod_visualize_server <- function(id, shared, main_session) {
           }
         },
         on_error = function(msg) {
+          viz_busy(FALSE)
           w$hide()
           showNotification(paste("Plot error:", msg), type = "error", duration = 8)
         })
@@ -445,6 +455,12 @@ mod_visualize_server <- function(id, shared, main_session) {
       )
       w$show()
 
+      if (viz_busy()) {
+        showNotification("A plot is already being generated", type = "warning", duration = 5)
+        return()
+      }
+      viz_busy(TRUE)
+
       pd <- shared$prepared_data
       jobid <- tryCatch(
         submit_session_task(shared, "plot", list(
@@ -469,12 +485,13 @@ mod_visualize_server <- function(id, shared, main_session) {
             umap_drug = input$umap_drug
           )
         )),
-        error = function(e) { w$hide(); NULL }
+        error = function(e) { viz_busy(FALSE); w$hide(); NULL }
       )
       if (is.null(jobid)) return()
 
       poll_task(shared, session, jobid,
         on_done = function(res) {
+          viz_busy(FALSE)
           w$hide()
           if (!is.null(res$plot)) {
             current_plot(res$plot)
@@ -487,6 +504,7 @@ mod_visualize_server <- function(id, shared, main_session) {
           }
         },
         on_error = function(msg) {
+          viz_busy(FALSE)
           w$hide()
           showNotification(paste("Plot error:", msg), type = "error", duration = 8)
         })

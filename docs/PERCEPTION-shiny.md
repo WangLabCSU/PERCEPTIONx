@@ -55,6 +55,12 @@ DepMap reference data ──► Model training ──► Clone/patient predictio
 
 > For the fastest result, follow **Load Demo → Predict → Visualize**. No training needed.
 
+> **Async architecture (multi-user friendly)**: all heavy computation — model training, Seurat clustering, prediction, and plot math — runs in **background worker processes**, never in the interface. The UI polls and shows progress, so one user's large task never freezes other users.
+>
+> - **Training**: the standard DepMap uses a **shared master** (one global background process holding a single in-memory copy of DepMap; on Linux, concurrent jobs share that one copy via fork; after 12 h idle it exits to release memory). Uploaded DepMaps run in **isolated per-session workers** so a bad upload cannot affect others.
+> - **Clustering / prediction / plots / Load Demo**: a light per-session worker handles each, writing results back to files that the UI picks up.
+> - **Env vars** (deployment): `PERCEPTION_WORKERS` (shared-pool parallelism, default 16), `PERCEPTION_WORKER_IDLE_MINUTES` (master idle-exit minutes, default 720).
+
 ---
 
 ## 1. Interface Overview
@@ -81,6 +87,8 @@ Two ways:
 
 1. **Download & Load**: downloads the DepMap reference set (~567 MB, 15k+ genes × 1,000+ cell lines) from the official mirror and loads it automatically. This is the standard training input and the most memory/disk-demanding step.
 2. **Upload a local .RDS**: if you already have the DepMap file (`DepMap.RDS`), browse and select it — it loads automatically.
+
+> **About memory**: the interface process reads only DepMap **metadata** (gene names, drug list, component dimensions — a few hundred KB). The full multi-GB object is loaded by a **background worker** in a separate process for training only, so concurrent users do not each hold an 8 GB copy (see the architecture note in 0.3).
 
 ### 2.2 Loading Models
 
@@ -270,6 +278,9 @@ Scores are relative ranks learned from DepMap (normalized to 0–1): "1" means t
 
 **Q5: Does data persist after I close the app?**
 No. Downloaded DepMap data and pre-trained models are written to the R session's `tempdir()` and are cleaned up automatically when the app closes — nothing remains on disk.
+
+**Q6: Why doesn't the interface freeze during training / clustering / prediction?**
+All heavy computation runs in **background worker processes**; the interface only polls and shows progress, so you can keep using other pages while a big task runs. If a worker ever stops unexpectedly, the app reports "Background worker stopped" instead of spinning forever — just submit again.
 
 ---
 
