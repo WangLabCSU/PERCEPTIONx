@@ -202,7 +202,7 @@ mod_home_server <- function(id, shared, main_session) {
     # Load Demo Data — full pipeline, via the shared helper (same code path
     # as the Data-tab "Load Demo Data" button; see shiny_helpers.R).
     observeEvent(input$go_demo, {
-      run_demo_pipeline(shared, on_success = function()
+      run_demo_pipeline(shared, session, on_success = function()
         bslib::nav_select("navbar", selected = "data", session = main_session))
     })
 

@@ -3,6 +3,58 @@
 # drift apart (e.g. the Home "Load Demo" button and the Data-tab demo button).
 
 # ---------------------------------------------------------------------------
+# DepMap metadata extraction
+#
+# The main Shiny process NEVER holds the full multi-GB DepMap object anymore
+# (training runs in the background master). Everything the UI needs — gene
+# list, drug list, lineages, component dimensions, a few column names — is a
+# few hundred KB, extracted here. Built-in downloads cache the metadata to a
+# sidecar file so later sessions read kilobytes instead of gigabytes.
+# ---------------------------------------------------------------------------
+extract_depmap_meta <- function(depmap_path, cache_file = NULL) {
+  if (!is.null(cache_file) && file.exists(cache_file)) {
+    return(readRDS(cache_file))
+  }
+  DepMap <- readRDS(depmap_path)
+  if (!is.list(DepMap)) {
+    stop("The file is not a list. Expected a DepMap.RDS from the PERCEPTIONx release (or an object with the same structure).")
+  }
+  required_fields <- c("secondary_prism", "secondary_screen_drugAnnotation",
+                       "expression_rnorm", "scRNA_complete", "scRNA_subset_rnorm",
+                       "CPM_scRNA_CCLE_rnorm", "annotation_20Q4",
+                       "metadata_CPM_scRNA", "expression_20Q4")
+  missing_fields <- setdiff(required_fields, names(DepMap))
+  if (length(missing_fields) > 0) {
+    stop("The RDS is missing required components: ",
+         paste(missing_fields, collapse = ", "),
+         ". Re-save it with these components, or use the built-in 'Download & Load' (known-good).")
+  }
+  nms <- names(DepMap)
+  components <- lapply(nms, function(nm) {
+    obj <- DepMap[[nm]]
+    if (is.matrix(obj) || is.data.frame(obj)) {
+      list(nrow = nrow(obj), ncol = ncol(obj),
+           cols_preview = head(colnames(obj), 12))
+    } else {
+      list(nrow = NA_integer_, ncol = NA_integer_, cols_preview = character(0))
+    }
+  })
+  names(components) <- nms
+  lineages <- sort(unique(as.character(DepMap$annotation_20Q4$lineage)))
+  lineages <- lineages[!is.na(lineages) & nzchar(lineages)]
+  meta <- list(
+    loaded = TRUE,
+    genes  = rownames(DepMap$expression_rnorm),
+    drugs  = unique(as.character(DepMap$secondary_screen_drugAnnotation$CommonName)),
+    lineages = lineages,
+    components = components
+  )
+  if (!is.null(cache_file)) saveRDS(meta, cache_file)
+  rm(DepMap); gc()
+  meta
+}
+
+# ---------------------------------------------------------------------------
 # Workflow stepper HTML (Home page)
 #
 # Pure renderer: builds the pipeline stepper + hint from a plain list of
@@ -29,7 +81,7 @@ workflow_stepper_html <- function(shared, ns = identity) {
   # Red "blocked" state — used SPARINGLY (red reads as error). Only for
   # Train when the user has data but no DepMap reference and no models:
   # training is genuinely impossible until one of those is provided.
-  depmap_ok <- !is.null(shared$depmap)
+  depmap_ok <- !is.null(shared$depmap_meta)
   blocked2 <- data_ok && !train_ok && !depmap_ok
 
   step_defs <- list(
@@ -97,18 +149,20 @@ workflow_stepper_html <- function(shared, ns = identity) {
 # static first paint and for subsequent server-side updates.
 # ---------------------------------------------------------------------------
 data_dashboard_html <- function(shared) {
-  # DepMap stats (only computed when data is loaded)
-  depmap_cell_lines <- if (!is.null(shared$depmap) && !is.null(shared$depmap$expression_rnorm))
-    ncol(shared$depmap$expression_rnorm) else NULL
-  depmap_drugs <- if (!is.null(shared$depmap) && !is.null(shared$depmap$secondary_prism))
-    nrow(shared$depmap$secondary_prism) else NULL
-  depmap_sc_models <- if (!is.null(shared$depmap) && !is.null(shared$depmap$scRNA_complete))
-    ncol(shared$depmap$scRNA_complete) else NULL
+  # DepMap stats come from the lightweight metadata (the main process never
+  # holds the full multi-GB object; the training master does).
+  dm <- shared$depmap_meta
+  depmap_cell_lines <- if (!is.null(dm) && !is.null(dm$components$expression_rnorm))
+    dm$components$expression_rnorm$ncol else NULL
+  depmap_drugs <- if (!is.null(dm) && !is.null(dm$components$secondary_prism))
+    dm$components$secondary_prism$nrow else NULL
+  depmap_sc_models <- if (!is.null(dm) && !is.null(dm$components$scRNA_complete))
+    dm$components$scRNA_complete$ncol else NULL
 
   items <- list(
     list(name = "DepMap Reference", icon_name = "database",
-         loaded = !is.null(shared$depmap),
-         detail = if (!is.null(shared$depmap))
+         loaded = !is.null(dm),
+         detail = if (!is.null(dm))
            paste0(if (!is.null(depmap_cell_lines)) paste0(depmap_cell_lines, " cell lines, "),
                   if (!is.null(depmap_drugs)) paste0(depmap_drugs, " drugs"),
                   if (!is.null(depmap_sc_models)) paste0(", ", depmap_sc_models, " scRNA-seq profiles"))
@@ -173,65 +227,10 @@ data_dashboard_html <- function(shared) {
 #
 # @return Invisibly, a list with the loaded counts (genes/cells/patients/clones).
 # ---------------------------------------------------------------------------
-run_demo_pipeline <- function(shared, on_success = NULL) {
-  set.seed(42)
-  gene_names <- c("TP53", "BRCA1", "EGFR", "MYC", "KRAS", "PIK3CA", "PTEN", "RB1",
-                   "APC", "BRAF", "CDH1", "CDKN2A", "ERBB2", "FGFR1", "ALK",
-                   "MET", "RET", "ROS1", "NRAS", "HRAS", "MAP2K1", "MAPK1",
-                   "JAK2", "STAT3", "MTOR", "AKT1", "AKT2", "CTNNB1", "SMAD4",
-                   "VHL", "NF1", "NF2", "STK11", "FBXW7", "ARID1A", "KDM5C",
-                   "KMT2D", "SETD2", "BAP1", "PBRM1", "NOTCH1", "NOTCH2",
-                   "NOTCH3", "JAK1", "JAK3", "SOX9", "IDH1", "IDH2", "FLT3")
-  n_cells <- 400
-  n_patients <- 20
-  cell_names <- paste0("CELL_", sprintf("%04d", 1:n_cells))
-  patient_names <- paste0("PAT_", sprintf("%03d", 1:n_patients))
-
-  # Clinical response — defined FIRST so expression can be structured around it.
-  response_labels <- c(rep("Responder", 10), rep("Non-responder", 10))
-  clinical_response <- data.frame(
-    patient = patient_names,
-    response = response_labels,
-    stringsAsFactors = FALSE
-  )
-  shared$user_response <- clinical_response
-
-  # Patient-Cell mapping
-  patient_assignment <- rep(patient_names, each = ceiling(n_cells / n_patients))[1:n_cells]
-  patient_mapping <- data.frame(
-    cell_id = cell_names,
-    patient_id = patient_assignment,
-    stringsAsFactors = FALSE
-  )
-  shared$user_mapping <- patient_mapping
-
-  # STRUCTURED expression so biomarker plots show meaningful correlation.
-  # Two drug-biomarker groups with OPPOSITE patterns:
-  #   - abemaciclib biomarkers (genes 1-5): HIGH in responders, LOW in non-responders
-  #   - erlotinib biomarkers (genes 6-10): LOW in responders, HIGH in non-responders
-  is_responder_cell <- clinical_response$response[match(patient_assignment, clinical_response$patient)] == "Responder"
-  abemaciclib_markers <- gene_names[1:5]
-  erlotinib_markers   <- gene_names[6:10]
-  noise_genes         <- gene_names[11:length(gene_names)]
-
-  expr_matrix <- matrix(0.1, nrow = length(gene_names), ncol = n_cells)
-  rownames(expr_matrix) <- gene_names
-  colnames(expr_matrix) <- cell_names
-
-  for (g in abemaciclib_markers) {
-    expr_matrix[g, is_responder_cell] <- pmax(rnorm(sum(is_responder_cell), mean = 8, sd = 3), 0.1)
-    expr_matrix[g, !is_responder_cell] <- pmax(rnorm(sum(!is_responder_cell), mean = 3, sd = 2), 0.1)
-  }
-  for (g in erlotinib_markers) {
-    expr_matrix[g, is_responder_cell] <- pmax(rnorm(sum(is_responder_cell), mean = 3, sd = 2), 0.1)
-    expr_matrix[g, !is_responder_cell] <- pmax(rnorm(sum(!is_responder_cell), mean = 8, sd = 3), 0.1)
-  }
-  for (g in noise_genes) {
-    expr_matrix[g, ] <- runif(n_cells, 0.5, 8)
-  }
-  storage.mode(expr_matrix) <- "numeric"
-  shared$user_expr <- expr_matrix
-
+run_demo_pipeline <- function(shared, session, on_success = NULL) {
+  # The whole demo (structured data + Seurat clustering + 2 demo models) runs
+  # in the per-session background worker (task "demo", see async_jobs.R), so
+  # the main Shiny thread never blocks other users while it prepares.
   w <- Waiter$new(
     html = tagList(
       div(class = "spinner-ring"),
@@ -241,83 +240,36 @@ run_demo_pipeline <- function(shared, on_success = NULL) {
     color = "rgba(255,255,255,0.85)"
   )
   w$show()
-  tryCatch({
-    prepared <- PERCEPTIONx::prepare_data(
-      method = "umap",
-      expression_matrix = expr_matrix,
-      patient_mapping = patient_mapping,
-      seurat_resolution = 0.8,
-      seurat_dims = 10,
-      seurat_nfeatures = min(2000, length(gene_names))
-    )
-    shared$prepared_data <- prepared
-    shared$user_clones <- prepared$cell_clone_map
-    # shared$user_expr stays CELL-level (not clone-level) for spatial gene plots.
-    w$hide()
-
-    # Train demo models on structured data mirroring the demo expression.
-    if (requireNamespace("caret", quietly = TRUE) && requireNamespace("glmnet", quietly = TRUE)) {
-      make_structured_training <- function(marker_genes, direction, n_train = 160) {
-        x_train <- matrix(0, nrow = length(gene_names), ncol = n_train)
-        rownames(x_train) <- gene_names
-        half <- n_train %/% 2
-        responder_like <- seq_len(half)
-        nonresponder_like <- seq.int(half + 1, n_train)
-
-        for (g in marker_genes) {
-          x_train[g, responder_like] <- pmax(rnorm(half, mean = 8, sd = 3), 0.1)
-          x_train[g, nonresponder_like] <- pmax(rnorm(half, mean = 3, sd = 2), 0.1)
-        }
-        for (g in setdiff(gene_names, marker_genes)) {
-          x_train[g, ] <- runif(n_train, 0.5, 8)
-        }
-        # y = signed mean marker expression, interpreted as VIABILITY
-        #   (high = resistant, low = sensitive).
-        y_train <- direction * colMeans(x_train[marker_genes, , drop = FALSE])
-        y_train <- y_train + rnorm(n_train, sd = 0.3)
-        as.data.frame(cbind(y = y_train, t(x_train)))
-      }
-
-      make_drug_model <- function(drug_name, seed, marker_genes, direction) {
-        set.seed(seed)
-        train_df <- make_structured_training(marker_genes, direction, n_train = 160)
-        caret_model <- caret::train(
-          y ~ ., data = train_df,
-          method = "glmnet",
-          trControl = caret::trainControl(method = "cv", number = 3),
-          tuneLength = 3
-        )
-        obj <- list(
-          model = caret_model,
-          performance_in_scRNA = data.frame(estimate.cor = c(0.45, 0.38), p.value = c(0.001, 0.01)),
-          performance_in_bulk = data.frame(estimate.cor = c(0.55, 0.48), p.value = c(0.0001, 0.001)),
-          performance_in_pseudo_bulk = data.frame(estimate.cor = c(0.50, 0.42), p.value = c(0.0005, 0.005)),
-          predVSgroundTruth = list(pred_gt_scRNA = data.frame(Observed = rnorm(20), Test_pred_sc = rnorm(20))),
-          single_best = marker_genes[1]
-        )
-        attr(obj, "drug_name") <- drug_name
-        obj
-      }
-
-      shared$models <- list(
-        abemaciclib = make_drug_model("abemaciclib", 101, abemaciclib_markers, direction = -1),
-        erlotinib   = make_drug_model("erlotinib",   202, erlotinib_markers,   direction = +1)
-      )
-      shared$model_cache <- shared$models
-      shared$model_active <- list(abemaciclib = TRUE, erlotinib = TRUE)
+  jobid <- tryCatch(
+    submit_session_task(shared, "demo", list()),
+    error = function(e) {
+      w$hide()
+      showNotification(paste("Demo failed to start:", e$message), type = "error", duration = 10)
+      NULL
     }
-
-    n_clones <- ncol(prepared$clone_expression_rnorm)
-    if (!is.null(on_success)) on_success()
-    showNotification(paste0("Demo data loaded: ", length(gene_names), " genes × ", n_cells,
-                            " cells, ", n_patients, " patients, ", n_clones,
-                            " clones detected. Models ready!"),
-                     type = "message", duration = 6)
-    invisible(list(genes = length(gene_names), cells = n_cells,
-                   patients = n_patients, clones = n_clones))
-  }, error = function(e) {
-    w$hide()
-    showNotification(paste("Demo data preparation error:", e$message), type = "error", duration = 10)
-    invisible(NULL)
-  })
+  )
+  if (is.null(jobid)) return(invisible(NULL))
+  poll_task(shared, session, jobid,
+    on_done = function(res) {
+      w$hide()
+      shared$user_response <- res$user_response
+      shared$user_mapping  <- res$user_mapping
+      shared$user_expr     <- res$user_expr       # stays CELL-level for spatial plots
+      shared$prepared_data <- res$prepared_data
+      shared$user_clones   <- res$user_clones
+      shared$models        <- res$models
+      shared$model_cache   <- res$models
+      shared$model_active  <- setNames(rep(TRUE, length(res$models)), names(res$models))
+      n_clones <- ncol(res$prepared_data$clone_expression_rnorm)
+      if (!is.null(on_success)) on_success()
+      showNotification(paste0("Demo data loaded: ", nrow(res$user_expr), " genes x ",
+                              ncol(res$user_expr), " cells, ", nrow(res$user_response),
+                              " patients, ", n_clones, " clones detected. Models ready!"),
+                       type = "message", duration = 6)
+    },
+    on_error = function(msg) {
+      w$hide()
+      showNotification(paste("Demo data preparation error:", msg), type = "error", duration = 10)
+    })
+  invisible(NULL)
 }
