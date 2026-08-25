@@ -132,7 +132,7 @@ mod_train_server <- function(id, shared, main_session) {
     # Prerequisites check
     output$prereq_check <- renderUI({
       missing <- c()
-      if (is.null(shared$depmap)) missing <- c(missing, "DepMap Data")
+      if (is.null(shared$depmap_meta)) missing <- c(missing, "DepMap Data")
       if (length(missing) > 0) {
         div(class = "info-box", style = "border-left-color: var(--accent);",
           icon("exclamation-triangle"), " Missing prerequisites: ",
@@ -151,18 +151,14 @@ mod_train_server <- function(id, shared, main_session) {
       bslib::nav_select("navbar", selected = "data", session = main_session)
     })
 
-    # Populate drug & cancer type choices when DepMap is loaded
+    # Populate drug & cancer type choices when DepMap metadata is loaded
     observe({
-      depmap <- shared$depmap
-      if (!is.null(depmap)) {
+      meta <- shared$depmap_meta
+      if (!is.null(meta)) {
         # Drug hint: how many drugs have response data in the loaded DepMap.
         # Any of them can be trained — the 44 FDA-approved list is only a
         # recommended subset, not a limitation.
-        if (!is.null(depmap$secondary_screen_drugAnnotation)) {
-          available <- unique(depmap$secondary_screen_drugAnnotation$CommonName)
-        } else {
-          available <- character(0)
-        }
+        available <- meta$drugs
         output$drug_hint <- renderUI({
           if (length(available) == 0) return(NULL)
           tags$small(class = "text-muted",
@@ -173,13 +169,7 @@ mod_train_server <- function(id, shared, main_session) {
         })
 
         # Cancer type choices: PanCan + unique lineages from DepMap annotation
-        cancer_choices <- "PanCan"
-        if (!is.null(depmap$annotation_20Q4) && !is.null(depmap$annotation_20Q4$lineage)) {
-          lineages <- as.character(depmap$annotation_20Q4$lineage)
-          lineages <- sort(unique(lineages))
-          lineages <- lineages[!is.na(lineages) & nchar(lineages) > 0]
-          cancer_choices <- c("PanCan", lineages)
-        }
+        cancer_choices <- c("PanCan", meta$lineages)
         updateSelectizeInput(session, "cancer_type", choices = cancer_choices, selected = "PanCan", server = TRUE)
         updateSelectizeInput(session, "exclude_cancer", choices = cancer_choices, selected = "PanCan", server = TRUE)
       }
@@ -231,14 +221,14 @@ mod_train_server <- function(id, shared, main_session) {
     # Train
     observeEvent(input$train, {
       # Validate
-      if (is.null(shared$depmap)) {
+      if (is.null(shared$depmap_meta)) {
         showNotification("Please load DepMap data first (Data tab)", type = "error")
         return()
       }
       # GOI is optional — if empty, use all genes from DepMap
       goi <- goi_parsed()
       if (is.null(goi) || length(goi) == 0) {
-        goi <- rownames(shared$depmap$expression_rnorm)
+        goi <- shared$depmap_meta$genes
         showNotification(paste0("Using all ", length(goi), " genes from DepMap data"), type = "message")
       }
       drugs <- drug_parsed()
@@ -249,8 +239,8 @@ mod_train_server <- function(id, shared, main_session) {
       # Filter to drugs that actually have response data in the loaded DepMap.
       # Matching is case- and punctuation-insensitive (same rule as
       # train_models()'s stripall2match): "carfilzomib" matches "Carfilzomib".
-      if (!is.null(shared$depmap$secondary_screen_drugAnnotation)) {
-        available <- unique(as.character(shared$depmap$secondary_screen_drugAnnotation$CommonName))
+      if (!is.null(shared$depmap_meta$drugs)) {
+        available <- shared$depmap_meta$drugs
         norm_key <- function(x) tolower(gsub("[^a-z0-9]", "", tolower(x)))
         matched <- match(norm_key(drugs), norm_key(available))
         missing <- drugs[is.na(matched)]

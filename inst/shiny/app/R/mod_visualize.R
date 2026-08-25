@@ -201,82 +201,6 @@ mod_visualize_server <- function(id, shared, main_session) {
       )
     })
 
-    # ---------------------------------------------------------------------
-    # Combination (multi-drug) helpers — replicate the paper's pipeline
-    # (Fig. 2b–e; Methods "Testing prediction strategies for multiple
-    # myeloma", code Step3_Figure3.Rmd):
-    #   clone level: z-score EACH drug's viability across ALL clones (global),
-    #                then per-clone combination = pmin over drugs (IDA
-    #                principle: the single most effective drug dominates).
-    #   patient level (strategy 5, the one the paper chose): most-resistant
-    #                clone weighted by its abundance = max(comb * weight).
-    # ---------------------------------------------------------------------
-    combo_clone_frame <- function() {
-      pred_mat <- shared$predictions
-      if (is.null(pred_mat) || ncol(pred_mat) < 1) {
-        stop("No clone-level predictions to combine.")
-      }
-      pred_mat <- as.matrix(pred_mat)
-      # Global z-score per drug across all clones (sd == 0 columns stay 0).
-      z_mat <- pred_mat
-      for (j in seq_len(ncol(pred_mat))) {
-        col <- pred_mat[, j]
-        s <- stats::sd(col, na.rm = TRUE)
-        z_mat[, j] <- if (is.na(s) || s == 0) rep(0, nrow(pred_mat)) else
-          (col - mean(col, na.rm = TRUE)) / s
-      }
-      comb <- apply(z_mat, 1, min, na.rm = TRUE)
-
-      # Attach patient / clone_id (row order follows the prediction matrix,
-      # which matches the clone_viability_template built by prepare_data()).
-      if (!is.null(shared$prepared_data$clone_viability_template)) {
-        tmpl <- shared$prepared_data$clone_viability_template
-        clone_viability_df <- data.frame(patient = tmpl$patient,
-                                         clone_id = tmpl$clone_id,
-                                         comb_viability = unname(comb),
-                                         stringsAsFactors = FALSE)
-      } else {
-        parsed <- PERCEPTIONx::parse_clone_keys(names(comb))
-        clone_viability_df <- data.frame(patient = parsed$patient,
-                                         clone_id = parsed$clone_id,
-                                         comb_viability = unname(comb),
-                                         stringsAsFactors = FALSE)
-      }
-
-      # Clone abundance = real cell-count proportion per patient.
-      clone_data <- shared$user_clones
-      if (!is.null(clone_data) && nrow(clone_data) > 0) {
-        clone_viability_df$weights <- vapply(seq_len(nrow(clone_viability_df)), function(i) {
-          pat <- clone_viability_df$patient[i]
-          cl  <- clone_viability_df$clone_id[i]
-          n_p <- sum(clone_data$patient == pat, na.rm = TRUE)
-          if (n_p == 0) NA_real_ else
-            sum(clone_data$patient == pat & clone_data$clone_id == cl, na.rm = TRUE) / n_p
-        }, numeric(1))
-      } else {
-        clone_viability_df$weights <- NA_real_
-      }
-
-      if (!is.null(shared$user_response)) {
-        clone_viability_df$response <- label_resp(shared$user_response$response[
-          match(clone_viability_df$patient, shared$user_response$patient)
-        ])
-      }
-      clone_viability_df
-    }
-
-    combo_patient_frame <- function(clone_viability_df) {
-      patients <- unique(clone_viability_df$patient)
-      scores <- vapply(patients, function(p) {
-        sub <- clone_viability_df[clone_viability_df$patient == p, ]
-        sub <- sub[!is.na(sub$comb_viability) & !is.na(sub$weights), ]
-        if (nrow(sub) == 0) return(NA_real_)
-        max(sub$comb_viability * sub$weights)  # most-resistant clone, weighted
-      }, numeric(1))
-      data.frame(patient = patients, combination = scores, stringsAsFactors = FALSE)
-    }
-
-
     # Reactive plot size (px) — driven by user's Width/Height size controls.
     # Used by the static renderPlot (crisp original ggplot, no plotly overlap).
     plot_size <- reactive({
@@ -299,39 +223,6 @@ mod_visualize_server <- function(id, shared, main_session) {
       m <- reduction_method()
       if (m == "none") "no embedding" else if (m == "tsne") "t-SNE" else "UMAP"
     })
-
-    # Normalize embedding coordinate columns — old prepare_data() returns
-    # umap_1/umap_2, new returns dim_1/dim_2. Accept either.
-    get_embedding_xy <- function(coords, cell_ids) {
-      if (!is.data.frame(coords)) stop("umap_coords is not a data frame")
-      if (nrow(coords) == 0L) stop("umap_coords has 0 rows — re-run Seurat clustering")
-      if (!"cell_id" %in% names(coords)) stop("umap_coords has no 'cell_id' column")
-      x_col <- intersect(c("dim_1", "umap_1"), names(coords))[1]
-      y_col <- intersect(c("dim_2", "umap_2"), names(coords))[1]
-      if (is.na(x_col) || is.na(y_col))
-        stop("Embedding coordinate columns not found in umap_coords (names: ",
-             paste(names(coords), collapse = ", "), ")")
-      idx <- match(cell_ids, coords$cell_id)
-      if (all(is.na(idx)))
-        stop("0 matching cell IDs between query and umap_coords")
-      list(X = coords[[x_col]][idx], Y = coords[[y_col]][idx])
-    }
-
-    # Safe 0-1 scaling (5th-95th percentile, clamped; min-max fallback). Used
-    # by the spatial plots so both Drug Viability and Gene Expression share the
-    # same 0-1 viridis colour scale — matching the paper's Extended Data Fig. 2
-    # ("intensity of the color denotes the extent of predicted killing").
-    safe_range01 <- function(x) {
-      if (length(x) == 0L) stop("empty input to safe_range01")
-      r <- tryCatch(PERCEPTIONx::range01(x), error = function(e) NULL)
-      if (is.null(r) || length(r) != length(x)) {
-        rng <- range(x, na.rm = TRUE)
-        if (rng[2] == rng[1]) return(rep(0.5, length(x)))
-        (x - rng[1]) / (rng[2] - rng[1])
-      } else {
-        r
-      }
-    }
 
     output$spatial_desc <- renderText({
       paste0("Uses ", reduction_label(), " coordinates from Seurat clustering. No extra files needed.")
@@ -440,7 +331,9 @@ mod_visualize_server <- function(id, shared, main_session) {
       }
     })
 
-    # Generate Plot
+    # Generate Plot — computation runs in the background per-session worker
+    # (task "plot", see async_jobs.R); the returned ggplot is drawn by
+    # renderGirafe, so the main thread never blocks on plot math.
     observeEvent(input$generate, {
       pt <- input$plot_type
       reqs <- plot_requirements[[pt]]
@@ -470,237 +363,55 @@ mod_visualize_server <- function(id, shared, main_session) {
         html = tagList(
           div(class = "spinner-ring"),
           h4("Generating plot..."),
-          p(class = "text-muted", "This may take a few seconds")
+          p(class = "text-muted", "Computing in background worker")
         ),
         color = "rgba(255,255,255,0.85)"
       )
       w$show()
 
-      tryCatch({
-        p <- switch(pt,
-
-          "clone_dist" = {
-            # Build clone_distribution data frame: patients, clones, weights
-            clone_data <- shared$user_clones
-            clone_dist_list <- lapply(unique(clone_data$patient), function(p) {
-              p_cells <- clone_data[clone_data$patient == p, ]
-              p_clones <- unique(p_cells$clone_id)
-              n_p_cells <- nrow(p_cells)
-              # Display label: when clone ids are patient-qualified (e.g.
-              # "Kydar01_c1"), strip the known patient prefix so clones appear
-              # as shared categories (c1/c2/c3) across patients, matching the
-              # paper's clone distribution figures. Any other id scheme (e.g.
-              # Seurat cluster ids "0","1") is kept unchanged.
-              display_clones <- vapply(p_clones, function(cl) {
-                if (!startsWith(cl, p)) return(cl)
-                rest <- sub("^[\\._-]", "", substring(cl, nchar(p) + 1))
-                if (nchar(rest) == 0) cl else rest
-              }, character(1))
-              data.frame(
-                patients = p,
-                clones = display_clones,
-                weights = sapply(p_clones, function(cl) sum(p_cells$clone_id == cl) / n_p_cells),
-                stringsAsFactors = FALSE
-              )
-            })
-            clone_distribution <- do.call(rbind, clone_dist_list)
-            # Add response column for faceting — keeps every group (R/NR, or
-            # TN/RD/PD longitudinal time points); patients without a valid
-            # response are dropped.
-            if (!is.null(shared$user_response)) {
-              clone_distribution$response <- shared$user_response$response[
-                match(clone_distribution$patients, shared$user_response$patient)
-              ]
-              clone_distribution$response <- label_resp(clone_distribution$response)
-              clone_distribution <- clone_distribution[!is.na(clone_distribution$response), ]
-            }
-            plot_clone_distribution <- PERCEPTIONx::plot_clone_distribution
-            p <- plot_clone_distribution(clone_distribution, response_var = "response")
-          },
-
-          "clone_kill" = {
-            # Build clone_viability data frame: patient, clone_id, comb_viability, weights
-            clone_data <- shared$user_clones
-            pred_mat <- shared$predictions
-            drug <- if (nchar(input$drug_name_common) > 0) input$drug_name_common else colnames(pred_mat)[1]
-
-            if (is_combo) {
-              # Combination clone lollipop (paper Fig. 2b): z-score each drug
-              # across all clones, then per-clone pmin (IDA principle). The
-              # comb_viability column already holds the z-scored combination,
-              # so it is NOT rescaled again below.
-              combo_df <- combo_clone_frame()
-              combo_df <- combo_df[!is.na(combo_df$response), ]
-              if (nrow(combo_df) == 0) {
-                stop("No clones with a valid R/NR response for the combination plot.")
-              }
-              PERCEPTIONx::plot_clone_viability(combo_df, viability_var = "comb_viability",
-                                                weights_var = "weights", response_var = "response",
-                                                drug = "Combination")
-            } else {
-            # Use clone_viability_template from prepared_data if available (most reliable)
-            if (!is.null(shared$prepared_data$clone_viability_template)) {
-              tmpl <- shared$prepared_data$clone_viability_template
-              clone_viability_df <- data.frame(
-                patient = tmpl$patient,
-                clone_id = tmpl$clone_id,
-                comb_viability = pred_mat[rownames(pred_mat), drug],
-                stringsAsFactors = FALSE
-              )
-              # Clone abundance weights (cell-count proportion) so single-drug
-              # lollipops show the same point-size legend as Combination mode.
-              if (!is.null(clone_data) && nrow(clone_data) > 0) {
-                clone_viability_df$weights <- vapply(seq_len(nrow(clone_viability_df)), function(i) {
-                  pat <- clone_viability_df$patient[i]
-                  cl  <- clone_viability_df$clone_id[i]
-                  n_p <- sum(clone_data$patient == pat, na.rm = TRUE)
-                  if (n_p == 0) NA_real_ else
-                    sum(clone_data$patient == pat & clone_data$clone_id == cl, na.rm = TRUE) / n_p
-                }, numeric(1))
-              }
-            } else {
-              # Fallback: parse rownames
-              parsed <- PERCEPTIONx::parse_clone_keys(rownames(pred_mat))
-              pred_clone_ids <- parsed$clone_id
-              pred_patients  <- parsed$patient
-
-              clone_kill_list <- lapply(unique(clone_data$patient), function(p) {
-                p_clones <- unique(clone_data$clone_id[clone_data$patient == p])
-                p_clones <- intersect(p_clones, pred_clone_ids)
-                if (length(p_clones) == 0) return(NULL)
-                n_p_cells <- sum(clone_data$patient == p)
-                pred_rows <- which(pred_clone_ids %in% p_clones & pred_patients == p)
-                if (length(pred_rows) == 0) {
-                  pred_rows <- match(p_clones, pred_clone_ids)
-                }
-                data.frame(
-                  patient = p,
-                  clone_id = pred_clone_ids[pred_rows],
-                  comb_viability = pred_mat[pred_rows, drug],
-                  weights = sapply(pred_clone_ids[pred_rows], function(cl) sum(clone_data$clone_id == cl) / n_p_cells),
-                  stringsAsFactors = FALSE
-                )
-              })
-              clone_viability_df <- do.call(rbind, clone_kill_list)
-            }
-            if (is.null(clone_viability_df) || nrow(clone_viability_df) == 0) {
-              stop("No matching clones between prediction matrix and clone annotation.")
-            }
-            if (!is.null(shared$user_response)) {
-              clone_viability_df$response <- label_resp(shared$user_response$response[
-                match(clone_viability_df$patient, shared$user_response$patient)
-              ])
-              clone_viability_df <- clone_viability_df[!is.na(clone_viability_df$response), ]
-            }
-            # Match the paper's lollipop: z-score predicted viability across all
-            # clones (per drug), so most (sensitive) clones fall below the zero
-            # line and resistant outliers point upward — same as the paper.
-            clone_viability_df$comb_viability <- as.numeric(scale(clone_viability_df$comb_viability))
-            p_result <- PERCEPTIONx::plot_clone_viability(clone_viability_df, viability_var = "comb_viability",
-                                          weights_var = "weights", response_var = "response",
-                                          drug = drug)
-            p_result
-            }
-          },
-
-          "roc" = {
-            cr <- shared$user_response
-            if (is_combo) {
-              # Combination ROC (paper Fig. 2e): patient-level combination score
-              # = most-resistant clone weighted by abundance (weighted_max).
-              combo_df <- combo_clone_frame()
-              pat_df <- combo_patient_frame(combo_df)
-              rv <- label_resp(cr$response[match(pat_df$patient, cr$patient)])
-              predictor_vec <- pat_df$combination
-            } else {
-              pp <- shared$patient_pred
-              drug <- if (nchar(input$drug_name_common) > 0) input$drug_name_common else colnames(pp)[1]
-              rv <- label_resp(cr$response[match(rownames(pp), cr$patient)])
-              predictor_vec <- pp[[drug]]
-            }
-            # Drop patients without a valid response — NA must never become a class
-            # (that would bias the ROC / AUC).
-            keep <- !is.na(rv) & !is.na(predictor_vec)
-            rv <- rv[keep]
-            predictor_vec <- predictor_vec[keep]
-            # ROC is binary: use the two groups directly when there are exactly
-            # two; otherwise use the pair selected in roc_pair_picker.
-            grps <- response_groups()
-            if (length(grps) > 2) {
-              a <- input$roc_group_a
-              b <- input$roc_group_b
-              if (is.null(a) || !(a %in% grps)) a <- if ("PD" %in% grps) "PD" else grps[1]
-              if (is.null(b) || !(b %in% grps)) b <- if ("RD" %in% grps) "RD" else grps[2]
-              sel <- unique(c(a, b))
-            } else {
-              sel <- grps
-            }
-            response_vec <- factor(rv, levels = sel)
-            keep2 <- !is.na(response_vec)
-            response_vec <- response_vec[keep2]
-            predictor_vec <- predictor_vec[keep2]
-            # Auto-disable smoothing when sample size is small (< 10 patients)
-            smooth <- length(response_vec) >= 10
-            title <- if (is_combo) "Combination" else drug
-            if (length(grps) > 2) title <- paste0(title, " — ", paste(sel, collapse = " vs "))
-            PERCEPTIONx::plot_roc_curve(response = response_vec, predictor = predictor_vec,
-                           smooth_curve = smooth, title = title)
-          },
-
-          "boxplot" = {
-            cr <- shared$user_response
-            if (is_combo) {
-              # Combination response boxplot (paper Fig. 2d): patient-level
-              # combination score = most-resistant clone weighted by abundance.
-              combo_df <- combo_clone_frame()
-              pat_df <- combo_patient_frame(combo_df)
-              rv <- label_resp(cr$response[match(pat_df$patient, cr$patient)])
-              predictor_vec <- pat_df$combination
-            } else {
-              pp <- shared$patient_pred
-              drug <- if (nchar(input$drug_name_common) > 0) input$drug_name_common else colnames(pp)[1]
-              rv <- label_resp(cr$response[match(rownames(pp), cr$patient)])
-              predictor_vec <- pp[[drug]]
-            }
-            # Drop patients without a valid response; keep ALL response groups
-            # (2 for R/NR data, 3 for longitudinal time points like TN/RD/PD).
-            keep <- !is.na(rv) & !is.na(predictor_vec)
-            rv <- rv[keep]
-            predictor_vec <- predictor_vec[keep]
-            # z-score so the y-axis matches the (z-score) label and the same
-            # viability scale as the lollipop / UMAP. Rank-based tests are
-            # invariant to this monotone transform, so p-values are unchanged.
-            predictor_vec <- if (length(predictor_vec) > 1 &&
-                                 is.finite(sd(predictor_vec)) && sd(predictor_vec) > 0) {
-              as.numeric(scale(predictor_vec))
-            } else {
-              predictor_vec
-            }
-            exp_vs_pred <- data.frame(
-              response = factor(rv, levels = unique(rv)),
-              predicted_viability = predictor_vec,
-              stringsAsFactors = FALSE
+      pd <- shared$prepared_data
+      jobid <- tryCatch(
+        submit_session_task(shared, "plot", list(
+          plot_type = pt,
+          data = list(
+            predictions   = shared$predictions,
+            user_clones   = shared$user_clones,
+            user_response = shared$user_response,
+            patient_pred  = shared$patient_pred,
+            user_expr     = shared$user_expr,
+            prepared = list(
+              umap_coords = if (!is.null(pd)) pd$umap_coords else NULL,
+              clone_viability_template = if (!is.null(pd)) pd$clone_viability_template else NULL
             )
-            # plot_response_boxplot has no 'title' parameter — use ggplot2::labs() after
-            p <- PERCEPTIONx::plot_response_boxplot(exp_vs_pred)
-            p <- p + ggplot2::ggtitle(if (is_combo) "Combination" else drug)
-            p
-          }
-        )
+          ),
+          params = list(
+            drug = if (!is.null(input$drug_name_common) && nchar(input$drug_name_common) > 0) input$drug_name_common else "",
+            combo = is_combo,
+            roc_group_a = input$roc_group_a,
+            roc_group_b = input$roc_group_b
+          )
+        )),
+        error = function(e) { w$hide(); NULL }
+      )
+      if (is.null(jobid)) return()
 
-        if (!is.null(p)) {
-          current_plot(p)
-          current_plot_type(pt)
+      poll_task(shared, session, jobid,
+        on_done = function(res) {
           w$hide()
-          showNotification(paste0(plot_labels[[pt]], " generated successfully"), type = "message")
-        } else {
+          if (!is.null(res$plot)) {
+            current_plot(res$plot)
+            current_plot_type(pt)
+            showNotification(paste0(plot_labels[[pt]], " generated successfully"), type = "message")
+          } else {
+            msg <- res$message
+            if (is.null(msg) || !nzchar(msg)) msg <- "Selected plot type is not available with current data"
+            showNotification(msg, type = "warning")
+          }
+        },
+        on_error = function(msg) {
           w$hide()
-          showNotification("Selected plot type is not available with current data", type = "warning")
-        }
-      }, error = function(e) {
-        w$hide()
-        showNotification(paste("Plot error:", e$message), type = "error", duration = 8)
-      })
+          showNotification(paste("Plot error:", msg), type = "error", duration = 8)
+        })
     })
 
     # Generate Advanced Plot (UMAP spatial visualizations)
@@ -728,134 +439,57 @@ mod_visualize_server <- function(id, shared, main_session) {
         html = tagList(
           div(class = "spinner-ring"),
           h4("Generating plot..."),
-          p(class = "text-muted", "This may take a few seconds")
+          p(class = "text-muted", "Computing in background worker")
         ),
         color = "rgba(255,255,255,0.85)"
       )
       w$show()
 
-      tryCatch({
-        # Build common embedding data frame
-        common_cells <- intersect(clone_data$cell_id, umap_coords$cell_id)
-        if (length(common_cells) == 0) {
-          w$hide()
-          showNotification(paste0("No matching cells between ", reduction_label(), " coordinates and clone annotation."), type = "error")
-          return()
-        }
-
-        p <- switch(pt,
-
-          "umap_gene" = {
-            gene <- input$umap_gene
-            if (is.null(gene) || nchar(gene) == 0) {
-              showNotification("Select a gene first.", type = "warning")
-              NULL
-            } else {
-              expr_mat <- shared$user_expr
-              if (is.null(expr_mat) || !(gene %in% rownames(expr_mat))) {
-                showNotification(paste0("Gene '", gene, "' not found in expression matrix."), type = "error")
-                NULL
-              } else {
-                cell_expr <- as.numeric(expr_mat[gene, common_cells])
-                xy <- get_embedding_xy(umap_coords, common_cells)
-                n <- length(common_cells)
-                stopifnot(length(xy$X) == n, length(xy$Y) == n, length(cell_expr) == n)
-                umap_data <- data.frame(
-                  X = xy$X,
-                  Y = xy$Y,
-                  # 0-1 (5th-95th pct) so the colour scale never implies
-                  # negative expression — same scale as Drug Viability.
-                  expression = safe_range01(cell_expr),
-                  row.names = common_cells
-                )
-                PERCEPTIONx::plot_tsne_response(umap_data, color_var = "expression",
-                                                title = gene, color_label = "Expression (0-1)",
-                                                palette = "viridis", base_size = 11)
-              }
-            }
-          },
-
-          "umap_viability" = {
-            pred_mat <- shared$predictions
-            if (is.null(pred_mat)) {
-              showNotification("No clone-level predictions found. Run predictions first.", type = "warning")
-              NULL
-            } else {
-              drug <- if (!is.null(input$umap_drug) && nchar(input$umap_drug) > 0) input$umap_drug else colnames(pred_mat)[1]
-
-              # Build Patient@@CloneID key for each cell to look up its
-              # clone-level viability value (correct per-patient-per-clone)
-              cell_keys <- PERCEPTIONx::build_clone_key(clone_data$patient, clone_data$clone_id)
-              pred_keys <- rownames(pred_mat)
-              cell_viability <- setNames(pred_mat[match(cell_keys, pred_keys), drug],
-                                       clone_data$cell_id)
-
-              kill_common <- intersect(names(cell_viability), umap_coords$cell_id)
-              kill_common <- kill_common[!is.na(cell_viability[kill_common])]
-              if (length(kill_common) == 0) {
-                showNotification(paste0("No matching cells between ", reduction_label(), " coordinates and prediction data."), type = "error")
-                NULL
-              } else {
-                raw_vals <- cell_viability[kill_common]
-                # z-score so viability shares ONE scale across all plots
-                # (lollipop, boxplot, UMAP): 0 = cohort mean, + = resistant.
-                # The 0 is conveyed by the colorbar number — the diverging
-                # "white = 0" crutch is not required; viridis matches Gene
-                # Expression (dark = low, yellow = high).
-                scaled_vals <- if (length(raw_vals) > 1 &&
-                                   is.finite(sd(raw_vals)) && sd(raw_vals) > 0) {
-                  as.numeric(scale(raw_vals))
-                } else {
-                  raw_vals
-                }
-                xy <- get_embedding_xy(umap_coords, kill_common)
-                # Defensive: ensure all columns have the same length
-                n <- length(kill_common)
-                stopifnot(length(xy$X) == n, length(xy$Y) == n, length(scaled_vals) == n)
-                umap_data <- data.frame(
-                  X = xy$X,
-                  Y = xy$Y,
-                  viability_scaled = scaled_vals,
-                  row.names = kill_common
-                )
-                PERCEPTIONx::plot_tsne_response(umap_data, color_var = "viability_scaled",
-                                                title = drug, color_label = "Predicted Viability (z-score)",
-                                                palette = "viridis", base_size = 11)
-              }
-            }
-          },
-
-          "umap_clone" = {
-            # Clone identity on the embedding (paper Extended Data Fig. 8a):
-            # each cell colored by its clone, no prediction needed.
-            idx <- match(common_cells, clone_data$cell_id)
-            xy <- get_embedding_xy(umap_coords, common_cells)
-            n <- length(common_cells)
-            stopifnot(length(xy$X) == n, length(xy$Y) == n, length(idx) == n)
-            umap_data <- data.frame(
-              X = xy$X,
-              Y = xy$Y,
-              clone_id = clone_data$clone_id[idx],
-              stringsAsFactors = FALSE
+      pd <- shared$prepared_data
+      jobid <- tryCatch(
+        submit_session_task(shared, "plot", list(
+          plot_type = pt,
+          data = list(
+            predictions   = shared$predictions,
+            user_clones   = shared$user_clones,
+            user_response = shared$user_response,
+            patient_pred  = shared$patient_pred,
+            user_expr     = shared$user_expr,
+            prepared = list(
+              umap_coords = if (!is.null(pd)) pd$umap_coords else NULL,
+              clone_viability_template = if (!is.null(pd)) pd$clone_viability_template else NULL
             )
-            PERCEPTIONx::plot_clone_umap(umap_data, title = "Clone Identity")
-          },
+          ),
+          params = list(
+            drug = "",
+            combo = FALSE,
+            roc_group_a = NULL,
+            roc_group_b = NULL,
+            umap_gene = input$umap_gene,
+            umap_drug = input$umap_drug
+          )
+        )),
+        error = function(e) { w$hide(); NULL }
+      )
+      if (is.null(jobid)) return()
 
-          NULL
-        )
-
-        if (!is.null(p)) {
-          current_plot(p)
-          current_plot_type(pt)
+      poll_task(shared, session, jobid,
+        on_done = function(res) {
           w$hide()
-          showNotification(paste0(spatial_plot_label(pt), " generated successfully"), type = "message")
-        } else {
+          if (!is.null(res$plot)) {
+            current_plot(res$plot)
+            current_plot_type(pt)
+            showNotification(paste0(spatial_plot_label(pt), " generated successfully"), type = "message")
+          } else {
+            msg <- res$message
+            if (is.null(msg) || !nzchar(msg)) msg <- "Selected plot type is not available with current data"
+            showNotification(msg, type = "warning")
+          }
+        },
+        on_error = function(msg) {
           w$hide()
-        }
-      }, error = function(e) {
-        w$hide()
-        showNotification(paste("Plot error:", e$message), type = "error", duration = 8)
-      })
+          showNotification(paste("Plot error:", msg), type = "error", duration = 8)
+        })
     })
 
     # --- Interactive rendering via ggiraph (hover tooltips) ---

@@ -359,3 +359,586 @@ read_job_state <- function(shared, jobid) {
        n     = suppressWarnings(as.integer(parts[3])),
        drug  = if (length(parts) > 3) parts[4] else "")
 }
+
+# ---------------------------------------------------------------------------
+# Generic per-session task worker (prepare / demo / predict)
+#
+# Training goes to the shared master (or a dedicated worker for uploads)
+# because it needs the big DepMap. Everything else that computes on
+# SESSION-PRIVATE objects (user expression, models, prepared data) runs in a
+# light per-session worker so the main Shiny thread never blocks:
+#   - "prepare" -> PERCEPTIONx::prepare_data()          (Seurat clustering)
+#   - "demo"    -> full demo pipeline (structured data + clustering + 2 models)
+#   - "predict" -> predict_drugs() + predict_patients()
+# Inputs travel with the job (params.rds <- list(task, args)) because the
+# worker is a separate process and cannot see the parent's memory. Same file
+# protocol as training: status.txt / progress.txt / result.rds.
+# Self-contained rule (callr): all helpers live INSIDE the entry function.
+# ---------------------------------------------------------------------------
+
+session_task_main <- function(pkg_root, jobs_dir, poll_secs = 1L) {
+  if (!is.null(pkg_root) && nzchar(pkg_root) && dir.exists(pkg_root)) {
+    suppressMessages(devtools::load_all(pkg_root, quiet = TRUE))
+  } else if (requireNamespace("PERCEPTIONx", quietly = TRUE)) {
+    library(PERCEPTIONx)
+  } else {
+    stop("Package 'PERCEPTIONx' is not installed. Install it with ",
+         "devtools::install_github(\"WangLabCSU/PERCEPTIONx\"), then restart the app.")
+  }
+
+  run_prepare <- function(a) {
+    PERCEPTIONx::prepare_data(
+      method            = a$method,
+      expression_matrix = a$expression_matrix,
+      patient_mapping   = a$patient_mapping,
+      seurat_resolution = a$seurat_resolution,
+      seurat_dims       = a$seurat_dims,
+      seurat_nfeatures  = if (!is.null(a$seurat_nfeatures)) a$seurat_nfeatures else 2000,
+      seurat_seed       = 42,
+      skip_clustering   = isTRUE(a$skip_clustering)
+    )
+  }
+
+  run_demo <- function(a) {
+    set.seed(42)
+    gene_names <- c("TP53", "BRCA1", "EGFR", "MYC", "KRAS", "PIK3CA", "PTEN", "RB1",
+                    "APC", "BRAF", "CDH1", "CDKN2A", "ERBB2", "FGFR1", "ALK",
+                    "MET", "RET", "ROS1", "NRAS", "HRAS", "MAP2K1", "MAPK1",
+                    "JAK2", "STAT3", "MTOR", "AKT1", "AKT2", "CTNNB1", "SMAD4",
+                    "VHL", "NF1", "NF2", "STK11", "FBXW7", "ARID1A", "KDM5C",
+                    "KMT2D", "SETD2", "BAP1", "PBRM1", "NOTCH1", "NOTCH2",
+                    "NOTCH3", "JAK1", "JAK3", "SOX9", "IDH1", "IDH2", "FLT3")
+    n_cells <- 400
+    n_patients <- 20
+    cell_names <- paste0("CELL_", sprintf("%04d", 1:n_cells))
+    patient_names <- paste0("PAT_", sprintf("%03d", 1:n_patients))
+
+    response_labels <- c(rep("Responder", 10), rep("Non-responder", 10))
+    clinical_response <- data.frame(patient = patient_names, response = response_labels,
+                                    stringsAsFactors = FALSE)
+
+    patient_assignment <- rep(patient_names, each = ceiling(n_cells / n_patients))[1:n_cells]
+    patient_mapping <- data.frame(cell_id = cell_names, patient_id = patient_assignment,
+                                  stringsAsFactors = FALSE)
+
+    is_responder_cell <- clinical_response$response[
+      match(patient_assignment, clinical_response$patient)] == "Responder"
+    abemaciclib_markers <- gene_names[1:5]
+    erlotinib_markers   <- gene_names[6:10]
+    noise_genes         <- gene_names[11:length(gene_names)]
+
+    expr_matrix <- matrix(0.1, nrow = length(gene_names), ncol = n_cells)
+    rownames(expr_matrix) <- gene_names
+    colnames(expr_matrix) <- cell_names
+    for (g in abemaciclib_markers) {
+      expr_matrix[g, is_responder_cell] <- pmax(rnorm(sum(is_responder_cell), mean = 8, sd = 3), 0.1)
+      expr_matrix[g, !is_responder_cell] <- pmax(rnorm(sum(!is_responder_cell), mean = 3, sd = 2), 0.1)
+    }
+    for (g in erlotinib_markers) {
+      expr_matrix[g, is_responder_cell] <- pmax(rnorm(sum(is_responder_cell), mean = 3, sd = 2), 0.1)
+      expr_matrix[g, !is_responder_cell] <- pmax(rnorm(sum(!is_responder_cell), mean = 8, sd = 3), 0.1)
+    }
+    for (g in noise_genes) expr_matrix[g, ] <- runif(n_cells, 0.5, 8)
+    storage.mode(expr_matrix) <- "numeric"
+
+    prepared <- PERCEPTIONx::prepare_data(
+      method = "umap", expression_matrix = expr_matrix, patient_mapping = patient_mapping,
+      seurat_resolution = 0.8, seurat_dims = 10,
+      seurat_nfeatures = min(2000, length(gene_names)))
+
+    make_structured_training <- function(marker_genes, direction, n_train = 160) {
+      x_train <- matrix(0, nrow = length(gene_names), ncol = n_train)
+      rownames(x_train) <- gene_names
+      half <- n_train %/% 2
+      responder_like <- seq_len(half)
+      nonresponder_like <- seq.int(half + 1, n_train)
+      for (g in marker_genes) {
+        x_train[g, responder_like] <- pmax(rnorm(half, mean = 8, sd = 3), 0.1)
+        x_train[g, nonresponder_like] <- pmax(rnorm(half, mean = 3, sd = 2), 0.1)
+      }
+      for (g in setdiff(gene_names, marker_genes)) x_train[g, ] <- runif(n_train, 0.5, 8)
+      y_train <- direction * colMeans(x_train[marker_genes, , drop = FALSE])
+      y_train <- y_train + rnorm(n_train, sd = 0.3)
+      as.data.frame(cbind(y = y_train, t(x_train)))
+    }
+    make_drug_model <- function(drug_name, seed, marker_genes, direction) {
+      set.seed(seed)
+      train_df <- make_structured_training(marker_genes, direction, n_train = 160)
+      caret_model <- suppressWarnings(caret::train(
+        y ~ ., data = train_df, method = "glmnet",
+        trControl = caret::trainControl(method = "cv", number = 3),
+        tuneLength = 3))
+      obj <- list(
+        model = caret_model,
+        performance_in_scRNA = data.frame(estimate.cor = c(0.45, 0.38), p.value = c(0.001, 0.01)),
+        performance_in_bulk = data.frame(estimate.cor = c(0.55, 0.48), p.value = c(0.0001, 0.001)),
+        performance_in_pseudo_bulk = data.frame(estimate.cor = c(0.50, 0.42), p.value = c(0.0005, 0.005)),
+        predVSgroundTruth = list(pred_gt_scRNA = data.frame(Observed = rnorm(20), Test_pred_sc = rnorm(20))),
+        single_best = marker_genes[1])
+      attr(obj, "drug_name") <- drug_name
+      obj
+    }
+
+    models <- list(
+      abemaciclib = make_drug_model("abemaciclib", 101, abemaciclib_markers, direction = -1),
+      erlotinib   = make_drug_model("erlotinib",   202, erlotinib_markers,   direction = +1))
+
+    list(
+      user_response = clinical_response,
+      user_mapping  = patient_mapping,
+      user_expr     = expr_matrix,
+      prepared_data = prepared,
+      user_clones   = prepared$cell_clone_map,
+      models        = models
+    )
+  }
+
+  run_predict <- function(a) {
+    clone_pred <- PERCEPTIONx::predict_drugs(model_list = a$model_list, expr = a$expr)
+    patient_pred <- NULL
+    if (!is.null(a$patient_input)) {
+      # Standard path: prepared_data-derived template + counts (small).
+      patient_pred <- PERCEPTIONx::predict_patients(clone_pred, a$patient_input,
+                                                    mode = a$mode)
+    } else if (!is.null(a$legacy_clones)) {
+      # Legacy path (no prepared_data): aggregate from the user clone map.
+      clone_data <- a$legacy_clones
+      clone_rows <- rownames(clone_pred)
+      clone_to_patient <- split(clone_data$patient, clone_data$clone_id)
+      clone_to_patient <- lapply(clone_to_patient, unique)
+      clone_viability_list <- lapply(clone_rows, function(cl) {
+        pat <- clone_to_patient[[cl]]
+        if (is.null(pat) || length(pat) == 0) return(NULL)
+        if (length(pat) > 1) pat <- pat[1]
+        df <- data.frame(patient = pat, clone_id = cl, stringsAsFactors = FALSE)
+        for (drug in colnames(clone_pred)) df[[drug]] <- clone_pred[cl, drug]
+        df
+      })
+      clone_viability_df <- do.call(rbind, clone_viability_list)
+      if (is.null(clone_viability_df) || nrow(clone_viability_df) == 0) {
+        stop("No matching clones between prediction and annotation")
+      }
+      clone_counts <- as.data.frame.matrix(table(clone_data$patient, clone_data$clone_id))
+      clone_counts$patients <- rownames(clone_counts)
+      patient_pred <- PERCEPTIONx::predict_patients(clone_viability_df, clone_counts,
+                                                    mode = a$mode)
+    }
+    list(clone_pred = clone_pred, patient_pred = patient_pred)
+  }
+
+  run_plot <- function(a) {
+    pt <- a$plot_type
+    d <- a$data
+    p <- a$params
+
+    label_resp <- function(x) {
+      y <- tolower(trimws(as.character(x)))
+      y[y %in% c("responder", "response", "responsive", "r", "sensitive", "sensitivity")] <- "R"
+      y[y %in% c("non-responder", "nonresponder", "non responder", "non-responsive",
+                 "nonresponsive", "nr", "resistant", "resistance", "progressor",
+                 "progression", "non", "non_responder")] <- "NR"
+      keep <- !y %in% c("R", "NR")
+      y[keep] <- toupper(y[keep])
+      y
+    }
+    safe_range01 <- function(x) {
+      if (length(x) == 0L) stop("empty input to safe_range01")
+      r <- tryCatch(PERCEPTIONx::range01(x), error = function(e) NULL)
+      if (!is.null(r) && length(r) == length(x)) return(r)
+      rng <- range(x, na.rm = TRUE)
+      if (rng[2] == rng[1]) rep(0.5, length(x)) else (x - rng[1]) / (rng[2] - rng[1])
+    }
+    get_embedding_xy <- function(coords, cell_ids) {
+      if (!is.data.frame(coords)) stop("umap_coords is not a data frame")
+      if (!"cell_id" %in% names(coords)) stop("umap_coords has no 'cell_id' column")
+      x_col <- intersect(c("dim_1", "umap_1"), names(coords))[1]
+      y_col <- intersect(c("dim_2", "umap_2"), names(coords))[1]
+      if (is.na(x_col) || is.na(y_col))
+        stop("Embedding coordinate columns not found in umap_coords")
+      idx <- match(cell_ids, coords$cell_id)
+      if (all(is.na(idx))) stop("0 matching cell IDs between query and umap_coords")
+      list(X = coords[[x_col]][idx], Y = coords[[y_col]][idx])
+    }
+    combo_clone_frame <- function() {
+      pred_mat <- d$predictions
+      if (is.null(pred_mat) || ncol(pred_mat) < 1) stop("No clone-level predictions to combine.")
+      pred_mat <- as.matrix(pred_mat)
+      z_mat <- pred_mat
+      for (j in seq_len(ncol(pred_mat))) {
+        col <- pred_mat[, j]
+        s <- stats::sd(col, na.rm = TRUE)
+        z_mat[, j] <- if (is.na(s) || s == 0) rep(0, nrow(pred_mat)) else
+          (col - mean(col, na.rm = TRUE)) / s
+      }
+      comb <- apply(z_mat, 1, min, na.rm = TRUE)
+      tmpl <- d$prepared$clone_viability_template
+      if (!is.null(tmpl)) {
+        clone_viability_df <- data.frame(patient = tmpl$patient, clone_id = tmpl$clone_id,
+                                         comb_viability = unname(comb), stringsAsFactors = FALSE)
+      } else {
+        parsed <- PERCEPTIONx::parse_clone_keys(names(comb))
+        clone_viability_df <- data.frame(patient = parsed$patient, clone_id = parsed$clone_id,
+                                         comb_viability = unname(comb), stringsAsFactors = FALSE)
+      }
+      clone_data <- d$user_clones
+      if (!is.null(clone_data) && nrow(clone_data) > 0) {
+        clone_viability_df$weights <- vapply(seq_len(nrow(clone_viability_df)), function(i) {
+          pat <- clone_viability_df$patient[i]
+          cl  <- clone_viability_df$clone_id[i]
+          n_p <- sum(clone_data$patient == pat, na.rm = TRUE)
+          if (n_p == 0) NA_real_ else
+            sum(clone_data$patient == pat & clone_data$clone_id == cl, na.rm = TRUE) / n_p
+        }, numeric(1))
+      } else {
+        clone_viability_df$weights <- NA_real_
+      }
+      if (!is.null(d$user_response)) {
+        clone_viability_df$response <- label_resp(d$user_response$response[
+          match(clone_viability_df$patient, d$user_response$patient)])
+      }
+      clone_viability_df
+    }
+    combo_patient_frame <- function(clone_viability_df) {
+      patients <- unique(clone_viability_df$patient)
+      scores <- vapply(patients, function(p) {
+        sub <- clone_viability_df[clone_viability_df$patient == p, ]
+        sub <- sub[!is.na(sub$comb_viability) & !is.na(sub$weights), ]
+        if (nrow(sub) == 0) return(NA_real_)
+        max(sub$comb_viability * sub$weights)
+      }, numeric(1))
+      data.frame(patient = patients, combination = scores, stringsAsFactors = FALSE)
+    }
+    response_groups <- function() {
+      cr <- d$user_response
+      if (is.null(cr) || is.null(cr$response)) return(character(0))
+      grps <- unique(label_resp(cr$response))
+      grps[!is.na(grps) & nzchar(trimws(grps)) & grps != "NA"]
+    }
+
+    is_combo <- isTRUE(p$combo)
+    drug <- p$drug
+    plot_obj <- NULL
+    msg <- NULL
+
+    if (pt == "clone_dist") {
+      clone_data <- d$user_clones
+      clone_dist_list <- lapply(unique(clone_data$patient), function(pp) {
+        p_cells <- clone_data[clone_data$patient == pp, ]
+        p_clones <- unique(p_cells$clone_id)
+        n_p_cells <- nrow(p_cells)
+        display_clones <- vapply(p_clones, function(cl) {
+          if (!startsWith(cl, pp)) return(cl)
+          rest <- sub("^[\\._-]", "", substring(cl, nchar(pp) + 1))
+          if (nchar(rest) == 0) cl else rest
+        }, character(1))
+        data.frame(patients = pp, clones = display_clones,
+                   weights = sapply(p_clones, function(cl) sum(p_cells$clone_id == cl) / n_p_cells),
+                   stringsAsFactors = FALSE)
+      })
+      clone_distribution <- do.call(rbind, clone_dist_list)
+      if (!is.null(d$user_response)) {
+        clone_distribution$response <- label_resp(d$user_response$response[
+          match(clone_distribution$patients, d$user_response$patient)])
+        clone_distribution$response <- label_resp(clone_distribution$response)
+        clone_distribution <- clone_distribution[!is.na(clone_distribution$response), ]
+      }
+      plot_obj <- PERCEPTIONx::plot_clone_distribution(clone_distribution, response_var = "response")
+
+    } else if (pt == "clone_kill") {
+      clone_data <- d$user_clones
+      pred_mat <- d$predictions
+      drug <- if (!is.null(drug) && nchar(drug) > 0) drug else colnames(pred_mat)[1]
+      if (is_combo) {
+        combo_df <- combo_clone_frame()
+        combo_df <- combo_df[!is.na(combo_df$response), ]
+        if (nrow(combo_df) == 0) stop("No clones with a valid R/NR response for the combination plot.")
+        plot_obj <- PERCEPTIONx::plot_clone_viability(combo_df, viability_var = "comb_viability",
+                                                      weights_var = "weights", response_var = "response",
+                                                      drug = "Combination")
+      } else {
+        clone_viability_df <- NULL
+        tmpl <- d$prepared$clone_viability_template
+        if (!is.null(tmpl)) {
+          clone_viability_df <- data.frame(
+            patient = tmpl$patient, clone_id = tmpl$clone_id,
+            comb_viability = pred_mat[rownames(pred_mat), drug],
+            stringsAsFactors = FALSE)
+          if (!is.null(clone_data) && nrow(clone_data) > 0) {
+            clone_viability_df$weights <- vapply(seq_len(nrow(clone_viability_df)), function(i) {
+              pat <- clone_viability_df$patient[i]
+              cl  <- clone_viability_df$clone_id[i]
+              n_p <- sum(clone_data$patient == pat, na.rm = TRUE)
+              if (n_p == 0) NA_real_ else
+                sum(clone_data$patient == pat & clone_data$clone_id == cl, na.rm = TRUE) / n_p
+            }, numeric(1))
+          }
+        } else {
+          parsed <- PERCEPTIONx::parse_clone_keys(rownames(pred_mat))
+          pred_clone_ids <- parsed$clone_id
+          pred_patients  <- parsed$patient
+          clone_kill_list <- lapply(unique(clone_data$patient), function(pp) {
+            p_clones <- unique(clone_data$clone_id[clone_data$patient == pp])
+            p_clones <- intersect(p_clones, pred_clone_ids)
+            if (length(p_clones) == 0) return(NULL)
+            n_p_cells <- sum(clone_data$patient == pp)
+            pred_rows <- which(pred_clone_ids %in% p_clones & pred_patients == pp)
+            if (length(pred_rows) == 0) pred_rows <- match(p_clones, pred_clone_ids)
+            data.frame(patient = pp, clone_id = pred_clone_ids[pred_rows],
+                       comb_viability = pred_mat[pred_rows, drug],
+                       weights = sapply(pred_clone_ids[pred_rows], function(cl) sum(clone_data$clone_id == cl) / n_p_cells),
+                       stringsAsFactors = FALSE)
+          })
+          clone_viability_df <- do.call(rbind, clone_kill_list)
+        }
+        if (is.null(clone_viability_df) || nrow(clone_viability_df) == 0) {
+          stop("No matching clones between prediction matrix and clone annotation.")
+        }
+        if (!is.null(d$user_response)) {
+          clone_viability_df$response <- label_resp(d$user_response$response[
+            match(clone_viability_df$patient, d$user_response$patient)])
+          clone_viability_df <- clone_viability_df[!is.na(clone_viability_df$response), ]
+        }
+        clone_viability_df$comb_viability <- as.numeric(scale(clone_viability_df$comb_viability))
+        plot_obj <- PERCEPTIONx::plot_clone_viability(clone_viability_df, viability_var = "comb_viability",
+                                                      weights_var = "weights", response_var = "response",
+                                                      drug = drug)
+      }
+
+    } else if (pt == "roc") {
+      cr <- d$user_response
+      if (is_combo) {
+        combo_df <- combo_clone_frame()
+        pat_df <- combo_patient_frame(combo_df)
+        rv <- label_resp(cr$response[match(pat_df$patient, cr$patient)])
+        predictor_vec <- pat_df$combination
+      } else {
+        pp <- d$patient_pred
+        drug <- if (!is.null(drug) && nchar(drug) > 0) drug else colnames(pp)[1]
+        rv <- label_resp(cr$response[match(rownames(pp), cr$patient)])
+        predictor_vec <- pp[[drug]]
+      }
+      keep <- !is.na(rv) & !is.na(predictor_vec)
+      rv <- rv[keep]
+      predictor_vec <- predictor_vec[keep]
+      grps <- response_groups()
+      if (length(grps) > 2) {
+        a <- p$roc_group_a; b <- p$roc_group_b
+        if (is.null(a) || !(a %in% grps)) a <- if ("PD" %in% grps) "PD" else grps[1]
+        if (is.null(b) || !(b %in% grps)) b <- if ("RD" %in% grps) "RD" else grps[2]
+        sel <- unique(c(a, b))
+      } else {
+        sel <- grps
+      }
+      response_vec <- factor(rv, levels = sel)
+      keep2 <- !is.na(response_vec)
+      response_vec <- response_vec[keep2]
+      predictor_vec <- predictor_vec[keep2]
+      smooth <- length(response_vec) >= 10
+      title <- if (is_combo) "Combination" else drug
+      if (length(grps) > 2) title <- paste0(title, " — ", paste(sel, collapse = " vs "))
+      plot_obj <- PERCEPTIONx::plot_roc_curve(response = response_vec, predictor = predictor_vec,
+                                              smooth_curve = smooth, title = title)
+
+    } else if (pt == "boxplot") {
+      cr <- d$user_response
+      if (is_combo) {
+        combo_df <- combo_clone_frame()
+        pat_df <- combo_patient_frame(combo_df)
+        rv <- label_resp(cr$response[match(pat_df$patient, cr$patient)])
+        predictor_vec <- pat_df$combination
+      } else {
+        pp <- d$patient_pred
+        drug <- if (!is.null(drug) && nchar(drug) > 0) drug else colnames(pp)[1]
+        rv <- label_resp(cr$response[match(rownames(pp), cr$patient)])
+        predictor_vec <- pp[[drug]]
+      }
+      keep <- !is.na(rv) & !is.na(predictor_vec)
+      rv <- rv[keep]
+      predictor_vec <- predictor_vec[keep]
+      predictor_vec <- if (length(predictor_vec) > 1 && is.finite(sd(predictor_vec)) && sd(predictor_vec) > 0) {
+        as.numeric(scale(predictor_vec))
+      } else predictor_vec
+      exp_vs_pred <- data.frame(response = factor(rv, levels = unique(rv)),
+                                predicted_viability = predictor_vec, stringsAsFactors = FALSE)
+      plot_obj <- PERCEPTIONx::plot_response_boxplot(exp_vs_pred)
+      plot_obj <- plot_obj + ggplot2::ggtitle(if (is_combo) "Combination" else drug)
+
+    } else if (pt %in% c("umap_gene", "umap_viability", "umap_clone")) {
+      umap_coords <- d$prepared$umap_coords
+      clone_data <- d$user_clones
+      common_cells <- intersect(clone_data$cell_id, umap_coords$cell_id)
+      if (length(common_cells) == 0) {
+        stop("No matching cells between embedding coordinates and clone annotation.")
+      }
+      if (pt == "umap_gene") {
+        gene <- p$umap_gene
+        if (is.null(gene) || nchar(gene) == 0) {
+          msg <- "Select a gene first."
+        } else {
+          expr_mat <- d$user_expr
+          if (is.null(expr_mat) || !(gene %in% rownames(expr_mat))) {
+            msg <- paste0("Gene '", gene, "' not found in expression matrix.")
+          } else {
+            cell_expr <- as.numeric(expr_mat[gene, common_cells])
+            xy <- get_embedding_xy(umap_coords, common_cells)
+            n <- length(common_cells)
+            stopifnot(length(xy$X) == n, length(xy$Y) == n, length(cell_expr) == n)
+            umap_data <- data.frame(X = xy$X, Y = xy$Y, expression = safe_range01(cell_expr),
+                                    row.names = common_cells)
+            plot_obj <- PERCEPTIONx::plot_tsne_response(umap_data, color_var = "expression",
+                                                        title = gene, color_label = "Expression (0-1)",
+                                                        palette = "viridis", base_size = 11)
+          }
+        }
+      } else if (pt == "umap_viability") {
+        pred_mat <- d$predictions
+        if (is.null(pred_mat)) {
+          msg <- "No clone-level predictions found. Run predictions first."
+        } else {
+          drug <- if (!is.null(p$umap_drug) && nchar(p$umap_drug) > 0) p$umap_drug else colnames(pred_mat)[1]
+          cell_keys <- PERCEPTIONx::build_clone_key(clone_data$patient, clone_data$clone_id)
+          pred_keys <- rownames(pred_mat)
+          cell_viability <- setNames(pred_mat[match(cell_keys, pred_keys), drug], clone_data$cell_id)
+          kill_common <- intersect(names(cell_viability), umap_coords$cell_id)
+          kill_common <- kill_common[!is.na(cell_viability[kill_common])]
+          if (length(kill_common) == 0) {
+            msg <- "No matching cells between embedding coordinates and prediction data."
+          } else {
+            raw_vals <- cell_viability[kill_common]
+            scaled_vals <- if (length(raw_vals) > 1 && is.finite(sd(raw_vals)) && sd(raw_vals) > 0) {
+              as.numeric(scale(raw_vals))
+            } else raw_vals
+            xy <- get_embedding_xy(umap_coords, kill_common)
+            n <- length(kill_common)
+            stopifnot(length(xy$X) == n, length(xy$Y) == n, length(scaled_vals) == n)
+            umap_data <- data.frame(X = xy$X, Y = xy$Y, viability_scaled = scaled_vals,
+                                    row.names = kill_common)
+            plot_obj <- PERCEPTIONx::plot_tsne_response(umap_data, color_var = "viability_scaled",
+                                                        title = drug, color_label = "Predicted Viability (z-score)",
+                                                        palette = "viridis", base_size = 11)
+          }
+        }
+      } else {  # umap_clone
+        idx <- match(common_cells, clone_data$cell_id)
+        xy <- get_embedding_xy(umap_coords, common_cells)
+        n <- length(common_cells)
+        stopifnot(length(xy$X) == n, length(xy$Y) == n, length(idx) == n)
+        umap_data <- data.frame(X = xy$X, Y = xy$Y, clone_id = clone_data$clone_id[idx],
+                                stringsAsFactors = FALSE)
+        plot_obj <- PERCEPTIONx::plot_clone_umap(umap_data, title = "Clone Identity")
+      }
+    } else {
+      stop("Unknown plot type: ", pt)
+    }
+
+    list(plot = plot_obj,
+         message = if (!is.null(msg)) msg else
+           if (is.null(plot_obj)) "Selected plot type is not available with current data" else "")
+  }
+
+  message("[session-worker] started, polling ", jobs_dir)
+  while (TRUE) {
+    pending <- list.dirs(jobs_dir, recursive = FALSE, full.names = TRUE)
+    for (j in pending) {
+      status_file <- file.path(j, "status.txt")
+      if (!file.exists(status_file) && file.create(status_file)) {
+        params <- readRDS(file.path(j, "params.rds"))
+        out <- tryCatch(
+          switch(params$task,
+            prepare = run_prepare(params$args),
+            demo    = run_demo(params$args),
+            predict = run_predict(params$args),
+            plot    = run_plot(params$args),
+            stop("Unknown task: ", params$task)),
+          error = function(e) structure(list(message = conditionMessage(e)),
+                                        class = "perception_job_error")
+        )
+        if (inherits(out, "perception_job_error")) {
+          writeLines(sprintf("error|%s", out$message), status_file)
+        } else {
+          saveRDS(out, file.path(j, "result.rds"))
+          writeLines("done", status_file)
+        }
+      }
+    }
+    Sys.sleep(poll_secs)
+  }
+}
+
+# ---- App-side manager for session tasks --------------------------------
+
+# Lazily spawn ONE light worker per session for prepare/demo/predict jobs.
+ensure_session_worker <- function(shared) {
+  if (isTRUE(shared$task_worker_alive) && !is.null(shared$task_worker) &&
+      shared$task_worker$is_alive()) {
+    return(invisible(TRUE))
+  }
+  jobs_dir <- file.path(tempdir(), "perception_tasks", make_job_id())
+  dir.create(jobs_dir, recursive = TRUE, showWarnings = FALSE)
+  worker <- callr::r_bg(
+    func = session_task_main,
+    args = list(pkg_root = getOption("perception.pkg_root", NULL),
+                jobs_dir = jobs_dir),
+    supervise = TRUE,
+    poll_connection = FALSE
+  )
+  shared$task_jobs_dir <- jobs_dir
+  shared$task_worker <- worker
+  shared$task_worker_alive <- TRUE
+  invisible(TRUE)
+}
+
+# Submit a generic task. args are serialized with the job, so pass only the
+# objects the worker needs (they must be serializable).
+submit_session_task <- function(shared, task, args) {
+  ensure_session_worker(shared)
+  jobid <- make_job_id()
+  job_dir <- file.path(shared$task_jobs_dir, jobid)
+  dir.create(job_dir, recursive = TRUE, showWarnings = FALSE)
+  saveRDS(list(task = task, args = args), file.path(job_dir, "params.rds"))
+  file.create(file.path(job_dir, "progress.txt"))
+  shared$active_task <- jobid
+  invisible(jobid)
+}
+
+# Read the state of a generic task (queued / running / done / error).
+# "done" carries the deserialized result object back into the app.
+read_task_state <- function(shared, jobid) {
+  job_dir <- file.path(shared$task_jobs_dir, jobid)
+  status_file <- file.path(job_dir, "status.txt")
+  if (!file.exists(status_file)) return(list(status = "queued"))
+  s <- readLines(status_file, warn = FALSE)
+  if (length(s) == 0) return(list(status = "running"))
+  s <- s[1]
+  if (s == "done") return(list(status = "done", result = readRDS(file.path(job_dir, "result.rds"))))
+  if (startsWith(s, "error")) {
+    return(list(status = "error", message = sub("^error\\|", "", s)))
+  }
+  list(status = "running")
+}
+
+# Poll a generic task every second until it finishes, then run on_done(result)
+# or on_error(message). The observer destroys itself when the task resolves,
+# so one call per submission is enough (no manual cleanup needed).
+poll_task <- function(shared, session, jobid, on_done, on_error = NULL,
+                      poll_ms = 1000) {
+  obs <- NULL
+  obs <- observe({
+    st <- read_task_state(shared, jobid)
+    if (st$status == "done") {
+      obs$destroy()
+      on_done(st$result)
+    } else if (st$status == "error") {
+      obs$destroy()
+      if (!is.null(on_error)) {
+        on_error(st$message)
+      } else {
+        showNotification(paste("Background task failed:", st$message),
+                         type = "error", duration = 10)
+      }
+    } else {
+      invalidateLater(poll_ms, session)
+    }
+  })
+  invisible(obs)
+}

@@ -207,149 +207,122 @@ mod_predict_server <- function(id, shared, main_session) {
       }
     })
 
-    # Run prediction — Stage 1: clone-level via predict_drugs()
-    clone_pred <- eventReactive(input$predict, {
+    # Run prediction — submitted to the background per-session worker. The
+    # worker runs predict_drugs() + predict_patients() and ships the results
+    # back via result.rds; the UI (clone_pred/patient_pred reactiveVals below)
+    # updates when the job completes.
+    clone_pred <- reactiveVal(NULL)
+    patient_pred <- reactiveVal(NULL)
+
+    observeEvent(input$predict, {
       model <- current_model()
       expr <- current_expr()
 
       if (is.null(model)) {
         showNotification("No model available. Train or upload a model first.", type = "error")
-        return(NULL)
+        return()
       }
       if (is.null(expr)) {
         showNotification("No expression data available. Load or upload data first.", type = "error")
-        return(NULL)
+        return()
+      }
+
+      # Pre-check: gene overlap between model features and expression data
+      # (check ALL models, not just the first one)
+      extract_features <- function(m) {
+        if (inherits(m, "train")) {
+          feats <- setdiff(colnames(m$trainingData), ".outcome")
+          if (length(feats) > 0) return(feats)
+          feats <- colnames(m$trainingData)
+          if (length(feats) > 1) return(feats[-1])
+        }
+        if (!is.null(m$preProcess) && !is.null(m$preProcess$mean)) {
+          return(names(m$preProcess$mean))
+        }
+        if (!is.null(m$finalModel) && !is.null(m$finalModel$beta)) {
+          return(rownames(m$finalModel$beta))
+        }
+        character(0)
+      }
+      # Collect features from all models
+      all_features <- unique(unlist(lapply(names(model), function(drug) {
+        extract_features(model[[drug]]$model)
+      })))
+      if (length(all_features) > 0) {
+        overlap <- intersect(all_features, rownames(expr))
+        # Try make.names() fallback (hyphens vs dots)
+        if (length(overlap) == 0) {
+          expr_rownames_made <- make.names(rownames(expr), unique = TRUE)
+          features_made <- make.names(all_features, unique = TRUE)
+          overlap <- intersect(features_made, expr_rownames_made)
+        }
+        if (length(overlap) == 0) {
+          showNotification(
+            paste0("Gene name mismatch: none of the model's ", length(all_features),
+                   " features found in your expression data. ",
+                   "Check gene name formats (hyphens vs dots) between training and prediction data."),
+            type = "error", duration = 12)
+          return()
+        }
+        if (length(overlap) < length(all_features) * 0.5) {
+          showNotification(
+            paste0("Note: ", length(overlap), "/", length(all_features),
+                   " model features found in data. Predictions may be less reliable."),
+            type = "warning", duration = 8)
+        }
       }
 
       w <- Waiter$new(
         html = tagList(div(class = "spinner-ring"), h4("Predicting..."),
-                       p(class = "text-muted", "Running predict_drugs()")),
+                       p(class = "text-muted", "Running predict_drugs() in background worker")),
         color = "rgba(255,255,255,0.85)"
       )
       w$show()
 
-      tryCatch({
-        # Pre-check: gene overlap between model features and expression data
-        # (check ALL models, not just the first one)
-        extract_features <- function(m) {
-          if (inherits(m, "train")) {
-            feats <- setdiff(colnames(m$trainingData), ".outcome")
-            if (length(feats) > 0) return(feats)
-            feats <- colnames(m$trainingData)
-            if (length(feats) > 1) return(feats[-1])
-          }
-          if (!is.null(m$preProcess) && !is.null(m$preProcess$mean)) {
-            return(names(m$preProcess$mean))
-          }
-          if (!is.null(m$finalModel) && !is.null(m$finalModel$beta)) {
-            return(rownames(m$finalModel$beta))
-          }
-          character(0)
-        }
-        # Collect features from all models
-        all_features <- unique(unlist(lapply(names(model), function(drug) {
-          extract_features(model[[drug]]$model)
-        })))
-        if (length(all_features) > 0) {
-          overlap <- intersect(all_features, rownames(expr))
-          # Try make.names() fallback (hyphens vs dots)
-          if (length(overlap) == 0) {
-            expr_rownames_made <- make.names(rownames(expr), unique = TRUE)
-            features_made <- make.names(all_features, unique = TRUE)
-            overlap <- intersect(features_made, expr_rownames_made)
-          }
-          if (length(overlap) == 0) {
-            w$hide()
-            showNotification(
-              paste0("Gene name mismatch: none of the model's ", length(all_features),
-                     " features found in your expression data. ",
-                     "Check gene name formats (hyphens vs dots) between training and prediction data."),
-              type = "error", duration = 12)
-            return(NULL)
-          }
-          if (length(overlap) < length(all_features) * 0.5) {
-            showNotification(
-              paste0("Note: ", length(overlap), "/", length(all_features),
-                     " model features found in data. Predictions may be less reliable."),
-              type = "warning", duration = 8)
-          }
-        }
-
-        result <- PERCEPTIONx::predict_drugs(
-          model_list = model,
-          expr = expr
+      # Build the (small) patient-level input. Standard path: pass only the
+      # template + counts (not the whole prepared_data). Legacy path: pass
+      # user_clones and let the worker aggregate.
+      patient_input <- NULL
+      legacy_clones <- NULL
+      if (!is.null(shared$prepared_data)) {
+        patient_input <- list(
+          clone_viability_template = shared$prepared_data$clone_viability_template,
+          clone_counts = shared$prepared_data$clone_counts
         )
-        w$hide()
-        showNotification("Clone-level prediction complete (predict_drugs)", type = "message")
-        result
-      }, error = function(e) {
-        w$hide()
-        showNotification(paste("Prediction error:", e$message), type = "error", duration = 10)
-        NULL
-      })
+      } else {
+        legacy_clones <- shared$user_clones
+      }
+
+      jobid <- tryCatch(
+        submit_session_task(shared, "predict", list(
+          model_list    = model,
+          expr          = expr,
+          patient_input = patient_input,
+          legacy_clones = legacy_clones,
+          mode          = input$agg_mode
+        )),
+        error = function(e) { w$hide(); NULL }
+      )
+      if (is.null(jobid)) return()
+
+      poll_task(shared, session, jobid,
+        on_done = function(res) {
+          w$hide()
+          clone_pred(res$clone_pred)
+          patient_pred(res$patient_pred)
+          shared$predictions <- res$clone_pred
+          shared$patient_pred <- res$patient_pred
+          showNotification("Prediction complete (background worker)", type = "message")
+        },
+        on_error = function(msg) {
+          w$hide()
+          showNotification(paste("Prediction error:", msg), type = "error", duration = 10)
+        })
     })
 
-    # Stage 2: patient-level via predict_patients()
-    patient_pred <- reactive({
-      req(clone_pred())
-      tryCatch({
-        clone_pred_mat <- clone_pred()  # matrix: clones x drugs
-
-        if (!is.null(shared$prepared_data)) {
-          # Standard path: use prepare_data() output directly
-          result <- PERCEPTIONx::predict_patients(
-            clone_pred_mat,
-            shared$prepared_data,
-            mode = input$agg_mode
-          )
-        } else {
-          # Fallback: manually build from user_clones (legacy)
-          clone_data <- shared$user_clones
-          clone_rows <- rownames(clone_pred_mat)
-          clone_to_patient <- split(clone_data$patient, clone_data$clone_id)
-          clone_to_patient <- lapply(clone_to_patient, unique)
-
-          clone_viability_list <- lapply(clone_rows, function(cl) {
-            pat <- clone_to_patient[[cl]]
-            if (is.null(pat) || length(pat) == 0) return(NULL)
-            if (length(pat) > 1) pat <- pat[1]
-            df <- data.frame(
-              patient = pat,
-              clone_id = cl,
-              stringsAsFactors = FALSE
-            )
-            for (drug in colnames(clone_pred_mat)) {
-              df[[drug]] <- clone_pred_mat[cl, drug]
-            }
-            df
-          })
-          clone_viability_df <- do.call(rbind, clone_viability_list)
-
-          if (is.null(clone_viability_df) || nrow(clone_viability_df) == 0) {
-            showNotification("No matching clones between prediction and annotation", type = "error")
-            return(NULL)
-          }
-
-          clone_counts <- as.data.frame.matrix(
-            table(clone_data$patient, clone_data$clone_id)
-          )
-          clone_counts$patients <- rownames(clone_counts)
-
-          result <- PERCEPTIONx::predict_patients(
-            clone_viability_df,
-            clone_counts,
-            mode = input$agg_mode
-          )
-        }
-
-        shared$patient_pred <- result
-        shared$predictions <- clone_pred_mat
-        result
-      }, error = function(e) {
-        showNotification(paste("Patient prediction error:", e$message), type = "error")
-        NULL
-      })
-    })
+    # Patient-level aggregation now happens inside the background worker
+    # (task "predict", see async_jobs.R); patient_pred() is a reactiveVal set
+    # when the job completes.
 
     # Clone heatmap
     output$clone_heatmap <- renderPlotly({

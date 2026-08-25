@@ -551,23 +551,29 @@ mod_data_server <- function(id, shared) {
         color = "rgba(255,255,255,0.85)"
       )
       w$show()
-      tryCatch({
-        prepared <- PERCEPTIONx::prepare_data(
+      jobid <- tryCatch(
+        submit_session_task(shared, "prepare", list(
           expression_matrix = shared$user_expr,
           patient_mapping   = shared$user_mapping,
           skip_clustering   = TRUE
-        )
-        shared$prepared_data <- prepared
-        shared$user_clones <- prepared$cell_clone_map
-        w$hide()
-        showNotification(paste0("Data ready (clone-level): ",
-                                ncol(prepared$clone_expression_rnorm),
-                                " clones across ", nrow(prepared$clone_counts), " patients"),
-                         type = "message", duration = 5)
-      }, error = function(e) {
-        w$hide()
-        showNotification(paste("Auto-prepare error:", e$message), type = "error", duration = 10)
-      })
+        )),
+        error = function(e) { w$hide(); NULL }
+      )
+      if (is.null(jobid)) return(invisible(NULL))
+      poll_task(shared, session, jobid,
+        on_done = function(prepared) {
+          w$hide()
+          shared$prepared_data <- prepared
+          shared$user_clones <- prepared$cell_clone_map
+          showNotification(paste0("Data ready (clone-level): ",
+                                  ncol(prepared$clone_expression_rnorm),
+                                  " clones across ", nrow(prepared$clone_counts), " patients"),
+                           type = "message", duration = 5)
+        },
+        on_error = function(msg) {
+          w$hide()
+          showNotification(paste("Auto-prepare error:", msg), type = "error", duration = 10)
+        })
     }
 
     # --- Enable/disable Run Seurat button based on required data (#10) ---
@@ -599,7 +605,7 @@ mod_data_server <- function(id, shared) {
         return()
       }
       # Shared demo pipeline (also used by the Home "Load Demo" button).
-      run_demo_pipeline(shared, on_success = function() demo_loaded(TRUE))
+      run_demo_pipeline(shared, session, on_success = function() demo_loaded(TRUE))
     })
 
     # --- Load DepMap (download) ---
@@ -615,14 +621,21 @@ mod_data_server <- function(id, shared) {
       )
       w$show()
       tryCatch({
-        shared$depmap <- PERCEPTIONx::load_depmap(dest = tempdir(), read = TRUE, mirror = use_mirror,
-                                                   timeout_seconds = 600, retries = 2)
+        # Download only — the background training master reads the file in its
+        # own process. The main process extracts LIGHTWEIGHT metadata (genes /
+        # drugs / lineages / dims, a few hundred KB) and caches it to a sidecar
+        # file, so later sessions never touch the multi-GB object at all.
+        PERCEPTIONx::load_depmap(dest = tempdir(), read = FALSE, mirror = use_mirror,
+                                 timeout_seconds = 600, retries = 2)
+        depmap_path <- file.path(tempdir(), "DepMap.RDS")
+        shared$depmap_meta <- extract_depmap_meta(
+          depmap_path, cache_file = file.path(tempdir(), "DepMap_meta.RDS"))
         # Remember where the file lives so the background training worker can
         # read the same DepMap from disk (it cannot share the parent's memory).
-        shared$depmap_path <- file.path(tempdir(), "DepMap.RDS")
+        shared$depmap_path <- depmap_path
         # Built-in download = trusted standard file -> shared worker pool.
         shared$depmap_is_standard <- TRUE
-        notify_master_depmap(shared$depmap_path)
+        notify_master_depmap(depmap_path)
         w$hide()
         showNotification("DepMap data loaded successfully", type = "message")
       }, error = function(e) {
@@ -659,30 +672,10 @@ mod_data_server <- function(id, shared) {
       w$show()
       tryCatch({
         gc()  # reclaim memory before the big allocation
-        DepMap <- readRDS(file$datapath)
-
-        # Validate the expected PERCEPTIONx structure so training does not
-        # later fail with a cryptic error about a missing component.
-        if (!is.list(DepMap)) {
-          stop("The file is not a list. Expected a DepMap.RDS from the PERCEPTIONx release (or an object with the same structure).")
-        }
-        required_fields <- c("secondary_prism", "secondary_screen_drugAnnotation",
-                             "expression_rnorm", "scRNA_complete", "scRNA_subset_rnorm",
-                             "CPM_scRNA_CCLE_rnorm", "annotation_20Q4",
-                             "metadata_CPM_scRNA", "expression_20Q4")
-        missing_fields <- setdiff(required_fields, names(DepMap))
-        if (length(missing_fields) > 0) {
-          stop("The RDS is missing required components: ",
-               paste(missing_fields, collapse = ", "),
-               ". Re-save it with these components, or use the built-in 'Download & Load' (567 MB, known-good).")
-        }
-
-        depmap_env <- getFromNamespace(".depmap_env", "PERCEPTIONx")
-        assign("DepMap", DepMap, envir = depmap_env)
-        # Also write to .GlobalEnv so train_models() (which checks the global
-        # env, and whose PSOCK workers export from it) can see DepMap.
-        assign("DepMap", DepMap, envir = .GlobalEnv)
-        shared$depmap <- DepMap
+        # Extract ONLY the lightweight metadata in the main process. The full
+        # object is read from disk by the isolated per-session training worker.
+        # (Structure validation lives inside extract_depmap_meta.)
+        shared$depmap_meta <- extract_depmap_meta(file$datapath)
         # Record the source file so the background training worker (callr) can
         # load the identical DepMap from disk in its own process.
         shared$depmap_path <- file$datapath
@@ -690,7 +683,9 @@ mod_data_server <- function(id, shared) {
         # the shared pool (a wrong upload must not affect other users).
         shared$depmap_is_standard <- FALSE
         w$hide()
-        showNotification(paste("DepMap loaded from file:", length(DepMap), "datasets"), type = "message")
+        showNotification(paste("DepMap loaded from file:",
+                               length(shared$depmap_meta$components), "datasets"),
+                         type = "message")
       }, error = function(e) {
         w$hide()
         msg <- conditionMessage(e)
@@ -705,10 +700,10 @@ mod_data_server <- function(id, shared) {
     })
 
     output$depmap_status <- renderUI({
-      if (is.null(shared$depmap)) {
+      if (is.null(shared$depmap_meta)) {
         tagList(span(class = "status-badge unloaded", span(class = "status-dot gray"), "Not loaded"))
       } else {
-        n_datasets <- length(shared$depmap)
+        n_datasets <- length(shared$depmap_meta$components)
         tagList(
           span(class = "status-badge loaded", span(class = "status-dot green"), "Loaded"),
           br(), br(),
@@ -1008,7 +1003,7 @@ mod_data_server <- function(id, shared) {
       if (clone_mode) auto_prepare_if_clone()
     })
 
-    # --- Run Seurat Clustering (prepare_data) ---
+    # --- Run Seurat Clustering (prepare_data) — background worker ---
     observeEvent(input$run_seurat, {
       req(shared$user_expr, shared$user_mapping)
       w <- Waiter$new(
@@ -1020,25 +1015,31 @@ mod_data_server <- function(id, shared) {
         color = "rgba(255,255,255,0.85)"
       )
       w$show()
-      tryCatch({
-        prepared <- PERCEPTIONx::prepare_data(
-          method = input$seurat_method,
+      jobid <- tryCatch(
+        submit_session_task(shared, "prepare", list(
+          method            = input$seurat_method,
           expression_matrix = shared$user_expr,
-          patient_mapping = shared$user_mapping,
+          patient_mapping   = shared$user_mapping,
           seurat_resolution = input$seurat_resolution,
-          seurat_dims = input$seurat_dims
-        )
-        shared$prepared_data <- prepared
-        shared$user_clones <- prepared$cell_clone_map
-        # Keep shared$user_expr as cell-level expression for biomarker plots
-        w$hide()
-        showNotification(paste0("Clustering complete: ", ncol(prepared$clone_expression_rnorm),
-                                " clones detected across ", nrow(prepared$clone_counts), " patients"),
-                         type = "message", duration = 5)
-      }, error = function(e) {
-        w$hide()
-        showNotification(paste("Clustering error:", e$message), type = "error", duration = 10)
-      })
+          seurat_dims       = input$seurat_dims
+        )),
+        error = function(e) { w$hide(); NULL }
+      )
+      if (is.null(jobid)) return()
+      poll_task(shared, session, jobid,
+        on_done = function(res) {
+          w$hide()
+          shared$prepared_data <- res
+          shared$user_clones <- res$cell_clone_map
+          # Keep shared$user_expr as cell-level expression for biomarker plots
+          showNotification(paste0("Clustering complete: ", ncol(res$clone_expression_rnorm),
+                                  " clones detected across ", nrow(res$clone_counts), " patients"),
+                           type = "message", duration = 5)
+        },
+        on_error = function(msg) {
+          w$hide()
+          showNotification(paste("Clustering error:", msg), type = "error", duration = 10)
+        })
     })
 
     output$seurat_status <- renderUI({
@@ -1115,7 +1116,7 @@ mod_data_server <- function(id, shared) {
         list(name = "Clone Map (Seurat)", loaded = !is.null(shared$prepared_data)),
         list(name = "Clinical Response", loaded = !is.null(shared$user_response)),
         list(name = "Trained Model", loaded = !is.null(shared$models)),
-        list(name = "DepMap Data", loaded = !is.null(shared$depmap))
+        list(name = "DepMap Data", loaded = !is.null(shared$depmap_meta)),
       )
 
       tagList(
@@ -1155,15 +1156,16 @@ mod_data_server <- function(id, shared) {
     }
 
     output$depmap_preview <- renderDT({
-      req(shared$depmap)
-      nms <- names(shared$depmap)
+      req(shared$depmap_meta)
+      comps <- shared$depmap_meta$components
+      nms <- names(comps)
       summary_df <- data.frame(
         Dataset = nms,
-        Rows = sapply(shared$depmap, function(x) nrow(x)),
-        Cols = sapply(shared$depmap, function(x) ncol(x)),
+        Rows = vapply(comps, function(x) x$nrow, numeric(1)),
+        Cols = vapply(comps, function(x) x$ncol, numeric(1)),
         Description = vapply(tolower(nms), function(n) {
           d <- depmap_lookup(n)
-          if (is.null(d)) "Click View to inspect contents." else d
+          if (is.null(d)) "Click View to inspect details." else d
         }, character(1)),
         View = vapply(nms, function(n) {
           sprintf('<a href="#" onclick="Shiny.setInputValue(\'%s\', \'%s\', {priority: \'event\'}); return false;">View</a>',
@@ -1176,77 +1178,35 @@ mod_data_server <- function(id, shared) {
                 escape = c(TRUE, TRUE, TRUE, TRUE, FALSE))
     })
 
-    # Clicking "View" opens a modal with a description, column list, and a
-    # small data preview so users know what the table actually contains.
+    # Clicking "View" shows a modal with the description, dimensions, and the
+    # first column names. The main process keeps ONLY metadata (the full
+    # multi-GB object lives in the training worker), so no data preview is
+    # rendered here.
     observeEvent(input$depmap_view, {
-      req(shared$depmap, input$depmap_view)
+      req(shared$depmap_meta, input$depmap_view)
       nm <- input$depmap_view
-      obj <- shared$depmap[[nm]]
-      if (is.null(obj)) return(NULL)
+      comp <- shared$depmap_meta$components[[nm]]
+      if (is.null(comp)) return(NULL)
       desc <- depmap_lookup(tolower(nm))
       if (is.null(desc)) desc <- paste0("R object '", nm, "'.")
-      col_head <- paste(head(colnames(obj), 12), collapse = ", ")
-      if (ncol(obj) > 12) col_head <- paste0(col_head, ", ...")
+      col_head <- paste(comp$cols_preview, collapse = ", ")
+      if (!is.na(comp$ncol) && comp$ncol > 12) col_head <- paste0(col_head, ", ...")
       showModal(modalDialog(
         title = tags$strong(icon("database"), nm),
         size = "l",
         easyClose = TRUE,
-        footer = uiOutput(ns("depmap_footer")),
+        footer = modalButton("Close"),
         tags$div(
           p(style = "margin-bottom: 0.6rem;", desc),
           p(class = "text-muted", style = "font-size: 0.82rem; margin-bottom: 0.8rem;",
-            sprintf("Dimensions: %s rows x %s columns.", nrow(obj), ncol(obj)),
-            " | Columns: ", col_head),
-          # tableOutput instead of DTOutput: the preview is a small fixed slice,
-          # and a plain Shiny table has no client-side state to go stale across
-          # successive clicks (the DataTables "column not found" bug).
-          tableOutput(ns("depmap_detail_table"))
+            sprintf("Dimensions: %s rows x %s columns.", comp$nrow, comp$ncol),
+            " | Columns: ",
+            if (length(col_head) == 0 || !nzchar(col_head)) "—" else col_head),
+          p(class = "text-muted", style = "font-size: 0.78rem;",
+            "No data preview — the main process keeps only DepMap metadata; the full object lives in the background training worker.")
         )
       ))
     })
-
-    # Modal footer: export button for small/medium tables; large reference
-    # tables (millions of cells, e.g. the 53k-column single-cell matrix)
-    # would produce enormous CSVs, so they are excluded with a short note.
-    output$depmap_footer <- renderUI({
-      req(shared$depmap, input$depmap_view)
-      obj <- shared$depmap[[input$depmap_view]]
-      if (is.null(obj)) return(modalButton("Close"))
-      if (nrow(obj) * ncol(obj) > 3e6) {
-        tagList(
-          tags$span(class = "text-muted", style = "font-size: 0.8rem; margin-right: 0.5rem;",
-            "Table too large for CSV export."),
-          modalButton("Close")
-        )
-      } else {
-        tagList(
-          downloadButton(ns("depmap_export"), "Export CSV",
-                         class = "btn-outline-primary btn-sm", icon = icon("download")),
-          modalButton("Close")
-        )
-      }
-    })
-
-    output$depmap_export <- downloadHandler(
-      filename = function() {
-        paste0(input$depmap_view, "_", format(Sys.Date(), "%Y%m%d"), ".csv")
-      },
-      content = function(file) {
-        req(shared$depmap, input$depmap_view)
-        obj <- shared$depmap[[input$depmap_view]]
-        write.csv(as.data.frame(obj), file, row.names = TRUE)
-      }
-    )
-
-    output$depmap_detail_table <- renderTable({
-      req(shared$depmap, input$depmap_view)
-      obj <- shared$depmap[[input$depmap_view]]
-      prev <- as.data.frame(obj)
-      prev <- prev[seq_len(min(8, nrow(prev))),
-                   seq_len(min(12, ncol(prev))), drop = FALSE]
-      prev
-    }, rownames = TRUE, digits = 4, width = "100%",
-       caption = "Preview: first 8 rows (first 12 columns)")
 
     output$expr_preview <- renderDT({
       req(shared$user_expr)

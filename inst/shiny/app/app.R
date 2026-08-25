@@ -196,7 +196,7 @@ ui <- page_navbar(
 server <- function(input, output, session) {
   # Shared reactive values
   shared <- reactiveValues(
-    depmap = NULL,
+    depmap_meta = NULL,        # lightweight DepMap metadata only (genes/drugs/dims)
     depmap_path = NULL,
     depmap_is_standard = FALSE,
     models = NULL,
@@ -219,14 +219,11 @@ server <- function(input, output, session) {
   mod_visualize_server("visualize", shared, session)
   mod_help_server("help", session)
 
-  # Clean up downloaded temp files when the session ends (browser tab closed)
-  session$onSessionEnded(function() {
-    td <- tempdir()
-    if (dir.exists(td)) {
-      files <- list.files(td, pattern = "\\.(RDS|rds)$", full.names = TRUE, recursive = TRUE)
-      if (length(files) > 0) unlink(files, force = TRUE)
-    }
-  })
+  # NOTE: no session-end file sweep here. Shiny itself deletes a session's
+  # uploaded files when it ends. A global unlink over tempdir() would delete
+  # OTHER sessions' DepMap.RDS that a background worker may still need to read
+  # from disk (built-in downloads all share tempdir()/DepMap.RDS), breaking
+  # their training. R's tempdir() is cleaned up by the OS on process exit.
 }
 
 shinyApp(ui, server)
