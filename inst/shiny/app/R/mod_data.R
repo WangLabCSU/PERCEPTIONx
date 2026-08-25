@@ -620,6 +620,9 @@ mod_data_server <- function(id, shared) {
         # Remember where the file lives so the background training worker can
         # read the same DepMap from disk (it cannot share the parent's memory).
         shared$depmap_path <- file.path(tempdir(), "DepMap.RDS")
+        # Built-in download = trusted standard file -> shared worker pool.
+        shared$depmap_is_standard <- TRUE
+        notify_master_depmap(shared$depmap_path)
         w$hide()
         showNotification("DepMap data loaded successfully", type = "message")
       }, error = function(e) {
@@ -683,6 +686,9 @@ mod_data_server <- function(id, shared) {
         # Record the source file so the background training worker (callr) can
         # load the identical DepMap from disk in its own process.
         shared$depmap_path <- file$datapath
+        # User-uploaded file = untrusted -> isolated per-session worker, never
+        # the shared pool (a wrong upload must not affect other users).
+        shared$depmap_is_standard <- FALSE
         w$hide()
         showNotification(paste("DepMap loaded from file:", length(DepMap), "datasets"), type = "message")
       }, error = function(e) {
