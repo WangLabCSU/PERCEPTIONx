@@ -42,12 +42,18 @@ make_job_id <- function(user_key = "") {
 # Fully self-contained (see note above).
 
 train_master_main <- function(pkg_root, jobs_dir, max_parallel, idle_minutes) {
-  # Deployment fallback: during development the repo lives locally (load_all);
-  # on a server the package is installed (library) and pkg_root is NULL/absent.
+  # Loading strategy: dev mode (repo on disk) -> load_all; otherwise the
+  # package is expected to be INSTALLED (e.g. via
+  # devtools::install_github("WangLabCSU/PERCEPTIONx")). load_all() would fail
+  # on a deployed machine because there is no source tree (no DESCRIPTION);
+  # library() is the correct path once the package is installed into .libPaths().
   if (!is.null(pkg_root) && nzchar(pkg_root) && dir.exists(pkg_root)) {
     suppressMessages(devtools::load_all(pkg_root, quiet = TRUE))
-  } else {
+  } else if (requireNamespace("PERCEPTIONx", quietly = TRUE)) {
     library(PERCEPTIONx)
+  } else {
+    stop("Package 'PERCEPTIONx' is not installed. Install it with ",
+         "devtools::install_github(\"WangLabCSU/PERCEPTIONx\"), then restart the app.")
   }
 
   # --- helpers (local to this process) ---
@@ -167,8 +173,11 @@ train_master_main <- function(pkg_root, jobs_dir, max_parallel, idle_minutes) {
 train_custom_main <- function(pkg_root, depmap_path, jobs_dir, poll_secs = 1L) {
   if (!is.null(pkg_root) && nzchar(pkg_root) && dir.exists(pkg_root)) {
     suppressMessages(devtools::load_all(pkg_root, quiet = TRUE))
-  } else {
+  } else if (requireNamespace("PERCEPTIONx", quietly = TRUE)) {
     library(PERCEPTIONx)
+  } else {
+    stop("Package 'PERCEPTIONx' is not installed. Install it with ",
+         "devtools::install_github(\"WangLabCSU/PERCEPTIONx\"), then restart the app.")
   }
 
   write_progress <- function(progress_file, phase, i, n, drug) {
