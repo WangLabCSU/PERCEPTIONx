@@ -22,10 +22,16 @@ options(shiny.heartbeat.timeout = 1800)  # 30 minutes, then consider dead
 
 # Auto-detect package root robustly, regardless of how the app is launched
 # (cd inst/shiny/app && Rscript app.R, shiny::runApp("inst/shiny/app") from the
-# repo root, RStudio "Run App", etc.). Each candidate directory must contain a
-# DESCRIPTION; only then do we load the LIVE repo code via devtools. Without
-# this, a cwd mismatch silently falls back to the INSTALLED PERCEPTIONx — i.e.
-# stale code that misses recent fixes (e.g. the vectorized feature ranking).
+# repo root, RStudio "Run App", etc.). A candidate only counts as the LIVE repo
+# if it is a SOURCE tree — DESCRIPTION plus R/*.R files. An INSTALLED package
+# directory also contains DESCRIPTION (but only compiled R/*.rdb, no .R), and
+# devtools::load_all() on it silently produces an EMPTY namespace (every
+# PERCEPTIONx:: call then fails with "not an exported object").
+is_src_root <- function(cand) {
+  !is.null(cand) &&
+    file.exists(file.path(cand, "DESCRIPTION")) &&
+    length(list.files(file.path(cand, "R"), pattern = "\\.R$")) > 0
+}
 pkg_root <- NULL
 script_dir <- tryCatch(dirname(sys.frame(1)$ofile), error = function(e) NULL)
 candidates <- c(
@@ -36,7 +42,7 @@ candidates <- c(
   file.path(getwd())                     # cwd = repo root
 )
 for (cand in candidates) {
-  if (!is.null(cand) && file.exists(file.path(cand, "DESCRIPTION"))) {
+  if (is_src_root(cand)) {
     pkg_root <- normalizePath(cand)
     break
   }
@@ -226,6 +232,10 @@ server <- function(input, output, session) {
   # their training. R's tempdir() is cleaned up by the OS on process exit.
 
   session$onSessionEnded(function() {
+    # NOTE: this callback runs OUTSIDE any reactive context. Reading a
+    # reactiveValues field that was never assigned (e.g. a user who never
+    # triggered any background task) errors there — wrap every read in
+    # isolate() so missing fields come back as NULL instead of aborting.
     # 1. Kill THIS session's background workers. callr's supervise = TRUE only
     # kills children when the WHOLE server process exits, so without this every
     # session leaks its worker (each one holds that session's data in RAM —
@@ -233,11 +243,11 @@ server <- function(input, output, session) {
     # DepMap) until the server restarts. The training MASTER is server-wide
     # and must NOT be touched; shared$train_worker is always the per-session
     # custom worker, shared$task_worker the prepare/demo/predict/plot worker.
-    tw <- shared$task_worker
+    tw <- isolate(shared$task_worker)
     if (!is.null(tw) && inherits(tw, "r_process") && tw$is_alive()) {
       tw$kill()
     }
-    cw <- shared$train_worker
+    cw <- isolate(shared$train_worker)
     if (!is.null(cw) && inherits(cw, "r_process") && cw$is_alive()) {
       cw$kill()
     }
@@ -246,7 +256,7 @@ server <- function(input, output, session) {
     # scoped — no other session can be reading them — and any job that was
     # mid-flight has been aborted by the kill above.
     for (dir_key in c("task_jobs_dir", "jobs_dir")) {
-      d <- shared[[dir_key]]
+      d <- isolate(shared[[dir_key]])
       if (!is.null(d) && nzchar(d) &&
           grepl("perception_tasks|perception_jobs_custom", d, fixed = FALSE)) {
         unlink(d, recursive = TRUE)

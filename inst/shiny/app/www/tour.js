@@ -36,8 +36,8 @@
     {
       target: 'a[data-value="train"]',
       title: 'Train',
-      text: 'Train drug-response models on DepMap expression data. ' +
-            'If the drugs you need are not listed in the pretrained models, try to train a new model here.'
+      text: 'If the drugs you need are not listed in the pretrained models, try to train a new model here.' +
+            'Drug-response models will be trained based on DepMap expression data.'
     },
     {
       target: 'a[data-value="predict"]',

@@ -47,7 +47,12 @@ train_master_main <- function(pkg_root, jobs_dir, max_parallel, idle_minutes) {
   # devtools::install_github("WangLabCSU/PERCEPTIONx")). load_all() would fail
   # on a deployed machine because there is no source tree (no DESCRIPTION);
   # library() is the correct path once the package is installed into .libPaths().
-  if (!is.null(pkg_root) && nzchar(pkg_root) && dir.exists(pkg_root)) {
+  # A dir counts as the source tree ONLY with DESCRIPTION + R/*.R — an installed
+  # package dir has DESCRIPTION but no .R sources, and load_all() on it yields
+  # an empty namespace ("X is not an exported object from namespace:PERCEPTIONx").
+  pkg_is_src <- !is.null(pkg_root) && nzchar(pkg_root) && dir.exists(pkg_root) &&
+    length(list.files(file.path(pkg_root, "R"), pattern = "\\.R$")) > 0
+  if (pkg_is_src) {
     suppressMessages(devtools::load_all(pkg_root, quiet = TRUE))
   } else if (requireNamespace("PERCEPTIONx", quietly = TRUE)) {
     library(PERCEPTIONx)
@@ -208,7 +213,12 @@ train_master_main <- function(pkg_root, jobs_dir, max_parallel, idle_minutes) {
 # loads the user's own file and dies with the session (supervise).
 
 train_custom_main <- function(pkg_root, depmap_path, jobs_dir, poll_secs = 1L) {
-  if (!is.null(pkg_root) && nzchar(pkg_root) && dir.exists(pkg_root)) {
+  # Source tree check (DESCRIPTION + R/*.R): an installed package dir has
+  # DESCRIPTION but no .R sources, and load_all() on it yields an EMPTY
+  # namespace ("X is not an exported object from namespace:PERCEPTIONx").
+  pkg_is_src <- !is.null(pkg_root) && nzchar(pkg_root) && dir.exists(pkg_root) &&
+    length(list.files(file.path(pkg_root, "R"), pattern = "\\.R$")) > 0
+  if (pkg_is_src) {
     suppressMessages(devtools::load_all(pkg_root, quiet = TRUE))
   } else if (requireNamespace("PERCEPTIONx", quietly = TRUE)) {
     library(PERCEPTIONx)
@@ -328,7 +338,15 @@ ensure_master <- function() {
                 max_parallel = max_par,
                 idle_minutes = idle),
     supervise = TRUE,
-    poll_connection = FALSE
+    poll_connection = FALSE,
+    # CRITICAL: stdout/stderr must NOT be pipes. callr's default is "|", and
+    # workers print a lot (Seurat progress bars, caret messages, package load
+    # noise). Nobody in the app ever reads those pipes, so the OS pipe buffer
+    # (~64KB) fills up and the worker blocks forever inside write() — a task
+    # that takes 12s standalone hangs indefinitely inside Shiny. Redirect both
+    # to files instead: stdout discarded, stderr kept for debugging.
+    stdout = FALSE,
+    stderr = file.path(jobs_dir, "worker.log")
   )
   options(perception.master = worker)
   invisible(TRUE)
@@ -369,7 +387,10 @@ ensure_custom_worker <- function(shared) {
                 depmap_path = shared$depmap_path,
                 jobs_dir = jobs_dir),
     supervise = TRUE,
-    poll_connection = FALSE
+    poll_connection = FALSE,
+    # stdout/stderr to files, NOT pipes — see ensure_master() note.
+    stdout = FALSE,
+    stderr = file.path(jobs_dir, "worker.log")
   )
   shared$jobs_dir <- jobs_dir
   shared$train_worker <- worker
@@ -450,7 +471,12 @@ read_job_state <- function(shared, jobid) {
 # ---------------------------------------------------------------------------
 
 session_task_main <- function(pkg_root, jobs_dir, poll_secs = 1L) {
-  if (!is.null(pkg_root) && nzchar(pkg_root) && dir.exists(pkg_root)) {
+  # Source tree check (DESCRIPTION + R/*.R): an installed package dir has
+  # DESCRIPTION but no .R sources, and load_all() on it yields an EMPTY
+  # namespace ("X is not an exported object from namespace:PERCEPTIONx").
+  pkg_is_src <- !is.null(pkg_root) && nzchar(pkg_root) && dir.exists(pkg_root) &&
+    length(list.files(file.path(pkg_root, "R"), pattern = "\\.R$")) > 0
+  if (pkg_is_src) {
     suppressMessages(devtools::load_all(pkg_root, quiet = TRUE))
   } else if (requireNamespace("PERCEPTIONx", quietly = TRUE)) {
     library(PERCEPTIONx)
@@ -967,7 +993,10 @@ ensure_session_worker <- function(shared) {
     args = list(pkg_root = getOption("perception.pkg_root", NULL),
                 jobs_dir = jobs_dir),
     supervise = TRUE,
-    poll_connection = FALSE
+    poll_connection = FALSE,
+    # stdout/stderr to files, NOT pipes — see ensure_master() note.
+    stdout = FALSE,
+    stderr = file.path(jobs_dir, "worker.log")
   )
   shared$task_jobs_dir <- jobs_dir
   shared$task_worker <- worker
@@ -1054,7 +1083,11 @@ poll_task <- function(shared, session, jobid, on_done, on_error = NULL,
                            type = "error", duration = 10)
         }
       } else {
-        invalidateLater(poll_ms, session)
+        # NOTE: no explicit session arg here. Inside observe() the default
+        # reactive domain IS this observer's session; on Shiny >= 1.10 an
+        # explicit promise from the outer function frame can evaluate as a
+        # missing argument at flush time ("argument 'session' is missing").
+        invalidateLater(poll_ms)
       }
     }
   })

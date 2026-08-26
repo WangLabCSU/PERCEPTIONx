@@ -116,11 +116,14 @@ workflow_stepper_html <- function(shared, ns = identity) {
             else if (i == 2L && blocked2) icon("triangle-exclamation", style = "font-size: 1rem;")
             else tags$span(i)
     tags$div(class = paste("wf-step", st),
-      actionLink(ns(step_defs[[i]]$id), NULL, class = "wf-step-link",
+      # NOTE: child divs must go in `label`, NOT in `...` — Shiny >= 1.10
+      # validates `...` tag elements as icons (actionLink -> tags$a) and
+      # errors with "Invalid icon" when a plain div is passed positionally.
+      actionLink(ns(step_defs[[i]]$id), label = tagList(
         div(class = "wf-node", node),
         div(class = "wf-step-title", step_defs[[i]]$title),
         div(class = "wf-step-status", label)
-      )
+      ), class = "wf-step-link")
     )
   })
 
