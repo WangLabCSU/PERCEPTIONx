@@ -392,7 +392,10 @@ mod_train_server <- function(id, shared, main_session) {
                             max(0.05, (i - 1) / n))
         }
       }
-      invalidateLater(1000, session)
+      # no explicit session arg: inside observe() the default reactive domain
+      # is this observer's session (avoids a missing-argument error on
+      # Shiny >= 1.10 with the outer frame's session promise).
+      invalidateLater(1000)
     })
 
     # Reset

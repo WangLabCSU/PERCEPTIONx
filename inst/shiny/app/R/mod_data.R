@@ -852,10 +852,15 @@ mod_data_server <- function(id, shared) {
             div(class = "model-mgmt-status",
               strong(d)
             ),
-            actionButton(ns(btn_id), label,
-                         class = paste("btn-model-toggle btn-sm", state_class),
-                         icon = tags$span(class = "status-dot", class = dot_class,
-                                          style = "width:8px;height:8px;border-radius:50%;display:inline-block;"))
+            # NOTE: the status dot must go in `label`, not `icon` — Shiny >= 1.10
+            # validates the icon arg (validateIcon) and errors "Invalid icon"
+            # for any non-icon() tag.
+            actionButton(ns(btn_id), tagList(
+              tags$span(class = "status-dot", class = dot_class,
+                        style = "width:8px;height:8px;border-radius:50%;display:inline-block;"),
+              label
+            ),
+            class = paste("btn-model-toggle btn-sm", state_class))
           )
         })
         div(class = "model-mgmt-grid", cards)
@@ -1150,7 +1155,10 @@ mod_data_server <- function(id, shared) {
         list(name = "Clone Map (Seurat)", loaded = !is.null(shared$prepared_data)),
         list(name = "Clinical Response", loaded = !is.null(shared$user_response)),
         list(name = "Trained Model", loaded = !is.null(shared$models)),
-        list(name = "DepMap Data", loaded = !is.null(shared$depmap_meta)),
+        # NO trailing comma on the last element: renderUI captures the
+        # expression with rlang, which turns a trailing comma into an empty
+        # 7th argument -> "Error in list: argument 7 is empty".
+        list(name = "DepMap Data", loaded = !is.null(shared$depmap_meta))
       )
 
       tagList(
