@@ -12,11 +12,13 @@
 # sidecar file so later sessions read kilobytes instead of gigabytes.
 # ---------------------------------------------------------------------------
 extract_depmap_meta <- function(depmap_path, cache_file = NULL) {
-  if (!is.null(cache_file) && file.exists(cache_file)) {
+  if (!is.null(cache_file) && file.exists(cache_file) && file.exists(depmap_path)) {
     # Only trust a cache that is newer than the source DepMap.RDS itself:
     # if the RDS was replaced (re-download / different version) the cached
     # genes/drugs would be silently stale. A corrupt cache falls through to
-    # a full re-extraction instead of erroring.
+    # a full re-extraction instead of erroring. (Both files must exist —
+    # file.mtime() returns NA for a missing file and the comparison would
+    # then produce if(NA) instead of a clean fall-through.)
     if (file.mtime(cache_file) >= file.mtime(depmap_path)) {
       cached <- tryCatch(readRDS(cache_file), error = function(e) NULL)
       if (!is.null(cached)) return(cached)
