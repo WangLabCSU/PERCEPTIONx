@@ -523,8 +523,12 @@ mod_data_server <- function(id, shared) {
     ns <- session$ns
 
     # Demo state: whether the loaded data/models came from the demo button.
-    # Drives the "Load Demo Data" <-> "Clear Demo Data" toggle.
-    if (is.null(shared$demo_loaded)) shared$demo_loaded <- FALSE
+    # Drives the "Load Demo Data" <-> "Clear Demo Data" toggle. Stored on
+    # shared so the Home page's "Load Demo" (mod_home.R) can mark it too.
+    # NOTE: no explicit initialization here — reading an unset reactiveValues
+    # field OUTSIDE a reactive consumer errors (app.R's onSessionEnded note),
+    # and every read below happens inside a reactive context where
+    # isTRUE(NULL) == FALSE is the correct default anyway.
 
     # Guards against double-submitting a background prepare task (rapid double
     # clicks on Run Seurat / auto-prepare would otherwise queue duplicate jobs
@@ -601,7 +605,7 @@ mod_data_server <- function(id, shared) {
     # --- Load / Clear Demo Data ---
     observeEvent(input$load_demo, {
       # Toggle: once the demo is loaded, the button becomes "Clear Demo Data".
-      if (demo_loaded()) {
+      if (isTRUE(shared$demo_loaded)) {
         shared$user_response <- NULL
         shared$user_mapping  <- NULL
         shared$user_expr     <- NULL
@@ -618,7 +622,7 @@ mod_data_server <- function(id, shared) {
         return()
       }
       # Shared demo pipeline (also used by the Home "Load Demo" button).
-      run_demo_pipeline(shared, session, on_success = function() demo_loaded(TRUE))
+      run_demo_pipeline(shared, session, on_success = function() shared$demo_loaded <- TRUE)
     })
 
     # --- Load DepMap (download) ---
