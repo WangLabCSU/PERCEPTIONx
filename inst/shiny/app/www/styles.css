@@ -1287,6 +1287,12 @@ body {
   border-radius: var(--radius) !important;
 }
 
+/* Danger buttons (e.g. "Clear Demo Data") keep the same radius as the
+   primary/demo buttons so toggle states look identical. */
+.btn-danger {
+  border-radius: var(--radius) !important;
+}
+
 .btn-primary:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 18px rgba(58,79,138,0.35);

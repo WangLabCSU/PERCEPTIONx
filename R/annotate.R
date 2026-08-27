@@ -39,7 +39,9 @@ run_seurat_pipeline <- function(expression_matrix, method,
   so <- Seurat::RunPCA(so, features = Seurat::VariableFeatures(object = so),
                        npcs = actual_dims)
   so <- Seurat::FindNeighbors(so, dims = seq_len(actual_dims))
-  so <- Seurat::FindClusters(so, resolution = resolution)
+  # verbose = FALSE: FindClusters prints "Modularity Optimizer" progress to
+  # stdout, which pollutes worker logs / can leave stray files behind.
+  so <- Seurat::FindClusters(so, resolution = resolution, verbose = FALSE)
 
   if (method == "umap") {
     so <- Seurat::RunUMAP(so, dims = seq_len(actual_dims))

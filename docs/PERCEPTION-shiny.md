@@ -25,7 +25,7 @@
 ### 0.1 Requirements
 
 - **R** ≥ 4.1.0
-- Main dependencies: `devtools`, `shiny`, `bslib`, `Seurat`, `ggplot2`, `ggiraph`, `glmnet`, `caret` (the app prompts you to install any that are missing when a feature needs them)
+- Main dependencies: `devtools`, `shiny`, `bslib`, `Seurat`, `ggplot2`, `ggiraph`, `glmnet`, `caret`, `DT`, `plotly`, `waiter`, `thematic`, `callr`, `readxl` (the app prompts you to install any that are missing when a feature needs them)
 
 ### 0.2 Launch
 
@@ -100,7 +100,7 @@ Two ways:
 ### 2.3 Uploading an Expression Matrix (patient scRNA-seq)
 
 - **Accepted formats**: CSV / TSV / TXT / Excel (.xlsx/.xls) / RDS
-- **Accepted R objects** (RDS): numeric matrix, data.frame, or Seurat object
+- **Accepted R objects** (RDS): a numeric matrix or data.frame (genes × cells); Seurat objects are not accepted directly — export the matrix first
 - **Orientation**: genes × cells (rows = genes, columns = cells). If the first column is a character column of gene names (common in Excel/CSV exports), it is converted to row names automatically
 - **Normalization**: expression should be **rank-normalized**. If you upload raw counts, the app can normalize them automatically during clustering
 
@@ -118,7 +118,7 @@ Two ways:
 - A check runs on upload: if the patient IDs do not overlap with the Mapping at all, a warning is shown
 - **Why it's needed**: only with true outcomes can you validate predictions (ROC curves, responder vs. non-responder boxplots). Skip it if you only want prediction scores
 
-> **Example** (paper demo lung cohort PRJNA591860): label by treatment timepoint — baseline (TN) → `Responder`, resistant disease (RD) / progressive disease (PD) → `Non-responder`.
+> **Example** (paper demo lung cohort PRJNA591860): label by treatment timepoint, keeping the groups as-is (e.g. `TN` / `RD` / `PD`) — no collapsing into two classes. When a binary label is needed for ROC, choose two groups to compare on the Visualize tab.
 
 ### 2.6 Clustering (Seurat)
 
@@ -132,7 +132,7 @@ Two ways:
 |---|---|---|
 | Seurat Resolution | clustering resolution; higher = finer clusters | 0.5–1.0 |
 | Seurat Dims | number of PCA dimensions used | 10–30 |
-| Seurat NFeatures | number of highly variable genes for clustering | 1000–3000, default 2000 |
+| Seurat NFeatures | number of highly variable genes for clustering — fixed at 2000 in the app (not adjustable) | — |
 
 ![Clustering in the Data tab](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrrpqdGNtTytttAcxi0NLh0PzdHU_SQAClTQAAtsboFfopMIK8x6Grz0E.png)
 
@@ -150,7 +150,7 @@ Two ways:
 
 | Parameter | Description |
 |---|---|
-| **Drug Name** | multi-select drugs (combination regimens supported); each item has an × to remove |
+| **Drug Name** | free-text input; one drug per line or comma/space-separated (combination regimens supported) |
 | **Cancer Type (include)** | cancer types to include, default PanCan (pan-cancer) |
 | **Cancer Type (exclude)** | cancer types to exclude (to avoid self-validation) |
 | **Gene Symbols** | gene list; leave empty = use all DepMap genes (recommended); paste text or upload .txt/.csv |
@@ -173,7 +173,7 @@ Two ways:
 
 Select the loaded models (pre-trained from the Data tab or trained on the Train tab) and click predict:
 
-1. **Clone-level**: viability score for every clone × every drug. Semantics: the model outputs **viability (survival)**, where **higher = more resistant, lower = more sensitive**. Values shown in the app are rescaled to [0, 1] for display — **closer to 1 = more resistant (higher viability)** to that drug
+1. **Clone-level**: viability score for every clone × every drug. Semantics: the model outputs **viability (survival)**, where **higher = more resistant, lower = more sensitive**. The prediction heatmap shows the model's raw predictions (not normalized); the lollipop plot and UMAP Drug Viability use a z-score (centered at 0, can be negative)
 2. **Patient-level**: clone scores are aggregated to patients by clone proportion (default `weighted_max`), giving each patient's drug-sensitivity stratification
 
 Outputs include an interactive heatmap (clones × drugs, plotly) and downloadable prediction tables.
@@ -186,7 +186,7 @@ Outputs include an interactive heatmap (clones × drugs, plotly) and downloadabl
 
 This module visualizes the prediction results, so **you must run a prediction first**.
 
-All figures are **interactive SVG** (built on ggiraph): hover any point or bar to see details (clone id, viability score, proportion, FPR/TPR, ...). The toolbar supports zoom, pan, and download.
+All figures are **interactive SVG** (built on ggiraph): hover any point or bar to see details (clone id, viability score, proportion, FPR/TPR, ...). The in-figure toolbar has zoom disabled; export to PNG/PDF via the download buttons at the top of the page.
 
 ### 5.1 Clone Distribution (stacked bar chart)
 
@@ -222,7 +222,7 @@ Shows the distribution of prediction scores for Responder vs. Non-responder grou
 
 ![Model performance plot](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYruZqdGSFqhl8FAYozOIa3fcN_FgDUgACwjQAAtsboFd6-2EPyhNE6D0E.png)
 
-Validation performance curves for trained models (requires models from the Train tab; not applicable to pre-trained models — the app will tell you).
+This plot lives on the **Train tab** (see Performance Plot in 3.2), not on the Visualize tab. It shows validation performance curves for trained models (requires models from the Train tab; not applicable to pre-trained models — the app will tell you).
 
 ### 5.6 Spatial Plots (UMAP / t-SNE)
 
@@ -232,7 +232,7 @@ Validation performance curves for trained models (requires models from the Train
 
 Choose a dimensionality-reduction method and a color variable:
 
-- **Gene Expression**: per-cell expression of a single gene (z-score), continuous scale — see which cell groups express the gene highly
+- **Gene Expression**: per-cell expression of a single gene, winsorized to the 5th–95th percentiles and scaled to [0, 1] (range01 normalization), continuous scale — see which cell groups express the gene highly
 - **Drug Viability**: each cell colored by its clone's predicted viability score ("patchwork" blocks) — see which clones are predicted resistant (high) vs. sensitive (low)
 - **Clone / Cluster**: color by clone (cluster) — see the population structure
 
@@ -271,13 +271,13 @@ The upload limit is 1 GB. For larger data, preprocess locally (e.g. subset genes
 That plot needs validation metrics produced during training; pre-trained models (`load_model()`) don't carry them. Train on the Train tab first, or load the demo models on the Data tab.
 
 **Q3: How do I construct the response labels?**
-Build a two-column table `patient` / `response`. `patient` must exactly match `patient_id` in the Mapping; `response` values are normalized automatically (responder → Responder, etc.). Without outcome data, use treatment timepoints instead (baseline → Responder, resistant progression → Non-responder).
+Build a two-column table `patient` / `response`. `patient` must exactly match `patient_id` in the Mapping; `response` values are normalized automatically (responder → Responder, etc.). Response labels keep multiple groups (e.g. TN/RD/PD) — no timepoint collapsing; when ROC needs a binary label, pick two groups to compare on the Visualize tab.
 
 **Q4: Why is a viability score lower than I expected?**
-Scores are relative ranks learned from DepMap (normalized to 0–1): "1" means the most resistant clone in this batch (highest viability), not an absolute viability percentage. Clonal heterogeneity and activated resistance pathways both raise the viability score.
+Scores are relative ranks learned from DepMap (not normalized): the prediction heatmap shows raw model values, while the lollipop plot and UMAP Drug Viability use a z-score (centered at 0, can be negative). Higher values mean the most resistant clone in this batch (highest viability), not an absolute viability percentage. Clonal heterogeneity and activated resistance pathways both raise the viability score.
 
 **Q5: Does data persist after I close the app?**
-No. Downloaded DepMap data and pre-trained models are written to the R session's `tempdir()` and are cleaned up automatically when the app closes — nothing remains on disk.
+It persists. DepMap data is cached in a persistent directory (Windows: the user data directory; on Linux, set the `PERCEPTIONX_DEPMAP_CACHE_DIR` environment variable), with a 12-hour unused-expiry (TTL) mechanism. Files stay on disk after the app closes; if unused for more than 12 hours, the next click deletes and re-downloads them.
 
 **Q6: Why doesn't the interface freeze during training / clustering / prediction?**
 All heavy computation runs in **background worker processes**; the interface only polls and shows progress, so you can keep using other pages while a big task runs. If a worker ever stops unexpectedly, the app reports "Background worker stopped" instead of spinning forever — just submit again.
