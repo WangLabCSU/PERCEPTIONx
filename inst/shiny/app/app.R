@@ -226,10 +226,12 @@ server <- function(input, output, session) {
   mod_help_server("help", session)
 
   # NOTE: no session-end file sweep here. Shiny itself deletes a session's
-  # uploaded files when it ends. A global unlink over tempdir() would delete
-  # OTHER sessions' DepMap.RDS that a background worker may still need to read
-  # from disk (built-in downloads all share tempdir()/DepMap.RDS), breaking
-  # their training. R's tempdir() is cleaned up by the OS on process exit.
+  # uploaded files when it ends. A global sweep over the cache/temp areas
+  # would risk deleting files that other sessions' background workers still
+  # need (the shared DepMap cache, an in-progress download, or a queued job),
+  # breaking their training. Per-session job dirs are removed below; R's
+  # tempdir() is cleaned up by the OS on process exit, and the DepMap cache
+  # has its own 12-hour unused-expiry (TTL).
 
   session$onSessionEnded(function() {
     # NOTE: this callback runs OUTSIDE any reactive context. Reading a
