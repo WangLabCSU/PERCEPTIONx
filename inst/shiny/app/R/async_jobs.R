@@ -935,11 +935,10 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 1L) {
            if (is.null(plot_obj)) "Selected plot type is not available with current data" else "")
   }
 
-  # Download with mirror fallback, then extract the lightweight metadata IN
-  # THIS WORKER. Deserializing the 567 MB file in the main Shiny process
-  # would block the UI and spike its RAM; the worker returns only a few
-  # hundred KB of metadata. `cache_file` lets the worker write the sidecar so
-  # later cache hits stay kilobytes.
+  # Download with mirror fallback. Downloading AND parsing (reading the 567 MB
+  # file) are split into two sequential tasks so the UI can show a proper
+  # download progress bar, then switch to a "parsing" overlay — the main
+  # process never deserializes the big object either way.
   run_download <- function(a) {
     ok <- PERCEPTIONx:::download_with_mirrors(
       a$urls, a$destfile, quiet = TRUE,
@@ -949,8 +948,7 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 1L) {
     if (!file.exists(a$destfile) || file.size(a$destfile) == 0) {
       stop("Downloaded file is missing or empty")
     }
-    meta <- PERCEPTIONx:::extract_depmap_meta(a$destfile, cache_file = a$cache_file)
-    list(destfile = a$destfile, meta = meta)
+    a$destfile
   }
 
   # Rebuild/refresh the metadata sidecar for an EXISTING DepMap.RDS (used when

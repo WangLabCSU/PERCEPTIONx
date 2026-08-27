@@ -754,7 +754,6 @@ mod_data_server <- function(id, shared) {
         submit_session_task(shared, "download", list(
           urls            = urls,
           destfile        = destfile,
-          cache_file      = file.path(cache_dir, "DepMap_meta.RDS"),
           timeout_seconds = 600,
           retries         = 2
         )),
@@ -764,43 +763,74 @@ mod_data_server <- function(id, shared) {
 
       # Expected size of the official DepMap.RDS release asset (bytes) — used
       # only as the progress-bar denominator. The real file is validated by
-      # the worker's extract_depmap_meta(), so a wrong estimate can never
-      # corrupt data.
+      # the parsing step below, so a wrong estimate can never corrupt data.
       download_progress(list(jobid = jobid, destfile = destfile, expected = 594589700))
 
       poll_task(shared, session, jobid,
-        on_done = function(dl) {
+        on_done = function(path) {
           download_progress(NULL)
-          suppressWarnings(try(file.create(last_used), silent = TRUE))
-          # dl$meta was extracted by the worker — the main process never
-          # deserializes the 567 MB object.
-          shared$depmap_meta <- dl$meta
-          shared$depmap_path <- dl$destfile
-          # Built-in download = trusted standard file -> shared worker pool.
-          shared$depmap_is_standard <- TRUE
-          notify_master_depmap(dl$destfile)
+          # Download hit 100%: close the download overlay, then immediately
+          # show a "parsing" overlay. Reading the 567 MB file + extracting
+          # metadata runs as a SECOND background task, so the UI never blocks
+          # and the user always knows which stage we are in.
           w$hide()
-          showNotification("DepMap data loaded successfully", type = "message")
+          pw <- Waiter$new(
+            html = tagList(
+              div(class = "spinner-ring"),
+              h4("Parsing DepMap data..."),
+              p(class = "text-muted", "Reading the file and extracting metadata (a few seconds)")
+            ),
+            color = "rgba(255,255,255,0.85)"
+          )
+          pw$show()
+          jobid2 <- tryCatch(
+            submit_session_task(shared, "extract_meta", list(
+              depmap_path = path,
+              cache_file  = file.path(cache_dir, "DepMap_meta.RDS")
+            )),
+            error = function(e) { pw$hide(); e }
+          )
+          if (inherits(jobid2, "error")) {
+            showNotification(paste("Download finished but parsing failed to start:", conditionMessage(jobid2)),
+                             type = "error", duration = 10)
+            return()
+          }
+          poll_task(shared, session, jobid2,
+            on_done = function(meta) {
+              suppressWarnings(try(file.create(last_used), silent = TRUE))
+              shared$depmap_meta <- meta
+              shared$depmap_path <- path
+              # Built-in download = trusted standard file -> shared worker pool.
+              shared$depmap_is_standard <- TRUE
+              notify_master_depmap(path)
+              pw$hide()
+              showNotification("DepMap data loaded successfully", type = "message")
+            },
+            on_error = function(msg) {
+              pw$hide()
+              # A corrupt/truncated file from an interrupted download would
+              # otherwise poison EVERY later session. Detect and delete it so
+              # the next click re-downloads a clean copy. Memory errors must
+              # NOT delete anything — the file may be fine.
+              corrupt <- grepl(paste0("error reading from connection|unknown input format|",
+                                     "cannot open the connection|not a list|",
+                                     "missing required components"), msg, ignore.case = TRUE)
+              if (corrupt) {
+                unlink(path)
+                unlink(file.path(cache_dir, "DepMap_meta.RDS"))
+                showNotification("Downloaded DepMap.RDS is corrupt (incomplete download?) — it was deleted. Please click 'Download & Load' again.",
+                                 type = "error", duration = 10)
+              } else {
+                showNotification(paste("Error:", msg), type = "error", duration = 10)
+              }
+              showNotification("Tip: Try enabling 'Use mirror' or download DepMap.RDS manually and use the 'Load' button below.",
+                               type = "warning", duration = 15)
+            })
         },
         on_error = function(msg) {
           download_progress(NULL)
           w$hide()
-          # A corrupt/truncated file from an interrupted download would
-          # otherwise poison EVERY later session (file.exists() makes the
-          # cache check above skip re-downloading). Detect and delete it so
-          # the next click re-downloads a clean copy. Memory errors must NOT
-          # delete anything — the file may be fine.
-          corrupt <- grepl(paste0("error reading from connection|unknown input format|",
-                                 "cannot open the connection|not a list|",
-                                 "missing required components"), msg, ignore.case = TRUE)
-          if (corrupt) {
-            unlink(destfile)
-            unlink(file.path(cache_dir, "DepMap_meta.RDS"))
-            showNotification("Downloaded DepMap.RDS is corrupt (incomplete download?) — it was deleted. Please click 'Download & Load' again.",
-                             type = "error", duration = 10)
-          } else {
-            showNotification(paste("Error:", msg), type = "error", duration = 10)
-          }
+          showNotification(paste("Download failed:", msg), type = "error", duration = 10)
           showNotification("Tip: Try enabling 'Use mirror' or download DepMap.RDS manually and use the 'Load' button below.",
                            type = "warning", duration = 15)
         })
