@@ -2,65 +2,16 @@
 # Anything used by more than one module lives here so the entry points cannot
 # drift apart (e.g. the Home "Load Demo" button and the Data-tab demo button).
 
-# ---------------------------------------------------------------------------
-# DepMap metadata extraction
-#
-# The main Shiny process NEVER holds the full multi-GB DepMap object anymore
-# (training runs in the background master). Everything the UI needs — gene
-# list, drug list, lineages, component dimensions, a few column names — is a
-# few hundred KB, extracted here. Built-in downloads cache the metadata to a
-# sidecar file so later sessions read kilobytes instead of gigabytes.
-# ---------------------------------------------------------------------------
-extract_depmap_meta <- function(depmap_path, cache_file = NULL) {
-  if (!is.null(cache_file) && file.exists(cache_file) && file.exists(depmap_path)) {
-    # Only trust a cache that is newer than the source DepMap.RDS itself:
-    # if the RDS was replaced (re-download / different version) the cached
-    # genes/drugs would be silently stale. A corrupt cache falls through to
-    # a full re-extraction instead of erroring. (Both files must exist —
-    # file.mtime() returns NA for a missing file and the comparison would
-    # then produce if(NA) instead of a clean fall-through.)
-    if (file.mtime(cache_file) >= file.mtime(depmap_path)) {
-      cached <- tryCatch(readRDS(cache_file), error = function(e) NULL)
-      if (!is.null(cached)) return(cached)
-    }
-  }
-  DepMap <- readRDS(depmap_path)
-  if (!is.list(DepMap)) {
-    stop("The file is not a list. Expected a DepMap.RDS from the PERCEPTIONx release (or an object with the same structure).")
-  }
-  required_fields <- c("secondary_prism", "secondary_screen_drugAnnotation",
-                       "expression_rnorm", "scRNA_complete", "scRNA_subset_rnorm",
-                       "CPM_scRNA_CCLE_rnorm", "annotation_20Q4",
-                       "metadata_CPM_scRNA", "expression_20Q4")
-  missing_fields <- setdiff(required_fields, names(DepMap))
-  if (length(missing_fields) > 0) {
-    stop("The RDS is missing required components: ",
-         paste(missing_fields, collapse = ", "),
-         ". Re-save it with these components, or use the built-in 'Download & Load' (known-good).")
-  }
-  nms <- names(DepMap)
-  components <- lapply(nms, function(nm) {
-    obj <- DepMap[[nm]]
-    if (is.matrix(obj) || is.data.frame(obj)) {
-      list(nrow = nrow(obj), ncol = ncol(obj),
-           cols_preview = head(colnames(obj), 12))
-    } else {
-      list(nrow = NA_integer_, ncol = NA_integer_, cols_preview = character(0))
-    }
-  })
-  names(components) <- nms
-  lineages <- sort(unique(as.character(DepMap$annotation_20Q4$lineage)))
-  lineages <- lineages[!is.na(lineages) & nzchar(lineages)]
-  meta <- list(
-    loaded = TRUE,
-    genes  = rownames(DepMap$expression_rnorm),
-    drugs  = unique(as.character(DepMap$secondary_screen_drugAnnotation$CommonName)),
-    lineages = lineages,
-    components = components
-  )
-  if (!is.null(cache_file)) saveRDS(meta, cache_file)
-  rm(DepMap); gc()
-  meta
+# Read the cached metadata sidecar WITHOUT touching the 567 MB source file.
+# Only trusts the cache when it is newer than the source (same rule as the
+# worker-side extract_depmap_meta() in R/depmap_meta.R). Returns NULL when
+# there is no usable cache — the caller then submits an "extract_meta"
+# background job so the full read happens in the worker, never the main
+# Shiny process.
+read_cached_meta <- function(depmap_path, cache_file) {
+  if (!file.exists(cache_file) || !file.exists(depmap_path)) return(NULL)
+  if (file.mtime(cache_file) < file.mtime(depmap_path)) return(NULL)
+  tryCatch(readRDS(cache_file), error = function(e) NULL)
 }
 
 # ---------------------------------------------------------------------------

@@ -19,7 +19,7 @@ t <- function(name, ok, detail = '') {
 # --- 1. corrupt DepMap file -> extract_depmap_meta errors (app deletes it) ---
 corrupt <- tempfile(fileext = '.RDS')
 writeLines('this is not an RDS file', corrupt)
-meta <- tryCatch(extract_depmap_meta(corrupt), error = function(e) NULL)
+meta <- tryCatch(PERCEPTIONx:::extract_depmap_meta(corrupt), error = function(e) NULL)
 t('extract_depmap_meta rejects corrupt file', is.null(meta))
 
 # --- 2. invalid arguments ----------------------------------------------------
