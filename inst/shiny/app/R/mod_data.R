@@ -531,6 +531,10 @@ mod_data_server <- function(id, shared) {
     # whose results race each other).
     prep_busy <- reactiveVal(FALSE)
 
+    # Active DepMap download job: list(jobid, destfile, expected) or NULL when
+    # idle. The progress observer below polls the growing file while set.
+    download_progress <- reactiveVal(NULL)
+
     output$demo_btn <- renderUI({
       if (demo_loaded()) {
         actionButton(ns("load_demo"), "Clear Demo Data",
@@ -618,70 +622,207 @@ mod_data_server <- function(id, shared) {
     })
 
     # --- Load DepMap (download) ---
+    # Runs in the per-session background worker (submit_session_task) so the
+    # main Shiny thread never blocks on the ~567 MB transfer. A progress
+    # observer below polls the growing file and drives an overlay progress bar
+    # styled like the training overlay (mod_train.R).
     observeEvent(input$load_depmap, {
+      if (!is.null(download_progress())) {
+        showNotification("A DepMap download is already in progress.", type = "warning", duration = 5)
+        return()
+      }
       use_mirror <- isTRUE(input$depmap_mirror)
+      cache_dir <- getOption(
+        "PERCEPTIONx.depmap_cache_dir",
+        Sys.getenv("PERCEPTIONx_DEPMAP_CACHE_DIR",
+                   tools::R_user_dir("PERCEPTIONx", "data"))
+      )
+      dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
+      destfile <- file.path(cache_dir, "DepMap.RDS")
+
+      # Cache TTL: drop the cached file if it has not been USED (each cache
+      # hit refreshes a dedicated last-used flag file) for more than N hours,
+      # so a stale ~567 MB file does not linger forever. Overridable via
+      # options(PERCEPTIONx.depmap_cache_ttl_hours) or the
+      # PERCEPTIONx_DEPMAP_CACHE_TTL_HOURS env var (default 12). If the file is
+      # locked by a running worker, unlink() fails harmlessly and the next
+      # click retries.
+      #
+      # NB: the "last used" time lives in a SEPARATE flag file, NEVER in
+      # DepMap.RDS's own mtime — extract_depmap_meta() only trusts the meta
+      # sidecar when it is newer than the source RDS, so touching the source
+      # would invalidate the meta cache and force a full 567 MB re-read on
+      # every click.
+      last_used <- file.path(cache_dir, "DepMap_used.flag")
+      cache_ttl_h <- as.numeric(getOption(
+        "PERCEPTIONx.depmap_cache_ttl_hours",
+        Sys.getenv("PERCEPTIONx_DEPMAP_CACHE_TTL_HOURS", "12")))
+      ref_file <- if (file.exists(last_used)) last_used else destfile
+      if (file.exists(destfile) && !is.na(cache_ttl_h) && cache_ttl_h >= 0) {
+        age_h <- as.numeric(difftime(Sys.time(), file.info(ref_file)$mtime, units = "hours"))
+        if (is.finite(age_h) && age_h > cache_ttl_h) {
+          unlink(destfile)
+          unlink(file.path(cache_dir, "DepMap_meta.RDS"))
+          unlink(last_used)
+          showNotification(sprintf("Cached DepMap expired (unused for %.0f h > %.0f h) — re-downloading.",
+                                   age_h, cache_ttl_h), type = "message", duration = 6)
+        }
+      }
+
+      # Already cached: serve the metadata sidecar directly (kilobytes) when
+      # it is fresh. If the sidecar is missing/stale, re-extract it in the
+      # background worker — the main process must never deserialize the
+      # 567 MB file (blocks the UI + spikes RAM).
+      if (file.exists(destfile) && file.size(destfile) > 0) {
+        meta_cache <- file.path(cache_dir, "DepMap_meta.RDS")
+        meta <- read_cached_meta(destfile, meta_cache)
+        if (!is.null(meta)) {
+          # Cache hit: refresh the last-used timestamp in the SEPARATE flag
+          # file — never touch DepMap.RDS's own mtime (see the TTL note above).
+          suppressWarnings(try(file.create(last_used), silent = TRUE))
+          shared$depmap_meta <- meta
+          shared$depmap_path <- destfile
+          # Cached standard download = trusted standard file -> shared worker pool.
+          shared$depmap_is_standard <- TRUE
+          notify_master_depmap(destfile)
+          showNotification("DepMap data loaded from cache", type = "message")
+          return()
+        }
+        # Meta cache unusable -> re-extract in the worker (never the main
+        # process: reading 567 MB here would block the UI).
+        ew <- Waiter$new(
+          html = tagList(
+            div(class = "spinner-ring"),
+            h4("Reading DepMap data..."),
+            p(class = "text-muted", "Extracting metadata (a few seconds)")
+          ),
+          color = "rgba(255,255,255,0.85)"
+        )
+        ew$show()
+        jobid <- tryCatch(
+          submit_session_task(shared, "extract_meta", list(
+            depmap_path = destfile,
+            cache_file  = meta_cache
+          )),
+          error = function(e) { ew$hide(); NULL }
+        )
+        if (is.null(jobid)) return()
+        poll_task(shared, session, jobid,
+          on_done = function(meta) {
+            suppressWarnings(try(file.create(last_used), silent = TRUE))
+            shared$depmap_meta <- meta
+            shared$depmap_path <- destfile
+            shared$depmap_is_standard <- TRUE
+            notify_master_depmap(destfile)
+            ew$hide()
+            showNotification("DepMap data loaded", type = "message")
+          },
+          on_error = function(msg) {
+            ew$hide()
+            showNotification(paste("Error:", msg), type = "error", duration = 10)
+            showNotification("Tip: Try enabling 'Use mirror' or download DepMap.RDS manually and use the 'Load' button below.",
+                             type = "warning", duration = 15)
+          })
+        return()
+      }
+
+      # ONE overlay layer: spinner + stage text + progress bar live together
+      # inside the same waiter overlay (same pattern as the training overlay).
       w <- Waiter$new(
         html = tagList(
           div(class = "spinner-ring"),
-          h4("Loading DepMap data..."),
-          p(class = "text-muted", "This may take a few minutes (567MB download)")
+          h4("Downloading DepMap data..."),
+          p(id = ns("dwn_stage"), class = "text-muted", "Starting download..."),
+          p(id = ns("dwn_detail"), class = "text-muted",
+            style = "font-size: 0.82rem; opacity: 0.75;",
+            if (use_mirror) "567 MB via mirror (mirrors tried in order)"
+            else "567 MB from GitHub"),
+          # The id sits on the TRACK (see mod_train.R note): set-html replaces
+          # the bar inside it with a fresh .train-progress-bar.
+          div(id = ns("dwn_bar"), class = "train-progress-track",
+            div(class = "train-progress-bar", style = "width: 2%;")
+          )
         ),
         color = "rgba(255,255,255,0.85)"
       )
       w$show()
-      tryCatch({
-        # Download only — the background training master reads the file in its
-        # own process. The main process extracts LIGHTWEIGHT metadata (genes /
-        # drugs / lineages / dims, a few hundred KB) and caches it to a sidecar
-        # file, so later sessions never touch the multi-GB object at all.
-        #
-        # FIXED cache dir (NOT tempdir()): tempdir() changes on every app
-        # restart, which used to force a fresh 567MB download each time. The
-        # directory is overridable via options(PERCEPTIONx.depmap_cache_dir)
-        # or the PERCEPTIONx_DEPMAP_CACHE_DIR env var (e.g. a shared volume on
-        # a deployment server).
-        cache_dir <- getOption(
-          "PERCEPTIONx.depmap_cache_dir",
-          Sys.getenv("PERCEPTIONx_DEPMAP_CACHE_DIR",
-                     tools::R_user_dir("PERCEPTIONx", "data"))
-        )
-        dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
-        PERCEPTIONx::load_depmap(dest = cache_dir, read = FALSE, mirror = use_mirror,
-                                 timeout_seconds = 600, retries = 2)
-        depmap_path <- file.path(cache_dir, "DepMap.RDS")
-        shared$depmap_meta <- tryCatch(
-          extract_depmap_meta(depmap_path, cache_file = file.path(cache_dir, "DepMap_meta.RDS")),
-          error = function(e2) {
-            msg2 <- conditionMessage(e2)
-            # A corrupt/truncated file from an interrupted download would
-            # otherwise poison EVERY later session (file.exists() makes
-            # load_depmap skip re-downloading). Detect and delete it so the
-            # next click re-downloads a clean copy. Memory errors must NOT
-            # delete anything — the file may be fine.
-            corrupt <- grepl(paste0("error reading from connection|unknown input format|",
-                                   "cannot open the connection|not a list|",
-                                   "missing required components"), msg2, ignore.case = TRUE)
-            if (corrupt) {
-              unlink(depmap_path)
-              unlink(file.path(cache_dir, "DepMap_meta.RDS"))
-              stop("Downloaded DepMap.RDS is corrupt (incomplete download?) — it was deleted. ",
-                   "Please click 'Download & Load' again.", call. = FALSE)
-            }
-            stop(e2)
-          })
-        # Remember where the file lives so the background training worker can
-        # read the same DepMap from disk (it cannot share the parent's memory).
-        shared$depmap_path <- depmap_path
-        # Built-in download = trusted standard file -> shared worker pool.
-        shared$depmap_is_standard <- TRUE
-        notify_master_depmap(depmap_path)
-        w$hide()
-        showNotification("DepMap data loaded successfully", type = "message")
-      }, error = function(e) {
-        w$hide()
-        showNotification(paste("Error:", e$message), type = "error", duration = 10)
-        showNotification("Tip: Try enabling 'Use mirror' or download DepMap.RDS manually and use the 'Load' button below.", type = "warning", duration = 15)
-      })
+
+      base_urls <- if (use_mirror) PERCEPTIONx::get_mirrors() else "https://github.com"
+      urls <- paste0(base_urls, "/WangLabCSU/PERCEPTIONx/releases/download/depmap/DepMap.RDS")
+
+      jobid <- tryCatch(
+        submit_session_task(shared, "download", list(
+          urls            = urls,
+          destfile        = destfile,
+          cache_file      = file.path(cache_dir, "DepMap_meta.RDS"),
+          timeout_seconds = 600,
+          retries         = 2
+        )),
+        error = function(e) { w$hide(); NULL }
+      )
+      if (is.null(jobid)) return()
+
+      # Expected size of the official DepMap.RDS release asset (bytes) — used
+      # only as the progress-bar denominator. The real file is validated by
+      # the worker's extract_depmap_meta(), so a wrong estimate can never
+      # corrupt data.
+      download_progress(list(jobid = jobid, destfile = destfile, expected = 594589700))
+
+      poll_task(shared, session, jobid,
+        on_done = function(dl) {
+          download_progress(NULL)
+          suppressWarnings(try(file.create(last_used), silent = TRUE))
+          # dl$meta was extracted by the worker — the main process never
+          # deserializes the 567 MB object.
+          shared$depmap_meta <- dl$meta
+          shared$depmap_path <- dl$destfile
+          # Built-in download = trusted standard file -> shared worker pool.
+          shared$depmap_is_standard <- TRUE
+          notify_master_depmap(dl$destfile)
+          w$hide()
+          showNotification("DepMap data loaded successfully", type = "message")
+        },
+        on_error = function(msg) {
+          download_progress(NULL)
+          w$hide()
+          # A corrupt/truncated file from an interrupted download would
+          # otherwise poison EVERY later session (file.exists() makes the
+          # cache check above skip re-downloading). Detect and delete it so
+          # the next click re-downloads a clean copy. Memory errors must NOT
+          # delete anything — the file may be fine.
+          corrupt <- grepl(paste0("error reading from connection|unknown input format|",
+                                 "cannot open the connection|not a list|",
+                                 "missing required components"), msg, ignore.case = TRUE)
+          if (corrupt) {
+            unlink(destfile)
+            unlink(file.path(cache_dir, "DepMap_meta.RDS"))
+            showNotification("Downloaded DepMap.RDS is corrupt (incomplete download?) — it was deleted. Please click 'Download & Load' again.",
+                             type = "error", duration = 10)
+          } else {
+            showNotification(paste("Error:", msg), type = "error", duration = 10)
+          }
+          showNotification("Tip: Try enabling 'Use mirror' or download DepMap.RDS manually and use the 'Load' button below.",
+                           type = "warning", duration = 15)
+        })
+    })
+
+    # Drive the download progress bar: poll the growing file once per second.
+    # Stops as soon as the job finishes (download_progress -> NULL).
+    observe({
+      st <- download_progress()
+      if (is.null(st)) return()
+      tw <- shared$task_worker
+      if (!is.null(tw) && !tw$is_alive()) { download_progress(NULL); return() }
+      invalidateLater(1000)
+      size <- if (file.exists(st$destfile)) file.size(st$destfile) else 0
+      expected <- max(1, st$expected)
+      pct <- round(100 * pmin(1, size / expected))
+      stage <- sprintf("Downloaded %.0f MB of %.0f MB (%d%%)",
+                       size / 1024^2, expected / 1024^2, pct)
+      session$sendCustomMessage("set-html", list(id = ns("dwn_stage"), html = stage))
+      session$sendCustomMessage("set-html",
+        list(id = ns("dwn_bar"),
+             html = paste0("<div class='train-progress-bar' style='width: ", pct, "%;'></div>")))
     })
 
     # --- Load DepMap (local file) ---
@@ -709,33 +850,40 @@ mod_data_server <- function(id, shared) {
         color = "rgba(255,255,255,0.85)"
       )
       w$show()
-      tryCatch({
-        gc()  # reclaim memory before the big allocation
-        # Extract ONLY the lightweight metadata in the main process. The full
-        # object is read from disk by the isolated per-session training worker.
-        # (Structure validation lives inside extract_depmap_meta.)
-        shared$depmap_meta <- extract_depmap_meta(file$datapath)
-        # Record the source file so the background training worker (callr) can
-        # load the identical DepMap from disk in its own process.
-        shared$depmap_path <- file$datapath
-        # User-uploaded file = untrusted -> isolated per-session worker, never
-        # the shared pool (a wrong upload must not affect other users).
-        shared$depmap_is_standard <- FALSE
-        w$hide()
-        showNotification(paste("DepMap loaded from file:",
-                               length(shared$depmap_meta$components), "datasets"),
-                         type = "message")
-      }, error = function(e) {
-        w$hide()
-        msg <- conditionMessage(e)
-        if (grepl("cannot allocate|failed to allocate", msg, ignore.case = TRUE)) {
-          showNotification("Out of memory: the file needs more free RAM than this machine has right now.", type = "error", duration = 15)
-          showNotification("Tips: close other applications; re-save the RDS containing only the components PERCEPTIONx needs; or use the built-in 567 MB 'Download & Load' instead.",
-                           type = "warning", duration = 20)
-        } else {
-          showNotification(paste("Error reading file:", msg), type = "error", duration = 10)
-        }
-      })
+      jobid <- tryCatch(
+        submit_session_task(shared, "extract_meta", list(
+          depmap_path = file$datapath,
+          cache_file  = NULL
+        )),
+        error = function(e) { w$hide(); NULL }
+      )
+      if (is.null(jobid)) return()
+      poll_task(shared, session, jobid,
+        on_done = function(meta) {
+          # Record the source file so the background training worker (callr)
+          # can load the identical DepMap from disk in its own process.
+          shared$depmap_meta <- meta
+          shared$depmap_path <- file$datapath
+          # User-uploaded file = untrusted -> isolated per-session worker,
+          # never the shared pool (a wrong upload must not affect others).
+          shared$depmap_is_standard <- FALSE
+          w$hide()
+          showNotification(paste("DepMap loaded from file:",
+                                 length(meta$components), "datasets"),
+                           type = "message")
+        },
+        on_error = function(msg) {
+          w$hide()
+          if (grepl("cannot allocate|failed to allocate|Error in readRDS",
+                    msg, ignore.case = TRUE)) {
+            showNotification("Failed to read the file (possible out of memory in the worker).",
+                             type = "error", duration = 15)
+            showNotification("Tips: close other applications; re-save the RDS containing only the components PERCEPTIONx needs; or use the built-in 567 MB 'Download & Load' instead.",
+                             type = "warning", duration = 20)
+          } else {
+            showNotification(paste("Error reading file:", msg), type = "error", duration = 10)
+          }
+        })
     })
 
     output$depmap_status <- renderUI({

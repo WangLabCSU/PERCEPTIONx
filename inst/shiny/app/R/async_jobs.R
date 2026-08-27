@@ -935,6 +935,30 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 1L) {
            if (is.null(plot_obj)) "Selected plot type is not available with current data" else "")
   }
 
+  # Download with mirror fallback, then extract the lightweight metadata IN
+  # THIS WORKER. Deserializing the 567 MB file in the main Shiny process
+  # would block the UI and spike its RAM; the worker returns only a few
+  # hundred KB of metadata. `cache_file` lets the worker write the sidecar so
+  # later cache hits stay kilobytes.
+  run_download <- function(a) {
+    ok <- PERCEPTIONx:::download_with_mirrors(
+      a$urls, a$destfile, quiet = TRUE,
+      timeout_seconds = a$timeout_seconds,
+      retries = a$retries)
+    if (!ok) stop("Automatic download failed after trying all mirrors")
+    if (!file.exists(a$destfile) || file.size(a$destfile) == 0) {
+      stop("Downloaded file is missing or empty")
+    }
+    meta <- PERCEPTIONx:::extract_depmap_meta(a$destfile, cache_file = a$cache_file)
+    list(destfile = a$destfile, meta = meta)
+  }
+
+  # Rebuild/refresh the metadata sidecar for an EXISTING DepMap.RDS (used when
+  # the meta cache is missing or stale). The full read stays in the worker.
+  run_extract_meta <- function(a) {
+    PERCEPTIONx:::extract_depmap_meta(a$depmap_path, cache_file = a$cache_file)
+  }
+
   message("[session-worker] started, polling ", jobs_dir)
   while (TRUE) {
     # Only claim dirs whose params.rds is fully written (see master note).
@@ -962,6 +986,8 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 1L) {
             demo    = run_demo(params$args),
             predict = run_predict(params$args),
             plot    = run_plot(params$args),
+            download = run_download(params$args),
+            extract_meta = run_extract_meta(params$args),
             stop("Unknown task: ", params$task)),
           error = function(e) structure(list(message = conditionMessage(e)),
                                         class = "perception_job_error")
