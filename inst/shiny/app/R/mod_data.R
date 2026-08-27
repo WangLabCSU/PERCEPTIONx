@@ -634,11 +634,23 @@ mod_data_server <- function(id, shared) {
         # own process. The main process extracts LIGHTWEIGHT metadata (genes /
         # drugs / lineages / dims, a few hundred KB) and caches it to a sidecar
         # file, so later sessions never touch the multi-GB object at all.
-        PERCEPTIONx::load_depmap(dest = tempdir(), read = FALSE, mirror = use_mirror,
+        #
+        # FIXED cache dir (NOT tempdir()): tempdir() changes on every app
+        # restart, which used to force a fresh 567MB download each time. The
+        # directory is overridable via options(PERCEPTIONx.depmap_cache_dir)
+        # or the PERCEPTIONx_DEPMAP_CACHE_DIR env var (e.g. a shared volume on
+        # a deployment server).
+        cache_dir <- getOption(
+          "PERCEPTIONx.depmap_cache_dir",
+          Sys.getenv("PERCEPTIONx_DEPMAP_CACHE_DIR",
+                     tools::R_user_dir("PERCEPTIONx", "data"))
+        )
+        dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
+        PERCEPTIONx::load_depmap(dest = cache_dir, read = FALSE, mirror = use_mirror,
                                  timeout_seconds = 600, retries = 2)
-        depmap_path <- file.path(tempdir(), "DepMap.RDS")
+        depmap_path <- file.path(cache_dir, "DepMap.RDS")
         shared$depmap_meta <- tryCatch(
-          extract_depmap_meta(depmap_path, cache_file = file.path(tempdir(), "DepMap_meta.RDS")),
+          extract_depmap_meta(depmap_path, cache_file = file.path(cache_dir, "DepMap_meta.RDS")),
           error = function(e2) {
             msg2 <- conditionMessage(e2)
             # A corrupt/truncated file from an interrupted download would
@@ -651,7 +663,7 @@ mod_data_server <- function(id, shared) {
                                    "missing required components"), msg2, ignore.case = TRUE)
             if (corrupt) {
               unlink(depmap_path)
-              unlink(file.path(tempdir(), "DepMap_meta.RDS"))
+              unlink(file.path(cache_dir, "DepMap_meta.RDS"))
               stop("Downloaded DepMap.RDS is corrupt (incomplete download?) — it was deleted. ",
                    "Please click 'Download & Load' again.", call. = FALSE)
             }

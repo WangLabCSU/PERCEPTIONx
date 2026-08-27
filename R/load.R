@@ -58,6 +58,13 @@ download_with_mirrors <- function(urls, destfile, quiet = FALSE,
   on.exit(options(timeout = old_timeout), add = TRUE)
   options(timeout = timeout_seconds)
 
+  # Prefer the system curl binary via R's official download.file(method = "curl")
+  # (R delegates to the curl binary internally; no shell hacks). R's built-in
+  # libcurl backend can be pathologically slow on some systems (measured
+  # ~3 KB/s on the production server vs ~3 MB/s for the same URL via curl).
+  # Fall back to libcurl when no curl binary is on PATH.
+  download_method <- if (nzchar(Sys.which("curl"))) "curl" else "libcurl"
+
   for (i in seq_along(urls)) {
     if (!quiet) message("Trying mirror ", i, "/", length(urls))
 
@@ -70,7 +77,8 @@ download_with_mirrors <- function(urls, destfile, quiet = FALSE,
 
       tryCatch({
         suppressWarnings({
-          download.file(urls[i], destfile, mode = "wb", quiet = quiet)
+          download.file(urls[i], destfile, mode = "wb", quiet = quiet,
+                        method = download_method)
         })
         success <- TRUE
       }, error = function(e) {
