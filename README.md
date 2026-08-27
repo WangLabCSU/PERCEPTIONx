@@ -251,7 +251,8 @@ For a meaningful large-scale test, use:
    x 1,000+ cell lines). This is the standard training/reference input and the
    most demanding step for memory and disk.
 2. **Real patient scRNA-seq** — upload a gene x cell expression matrix. Accepted
-   formats: CSV / TSV / TXT / Excel / RDS (a matrix, data.frame, or Seurat object).
+   formats: CSV / TSV / TXT / Excel / RDS (a numeric matrix or data.frame;
+   Seurat objects are not accepted — export the matrix first).
    **Rank-normalize first** — either call `rank_normalization_mat()` on the matrix
    or upload raw counts and let the app normalize them during `prepare_data()`.
    The closest public example is the PERCEPTION paper's own demo: **PRJNA591860**
@@ -302,16 +303,15 @@ shiny::runApp(system.file("shiny", "app", package = "PERCEPTIONx"))
 | **Data** | Load the synthetic demo data (smoke-test), load the full DepMap reference (~567 MB), or upload your own rank-normalized single-cell matrix + clinical responses |
 | **Train** | Train drug-response models (`glmnet` / `random forest`) with tunable parameters |
 | **Predict** | Score clone-level and patient-level drug sensitivity for any loaded model |
-| **Visualize** | Clone distribution, clone-viability lollipop, ROC curve, response boxplot, model performance, and UMAP/t-SNE overlays |
+| **Visualize** | Clone distribution, clone-viability lollipop, ROC curve, response boxplot, and UMAP/t-SNE overlays (model performance lives on the Train tab) |
 | **Help** | In-app documentation |
 
 ### 7.3 Interactive plots
 
-All figures are rendered as **interactive SVG** (via `ggiraph`): hover any point
-or bar to see a tooltip (clone id, viability score, proportion, FPR/TPR, ...).
-Because the original `ggplot` object is rendered directly — never converted to
-`plotly` — facet layouts and legends stay exactly as designed: no re-flow, no
-overlapping labels. Static downloads are publication-quality:
+Figures on the **Visualize** tab stay as static `ggplot2` (hover tooltips via
+`ggiraph`); the **Train** tab's validation ROC / performance curves and the
+**Predict** tab heatmap use interactive `plotly` rendering. Static downloads
+are publication-quality:
 
 | Format | Resolution |
 |--------|------------|
@@ -320,9 +320,11 @@ overlapping labels. Static downloads are publication-quality:
 
 ### 7.4 Caching & cleanup
 
-- Downloaded DepMap data and pre-trained models are written to the R session's
-  `tempdir()`, so caches are **released automatically when the app closes** —
-  nothing persists on disk between sessions.
+- DepMap data is cached in a persistent directory (Windows: the user data
+  directory; on Linux, set the `PERCEPTIONX_DEPMAP_CACHE_DIR` environment
+  variable), with a 12-hour unused-expiry (TTL) mechanism. Cached files stay
+  on disk after the app closes; if unused for more than 12 hours, the next
+  click deletes and re-downloads them.
 - The app cache-busts its own stylesheet on every start, so you always see the
   newest UI without manually clearing the browser cache.
 

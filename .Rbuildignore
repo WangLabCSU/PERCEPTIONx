@@ -10,3 +10,4 @@
 ^Tools$
 ^\.github$
 ^Running_PERCEPTION_for_new_dataset\.Rmd$
+^inst/shiny/app/FALSE$

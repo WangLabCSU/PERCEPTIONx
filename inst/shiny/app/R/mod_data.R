@@ -524,7 +524,7 @@ mod_data_server <- function(id, shared) {
 
     # Demo state: whether the loaded data/models came from the demo button.
     # Drives the "Load Demo Data" <-> "Clear Demo Data" toggle.
-    demo_loaded <- reactiveVal(FALSE)
+    if (is.null(shared$demo_loaded)) shared$demo_loaded <- FALSE
 
     # Guards against double-submitting a background prepare task (rapid double
     # clicks on Run Seurat / auto-prepare would otherwise queue duplicate jobs
@@ -536,7 +536,7 @@ mod_data_server <- function(id, shared) {
     download_progress <- reactiveVal(NULL)
 
     output$demo_btn <- renderUI({
-      if (demo_loaded()) {
+      if (isTRUE(shared$demo_loaded)) {
         actionButton(ns("load_demo"), "Clear Demo Data",
                      class = "btn-danger btn-sm", icon = icon("trash"))
       } else {
@@ -612,7 +612,7 @@ mod_data_server <- function(id, shared) {
         shared$models        <- NULL
         shared$model_cache   <- list()
         shared$model_active  <- list()
-        demo_loaded(FALSE)
+        shared$demo_loaded <- FALSE
         showNotification("Demo data cleared. Upload your own data or load the demo again.",
                          type = "message", duration = 5)
         return()
@@ -1093,7 +1093,7 @@ mod_data_server <- function(id, shared) {
 
     # --- Upload Expression ---
     observeEvent(input$expr_file, {
-      demo_loaded(FALSE)  # user switched to their own data
+      shared$demo_loaded <- FALSE  # user switched to their own data
       file <- input$expr_file
       w <- Waiter$new(
         html = tagList(
@@ -1150,7 +1150,7 @@ mod_data_server <- function(id, shared) {
 
     # --- Upload Patient-Cell Mapping ---
     observeEvent(input$mapping_file, {
-      demo_loaded(FALSE)  # user switched to their own data
+      shared$demo_loaded <- FALSE  # user switched to their own data
       file <- input$mapping_file
       tryCatch({
         df <- coerce_mapping_df(read_uploaded_table(file))
@@ -1301,7 +1301,7 @@ mod_data_server <- function(id, shared) {
 
     # --- Upload Clinical Response ---
     observeEvent(input$response_file, {
-      demo_loaded(FALSE)  # user switched to their own data
+      shared$demo_loaded <- FALSE  # user switched to their own data
       file <- input$response_file
       tryCatch({
         df <- coerce_response_df(read_uploaded_table(file))

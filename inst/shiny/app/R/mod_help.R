@@ -188,22 +188,6 @@ mod_help_ui <- function(id) {
               )
             ),
             div(class = "help-viz-card",
-              div(class = "help-viz-icon", icon("gauge-high")),
-              div(
-                strong("Model Performance"),
-                p("Cross-validation curve from glmnet model."),
-                tags$span(class = "status-badge unloaded", "Needs: Trained Model")
-              )
-            ),
-            div(class = "help-viz-card",
-              div(class = "help-viz-icon", icon("people-group")),
-              div(
-                strong("Patient Response Panel"),
-                p("Comprehensive panel combining boxplot, ROC, and statistics."),
-                tags$span(class = "status-badge unloaded", "Needs: Patient Pred + Response")
-              )
-            ),
-            div(class = "help-viz-card",
               div(class = "help-viz-icon", icon("braille")),
               div(
                 strong("Spatial Gene Expression"),

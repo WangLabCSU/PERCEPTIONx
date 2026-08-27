@@ -25,7 +25,7 @@
 ### 0.1 环境要求
 
 - **R** ≥ 4.1.0
-- 主要依赖包：`devtools`、`shiny`、`bslib`、`Seurat`、`ggplot2`、`ggiraph`、`glmnet`、`caret`（缺失时应用会在相应功能处提示安装）
+- 主要依赖包：`devtools`、`shiny`、`bslib`、`Seurat`、`ggplot2`、`ggiraph`、`glmnet`、`caret`、`DT`、`plotly`、`waiter`、`thematic`、`callr`、`readxl`（缺失时应用会在相应功能处提示安装）
 
 ### 0.2 启动方式
 
@@ -100,7 +100,7 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 ### 2.3 上传表达矩阵（患者 scRNA-seq）
 
 - **支持的格式**：CSV / TSV / TXT / Excel（.xlsx/.xls）/ RDS
-- **支持的 R 对象**（RDS）：数值矩阵、data.frame、Seurat 对象
+- **支持的 R 对象**（RDS）：需为数值矩阵或 data.frame（基因 × 细胞）；不支持直接传入 Seurat 对象，请先导出为矩阵
 - **矩阵方向**：基因 × 细胞（行为基因、列为细胞）；若第一列是基因名字符列（Excel/csv 导出常见），会自动转为行名
 - **关于归一化**：表达数据需要是**秩归一化**（rank-normalized）后使用。若上传的是原始计数，勾选后由应用在聚类流程中自动归一化。
 
@@ -128,7 +128,7 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 |---|---|---|
 | Seurat Resolution | 聚类分辨率，越大分群越细 | 0.5–1.0 |
 | Seurat Dims | PCA 降维使用的维度数 | 10–30 |
-| Seurat NFeatures | 高变基因数（用于聚类） | 1000–3000，默认 2000 |
+| Seurat NFeatures | 高变基因数（用于聚类），应用中固定为 2000（不可调） | — |
 
 > Notes：聚类用于定义clone（细胞亚群），后续预测会以克隆为单位进行。
 
@@ -146,7 +146,7 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 | 参数 | 说明 |
 |---|---|
-| **Drug Name** | 药物多选（支持组合用药），每项带 × 可删除 |
+| **Drug Name** | 自由文本输入框，每行一个药名或用逗号/空格分隔（支持组合用药） |
 | **Cancer Type (include)** | 训练包含的癌种，默认 PanCan（泛癌） |
 | **Cancer Type (exclude)** | 排除的癌种（防止自我验证） |
 | **Gene Symbols** | 基因列表，留空 = 使用 DepMap 全部基因（推荐）；可粘贴文本或上传 .txt/.csv |
@@ -167,7 +167,7 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 选择已加载的模型（Data 页加载的预训练模型或 Train 页训练出的模型），点击预测：
 
-1. **Clone-level（克隆级）**：每个克隆 × 每个药物的活力分数。分数语义：模型输出的是 **viability（存活度）**，**值越高 = 越耐药、越低 = 越敏感**；页面展示的 `viability_scaled` 已归一化到 [0, 1]——**越接近 1 表示越耐药（活力越高）**
+1. **Clone-level（克隆级）**：每个克隆 × 每个药物的活力分数。分数语义：模型输出的是 **viability（存活度）**，**值越高 = 越耐药、越低 = 越敏感**；预测热图展示的是模型原始预测值（未归一化）；棒棒糖图和 UMAP Drug Viability 使用 z-score（以 0 为中心，可负）
 2. **Patient-level（患者级）**：按克隆占比把克隆分数聚合到患者（默认 `weighted_max`），得到每例患者的药物敏感性分层
 
 输出包括交互式热图（克隆 × 药物，plotly）与可下载的预测表格。
@@ -180,7 +180,7 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 此模块用于将预测结果进一步可视化，故而必须先进行预测。
 
-所有图表均为**交互式 SVG**（基于 ggiraph）：鼠标悬停任意点/条即可看到详细信息（克隆 ID、杀伤分数、占比、FPR/TPR 等）。图中工具栏支持放大、平移、下载。
+所有图表均为**交互式 SVG**（基于 ggiraph）：鼠标悬停任意点/条即可看到详细信息（克隆 ID、杀伤分数、占比、FPR/TPR 等）。图内工具栏禁用了缩放；导出为 PNG/PDF 使用页面顶部的下载按钮。
 
 ### 5.1 Clone Distribution（stackplot）
 
@@ -218,7 +218,7 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 ![BQACAgUAAyEGAASHRsPbAAEYruZqdGSFqhl8FAYozOIa3fcN_FgDUgACwjQAAtsboFd6-2EPyhNE6D0E.png](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYruZqdGSFqhl8FAYozOIa3fcN_FgDUgACwjQAAtsboFd6-2EPyhNE6D0E.png)
 
-展示训练模型的验证性能曲线（需 Train 页训练的模型；预训练模型不适用，页面会提示）。
+该图位于 **Train 页**（对应 3.2 节 Performance Plot），不属于 Visualize 页。展示训练模型的验证性能曲线（需 Train 页训练的模型；预训练模型不适用，页面会提示）。
 
 ### 5.6 空间图（UMAP / t-SNE）
 
@@ -228,7 +228,7 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 选择降维方法和着色变量：
 
-- **Gene Expression**：每个细胞的单基因真实表达量（z-score），连续色标——看基因在哪群细胞高表达
+- **Gene Expression**：每个细胞的单基因真实表达量，值经 5th–95th 百分位压缩到 [0, 1]（range01 归一化），连续色标——看基因在哪群细胞高表达
 - **Drug Viability**：每个细胞回填所属克隆的预测活力分数，呈"拼接色块"——看哪些克隆被预测耐药（亮）或敏感（暗）
 - **Clone / Cluster**：按克隆（聚类）着色——看分群结构
 
@@ -265,13 +265,13 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 该图需要训练流程产生的验证指标，预训练模型（`load_model`）不携带。请先用 Train 页训练，或在 Data 页加载演示模型。
 
 **Q3：response 标签怎么构造？**
-构造两列 `patient` / `response`。`patient` 必须与 Mapping 的 `patient_id` 完全一致；`response` 取值会自动归一化（responder → Responder 等）。没有现成结局数据时，可用治疗时间点代替（基线 → Responder，耐药进展 → Non-responder）。
+构造两列 `patient` / `response`。`patient` 必须与 Mapping 的 `patient_id` 完全一致；`response` 取值会自动归一化（responder → Responder 等）。响应标签保留多组（如 TN/RD/PD），不做时间点折叠；ROC 需要二分类时，由用户在可视化页选择两组进行比较。
 
 **Q4：预测分数和我想的不一样？**
-预测分数是模型基于 DepMap 训练得到的相对排名（已归一化到 0–1），"1" 表示在该批次克隆中最耐药（活力最高），不代表绝对杀伤比例。多克隆异质性、耐药通路激活都会拉高分数（活力升高）。
+预测分数是模型基于 DepMap 训练得到的相对排名（未归一化）：预测热图展示的是模型原始预测值，棒棒糖图与 UMAP Drug Viability 使用 z-score（以 0 为中心，可负）。数值越高表示在该批次克隆中越耐药（活力越高），不代表绝对杀伤比例。多克隆异质性、耐药通路激活都会拉高分数（活力升高）。
 
 **Q5：关闭应用后数据会留下吗？**
-不会。下载的 DepMap 数据、预训练模型均写入 R 会话的临时目录（tempdir），应用关闭自动清理，不会在磁盘残留。
+会保留。DepMap 数据缓存在持久化目录（Windows：用户数据目录，Linux 可用环境变量 `PERCEPTIONX_DEPMAP_CACHE_DIR` 指定），带 12 小时未使用自动过期（TTL）机制。应用关闭后文件仍留在磁盘；超过 12 小时未使用，下次点击时会自动删除并重新下载。
 
 **Q6：为什么点训练/聚类/预测/画图时界面不卡？**
 训练、聚类、预测、绘图都在**后台独立进程（worker）**中运行，界面只做轮询和显示进度，因此大任务执行期间仍可正常操作其他页面。若后台进程意外中断（极少数情况），页面会提示 "Background worker stopped" 而非一直转圈；重新点击提交即可。
