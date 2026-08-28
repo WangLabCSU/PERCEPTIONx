@@ -117,10 +117,10 @@ natural_levels <- function(x) {
 #' @param palette Character. One of \code{"viridis"} (sequential, default) or
 #'        \code{"diverging"} (blue-white-red centered at \code{midpoint}).
 #' @param midpoint Numeric. Center value for diverging palette. Default = 0.
-#' @param limits Numeric vector of length 2. Fixed scale limits — pins the
-#'        color at each end (e.g. \code{c(0, 1)} for 0-1 expression,
-#'        \code{c(-2, 2)} for z-scores) so the same value always has the same
-#'        color across plots. Default = NULL (data-driven limits).
+#' @param limits Numeric vector of length 2. Optional fixed scale limits
+#'        (e.g. \code{c(0, 1)} for 0-1 expression) to pin the color at each
+#'        end. Default = NULL (data-driven limits — recommended, so extreme
+#'        values always keep a real color instead of clipping to grey/NA).
 #' @param base_size Numeric. Base font size for theme. Default = 11.
 #' @param tooltip Logical. If TRUE (default) and \pkg{ggiraph} is installed,
 #'        points get hover tooltips (cell id if present, else the colored value).
