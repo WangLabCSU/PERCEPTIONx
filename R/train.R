@@ -38,9 +38,9 @@ get_response_matrix <- function(infunc_drugName) {
                sum(infunc_drugName_screenID_trimmed == 'MTS') > 1) {
       infunc_response <- infunc_response[infunc_drugName_screenID_trimmed == 'MTS', ]
       infunc_response <- infunc_response[count_row_NAs(infunc_response) == min(count_row_NAs(infunc_response)), ]
-      if (is.matrix(infunc_response)) {
-        infunc_response <- rowMeans(infunc_response, na.rm = TRUE)
-      }
+      # Fall through to the colMeans() below: when several MTS batches tie on
+      # NA count they are averaged ACROSS cell lines. (rowMeans here would
+      # collapse to one scalar per batch and destroy cell-line granularity.)
     } else if (sum(infunc_drugName_screenID_trimmed == 'HTS') == 0 &
                sum(infunc_drugName_screenID_trimmed == 'MTS') > 1) {
       infunc_response <- infunc_response[count_row_NAs(infunc_response) == min(count_row_NAs(infunc_response)), ]

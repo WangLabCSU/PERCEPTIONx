@@ -26,8 +26,11 @@ hypergeometric_test_for_twolists <- function(test_list, base_list, global, lower
   base_in_global <- global[na.omit(match(base_list, global))]
   test_in_global <- test_list[!is.na(match(test_list, global))]
   overlap <- test_in_global[!is.na(match(test_in_global, base_in_global))]
+  # q is offset by 1 only for the upper tail (P(X >= x)); the lower tail
+  # (P(X <= x)) must use the observed overlap itself.
+  q <- if (lower.tail) length(overlap) else length(overlap) - 1
   phyper(
-    q = length(overlap) - 1,
+    q = q,
     m = length(base_in_global),
     n = length(global) - length(base_in_global),
     k = length(test_in_global),
@@ -107,7 +110,12 @@ rank_normalization_mat <- function(mat){
 range01 <- function(x){
   substitute_of_Min <- topXPercentValue(vec=x, X_percentile=5)
   substitute_of_Max <- topXPercentValue(vec=x, X_percentile=95)
-  x_scaled <- (x - substitute_of_Min) / (substitute_of_Max - substitute_of_Min)
+  denom <- substitute_of_Max - substitute_of_Min
+  if (!is.finite(denom) || denom == 0) {
+    # Constant vector (5th == 95th percentile): return the neutral midpoint.
+    return(rep(0.5, length(x)))
+  }
+  x_scaled <- (x - substitute_of_Min) / denom
   x_scaled[x_scaled < 0] <- 0
   x_scaled[x_scaled > 1] <- 1
   x_scaled
@@ -153,6 +161,12 @@ clone_mean_expression <- function(expression_matrix, cell_clone_map, patient_ids
 
   if (is.null(patient_ids)) {
     patient_ids <- rep("patient1", ncol(expr_subset))
+  } else if (!is.null(names(patient_ids))) {
+    # Align to the surviving cells: after Seurat QC the mapping can cover
+    # fewer cells than the raw expression matrix, so lengths may differ.
+    patient_ids <- patient_ids[match(common_cells, names(patient_ids))]
+  } else if (length(patient_ids) == ncol(expression_matrix)) {
+    patient_ids <- patient_ids[match(common_cells, cell_ids)]
   }
   names(patient_ids) <- colnames(expr_subset)
 

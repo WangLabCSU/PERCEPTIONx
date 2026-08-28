@@ -7,7 +7,9 @@
 ^test_pipeline_output$
 ^DepMap\.RDS$
 ^\.Rhistory$
-^Tools$
 ^\.github$
 ^Running_PERCEPTION_for_new_dataset\.Rmd$
 ^inst/shiny/app/FALSE$
+^dev$
+^tools$
+^tests/testthat/models$

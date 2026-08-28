@@ -13,7 +13,8 @@ test_that("train_models returns a list with expected structure", {
     cancer_type = "PanCan",
     exclude_cancer = "PanCan",
     GOI = NULL,
-    ncores = 1
+    ncores = 1,
+    output_dir = tempdir()   # do not leave large model RDS in tests/testthat
   )
 
   expect_type(models, "list")

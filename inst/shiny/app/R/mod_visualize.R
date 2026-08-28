@@ -133,7 +133,7 @@ mod_visualize_ui <- function(id) {
           ),
           div(class = "card-body",
             uiOutput(ns("plot_status")),
-            ggiraph::girafeOutput(ns("main_plot"))
+            uiOutput(ns("main_plot_host"))
           )
         ),
         # Plot explanation card
@@ -334,8 +334,9 @@ mod_visualize_server <- function(id, shared, main_session) {
     })
 
     # Generate Plot — computation runs in the background per-session worker
-    # (task "plot", see async_jobs.R); the returned ggplot is drawn by
-    # renderGirafe, so the main thread never blocks on plot math.
+    # (task "plot", see async_jobs.R); the returned ggplot is drawn by the
+    # render backend below (ggiraph or static, auto-chosen by plot scale), so
+    # the main thread never blocks on plot math.
     observeEvent(input$generate, {
       pt <- input$plot_type
       reqs <- plot_requirements[[pt]]
@@ -369,13 +370,12 @@ mod_visualize_server <- function(id, shared, main_session) {
         ),
         color = "rgba(255,255,255,0.85)"
       )
-      w$show()
-
       if (viz_busy()) {
         showNotification("A plot is already being generated", type = "warning", duration = 5)
         return()
       }
       viz_busy(TRUE)
+      w$show()
 
       pd <- shared$prepared_data
       jobid <- tryCatch(
@@ -386,9 +386,13 @@ mod_visualize_server <- function(id, shared, main_session) {
             user_clones   = shared$user_clones,
             user_response = shared$user_response,
             patient_pred  = shared$patient_pred,
-            user_expr     = shared$user_expr,
+            # Only the spatial plots need the raw expression matrix and the
+            # embedding coordinates — both can be large, and carrying them
+            # into EVERY plot job made the params.rds serialize/deserialize
+            # slow for the chart plots (lollipop / distribution / ROC / box).
+            user_expr = if (pt %in% c("umap_gene", "umap_viability")) shared$user_expr else NULL,
             prepared = list(
-              umap_coords = if (!is.null(pd)) pd$umap_coords else NULL,
+              umap_coords = if (!is.null(pd) && pt %in% c("umap_gene", "umap_viability", "umap_clone")) pd$umap_coords else NULL,
               clone_viability_template = if (!is.null(pd)) pd$clone_viability_template else NULL
             )
           ),
@@ -453,13 +457,12 @@ mod_visualize_server <- function(id, shared, main_session) {
         ),
         color = "rgba(255,255,255,0.85)"
       )
-      w$show()
-
       if (viz_busy()) {
         showNotification("A plot is already being generated", type = "warning", duration = 5)
         return()
       }
       viz_busy(TRUE)
+      w$show()
 
       pd <- shared$prepared_data
       jobid <- tryCatch(
@@ -470,9 +473,13 @@ mod_visualize_server <- function(id, shared, main_session) {
             user_clones   = shared$user_clones,
             user_response = shared$user_response,
             patient_pred  = shared$patient_pred,
-            user_expr     = shared$user_expr,
+            # Only the spatial plots need the raw expression matrix and the
+            # embedding coordinates — both can be large, and carrying them
+            # into EVERY plot job made the params.rds serialize/deserialize
+            # slow for the chart plots (lollipop / distribution / ROC / box).
+            user_expr = if (pt %in% c("umap_gene", "umap_viability")) shared$user_expr else NULL,
             prepared = list(
-              umap_coords = if (!is.null(pd)) pd$umap_coords else NULL,
+              umap_coords = if (!is.null(pd) && pt %in% c("umap_gene", "umap_viability", "umap_clone")) pd$umap_coords else NULL,
               clone_viability_template = if (!is.null(pd)) pd$clone_viability_template else NULL
             )
           ),
@@ -510,6 +517,71 @@ mod_visualize_server <- function(id, shared, main_session) {
         })
     })
 
+    # --- Rendering backend: interactive vs static (scale auto-degrade) ---
+    # ggiraph hover is nice, but converting a faceted ggplot to SVG costs a
+    # fixed ~1.4 s (20 panels, independent of point count) and multi-MB SVG
+    # widgets slow the browser down. Plots with >= 10 facets or >= 15k points
+    # are therefore drawn by the fast static renderPlot backend; small plots
+    # keep the ggiraph hover interaction. The scale metadata (panels/points)
+    # is attached by the background worker in run_plot().
+    render_mode <- reactive({
+      p <- current_plot()
+      if (is.null(p)) return("none")
+      meta <- attr(p, "perception_meta")
+      if (is.null(meta)) return("interactive")
+      if (isTRUE(meta$panels >= 10) || isTRUE(meta$points >= 15000)) "static" else "interactive"
+    })
+
+    # Text-scale the plot (relative to its OWN base font size, so 100% -> base
+    # and >100% grows monotonically), and replace gtable/grob/plotly objects
+    # — which ggiraph cannot render — with an explanatory static panel.
+    scaled_plot <- reactive({
+      req(current_plot())
+      p_obj <- current_plot()
+      if (inherits(p_obj, "gtable") || inherits(p_obj, "grob") || inherits(p_obj, "gTree") ||
+          inherits(p_obj, "plotly") || inherits(p_obj, "htmlwidget")) {
+        p_obj <- ggplot2::ggplot() +
+          ggplot2::annotate("text", x = 0.5, y = 0.5,
+                            label = "This plot type cannot be shown interactively.",
+                            size = 5, color = "#5a6a8a") +
+          ggplot2::theme_void()
+      }
+      scale <- text_scale()
+      base <- p_obj$theme$text$size
+      if (is.null(base) || length(base) == 0 || !is.finite(base)) base <- 11
+      if (scale == 1) return(p_obj)
+      p_obj +
+        theme(text = element_text(size = base * scale),
+              plot.title = element_text(size = (base + 1) * scale, hjust = 0, vjust = 0,
+                                        face = "plain", margin = margin(b = 6)),
+              plot.subtitle = element_text(size = base * scale),
+              axis.title = element_text(size = base * scale),
+              axis.text = element_text(size = (base - 1) * scale),
+              legend.text = element_text(size = (base - 2) * scale),
+              legend.title = element_text(size = (base - 1) * scale),
+              strip.text = element_text(size = (base - 1) * scale))
+    })
+
+    # Pixel height for the static backend (lollipop stretches, matching the
+    # girafe canvas so every facet gets more vertical room).
+    render_height <- reactive({
+      h <- plot_size()$h
+      if (identical(current_plot_type(), "clone_kill")) h <- round(h * 1.3)
+      h
+    })
+
+    # Host output: swaps the widget binding (girafe vs static plotOutput)
+    # based on the plot's scale.
+    output$main_plot_host <- renderUI({
+      mode <- render_mode()
+      if (mode == "none") return(NULL)
+      if (mode == "static") {
+        plotOutput(ns("main_plot_static"), width = "100%", height = render_height())
+      } else {
+        ggiraph::girafeOutput(ns("main_plot"))
+      }
+    })
+
     # --- Interactive rendering via ggiraph (hover tooltips) ---
     # Renders the ORIGINAL ggplot as an SVG widget. Because the plot is never
     # converted to plotly, facet/strip layouts stay exactly as designed (no
@@ -518,51 +590,15 @@ mod_visualize_server <- function(id, shared, main_session) {
     # plot height, is centred, and can never overflow the card.
     output$main_plot <- ggiraph::renderGirafe({
       req(current_plot())
-      p_obj <- current_plot()
-      scale <- text_scale()
       sz <- plot_size()
-
       # Lollipop: stretch the canvas height so every facet gets more vertical
       # room (many panels sharing one row otherwise squeeze text/ticks).
       if (identical(current_plot_type(), "clone_kill")) {
         sz$h <- round(sz$h * 1.3)
       }
-
-      # Objects ggiraph cannot render (grid.arrange gtable / plotly widget):
-      # fall back to an explanatory static-looking panel.
-      if (inherits(p_obj, "gtable") || inherits(p_obj, "grob") || inherits(p_obj, "gTree") ||
-          inherits(p_obj, "plotly") || inherits(p_obj, "htmlwidget")) {
-        p_fallback <- ggplot2::ggplot() +
-          ggplot2::annotate("text", x = 0.5, y = 0.5,
-                            label = "This plot type cannot be shown interactively.",
-                            size = 5, color = "#5a6a8a") +
-          ggplot2::theme_void()
-        p_obj <- p_fallback
-      }
-
-      # Apply text size scale relative to the plot's OWN base font size (not a
-      # hardcoded value) so 100% -> base and >100% grows monotonically.
-      base <- p_obj$theme$text$size
-      if (is.null(base) || length(base) == 0 || !is.finite(base)) base <- 11
-
-      p_scaled <- if (scale != 1) {
-        p_obj +
-          theme(text = element_text(size = base * scale),
-                plot.title = element_text(size = (base + 1) * scale, hjust = 0, vjust = 0,
-                                          face = "plain", margin = margin(b = 6)),
-                plot.subtitle = element_text(size = base * scale),
-                axis.title = element_text(size = base * scale),
-                axis.text = element_text(size = (base - 1) * scale),
-                legend.text = element_text(size = (base - 2) * scale),
-                legend.title = element_text(size = (base - 1) * scale),
-                strip.text = element_text(size = (base - 1) * scale))
-      } else {
-        p_obj
-      }
-
       # width_svg/height_svg set the SVG viewBox aspect ratio (canvas shape).
       ggiraph::girafe(
-        ggobj = p_scaled,
+        ggobj = scaled_plot(),
         width_svg = max(sz$w / 100, 4),
         height_svg = max(sz$h / 100, 3),
         options = list(
@@ -579,6 +615,12 @@ mod_visualize_server <- function(id, shared, main_session) {
           ggiraph::opts_zoom(min = 1, max = 1)
         )
       )
+    })
+
+    # --- Fast static rendering for large plots ---
+    output$main_plot_static <- renderPlot({
+      req(current_plot())
+      scaled_plot()
     })
 
     output$plot_status <- renderUI({

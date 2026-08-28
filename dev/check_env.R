@@ -28,8 +28,9 @@ for (p in pkgs) {
 }
 
 # --- PERCEPTIONx exports required by the app --------------------------------
-# NOTE: extract_depmap_meta() lives in the APP's shiny_helpers.R, not the
-# package — checked separately below.
+# extract_depmap_meta() is an internal (@noRd) package function used by the
+# app's background "extract_meta" task; check it exists in the namespace so a
+# stale installed package is caught here instead of failing in the worker.
 required_exports <- c('load_depmap', 'train_models', 'prepare_data',
                       'predict_drugs', 'predict_patients')
 if (requireNamespace('PERCEPTIONx', quietly = TRUE)) {
@@ -39,6 +40,9 @@ if (requireNamespace('PERCEPTIONx', quietly = TRUE)) {
     if (!ok) fails <- fails + 1L
     status(sprintf('export %s()', f), ok)
   }
+  ok_internal <- exists('extract_depmap_meta', envir = asNamespace('PERCEPTIONx'))
+  if (!ok_internal) fails <- fails + 1L
+  status('internal extract_depmap_meta()', ok_internal)
 } else {
   fails <- fails + length(required_exports)
   status('PERCEPTIONx installed', FALSE)
@@ -56,8 +60,11 @@ for (f in c('shiny_helpers.R', 'async_jobs.R', 'mod_data.R', 'mod_train.R',
 # --- DepMap cache -----------------------------------------------------------
 cache_dir <- getOption(
   'PERCEPTIONx.depmap_cache_dir',
-  Sys.getenv('PERCEPTIONx_DEPMAP_CACHE_DIR',
-             tools::R_user_dir('PERCEPTIONx', 'data'))
+  # Accept both env-var spellings (docs use PERCEPTIONX..., early
+  # deployments set PERCEPTIONx...); Sys.getenv is case-sensitive on Linux.
+  Sys.getenv('PERCEPTIONX_DEPMAP_CACHE_DIR',
+             Sys.getenv('PERCEPTIONx_DEPMAP_CACHE_DIR',
+                        tools::R_user_dir('PERCEPTIONx', 'data')))
 )
 cat('DepMap cache dir :', cache_dir, '\n')
 f <- file.path(cache_dir, 'DepMap.RDS')

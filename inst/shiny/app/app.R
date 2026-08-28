@@ -100,6 +100,14 @@ ui <- page_navbar(
   fillable = FALSE,
   header = tagList(
     use_waiter(),
+    # Pre-built full-screen demo overlay, hidden by default. The Load Demo
+    # buttons show it instantly from their onclick (no ~1s round trip before
+    # feedback); the server hides it via 'hide-demo-overlay' when the demo
+    # task finishes or fails.
+    div(id = "demo-overlay", class = "demo-overlay", style = "display: none;",
+      div(class = "spinner-ring"),
+      h4("Preparing demo data..."),
+      p(class = "text-muted", "Running Seurat clustering")),
     # Cache-busting: version the CSS with the app start time so browsers
     # always fetch the newest stylesheet after a restart (no stale cache).
     tags$head(tags$link(rel = "stylesheet",
@@ -115,10 +123,24 @@ ui <- page_navbar(
       });
 
       // Replace a container's innerHTML. Used by the Home page to update the
-      // workflow stepper / data dashboard after the static first paint.
+      // workflow stepper / data dashboard, and by the Data page to swap the
+      // Load-Demo / Clear-Demo button after the static first paint. innerHTML
+      // drops Shiny's event bindings on replaced nodes, so re-bind inputs and
+      // widgets inside the container afterwards — bindAll is idempotent
+      // (already-bound elements are skipped).
       Shiny.addCustomMessageHandler('set-html', function(msg) {
         var el = document.getElementById(msg.id);
-        if (el) el.innerHTML = msg.html;
+        if (el) {
+          el.innerHTML = msg.html;
+          Shiny.bindAll(el);
+        }
+      });
+
+      // Hide the pre-built demo overlay (shown instantly by the button's
+      // onclick; the server only hides it once the demo task resolves).
+      Shiny.addCustomMessageHandler('hide-demo-overlay', function(msg) {
+        var el = document.getElementById('demo-overlay');
+        if (el) el.style.display = 'none';
       });
 
       // Keep the viewport still when the hidden file input receives focus on

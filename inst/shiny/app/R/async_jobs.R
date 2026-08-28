@@ -455,15 +455,19 @@ read_job_state <- function(shared, jobid) {
 }
 
 # ---------------------------------------------------------------------------
-# Generic per-session task worker (prepare / demo / predict)
+# Generic per-session task worker (prepare / demo / predict / plot /
+# download / extract_meta)
 #
 # Training goes to the shared master (or a dedicated worker for uploads)
 # because it needs the big DepMap. Everything else that computes on
 # SESSION-PRIVATE objects (user expression, models, prepared data) runs in a
 # light per-session worker so the main Shiny thread never blocks:
-#   - "prepare" -> PERCEPTIONx::prepare_data()          (Seurat clustering)
-#   - "demo"    -> full demo pipeline (structured data + clustering + 2 models)
-#   - "predict" -> predict_drugs() + predict_patients()
+#   - "prepare"      -> PERCEPTIONx::prepare_data()          (Seurat clustering)
+#   - "demo"         -> full demo pipeline (structured data + clustering + 2 models)
+#   - "predict"      -> predict_drugs() + predict_patients()
+#   - "plot"         -> plot math for the Visualize tab
+#   - "download"     -> DepMap download (mirror fallback)
+#   - "extract_meta" -> lightweight metadata from an existing DepMap.RDS
 # Inputs travel with the job (params.rds <- list(task, args)) because the
 # worker is a separate process and cannot see the parent's memory. Same file
 # protocol as training: status.txt / progress.txt / result.rds.
@@ -930,6 +934,30 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 1L) {
       stop("Unknown plot type: ", pt)
     }
 
+    # Scale metadata for the UI renderer. ggiraph pays a fixed SVG-conversion
+    # cost per faceted plot (bench: ~1.4 s at 20 panels regardless of point
+    # count), so the app drops large plots to fast static rendering and keeps
+    # hover tooltips only for small ones. panels = facet count, points = rows
+    # in the plotted data frame.
+    meta <- NULL
+    if (!is.null(plot_obj)) {
+      if (pt == "clone_dist") {
+        meta <- list(panels = length(unique(clone_distribution$patients)),
+                     points = nrow(clone_distribution))
+      } else if (pt == "clone_kill") {
+        # combo mode builds combo_df; single-drug mode builds clone_viability_df
+        kill_df <- if (is_combo) combo_df else clone_viability_df
+        meta <- list(panels = length(unique(kill_df$patient)),
+                     points = nrow(kill_df))
+      } else if (pt %in% c("umap_gene", "umap_viability", "umap_clone")) {
+        meta <- list(panels = 1L, points = nrow(umap_data))
+      } else {
+        meta <- list(panels = 1L,
+                     points = if (is.data.frame(plot_obj$data)) nrow(plot_obj$data) else 0L)
+      }
+    }
+    if (!is.null(plot_obj)) attr(plot_obj, "perception_meta") <- meta
+
     list(plot = plot_obj,
          message = if (!is.null(msg)) msg else
            if (is.null(plot_obj)) "Selected plot type is not available with current data" else "")
@@ -1011,6 +1039,12 @@ ensure_session_worker <- function(shared) {
     return(invisible(TRUE))
   }
   jobs_dir <- file.path(tempdir(), "perception_tasks", make_job_id())
+  # If a previous worker for this session died, its job dir is abandoned —
+  # drop it so stale task files (possibly large result.rds) do not accumulate
+  # in tempdir across repeated worker restarts.
+  if (!is.null(shared$task_jobs_dir) && nzchar(shared$task_jobs_dir)) {
+    unlink(shared$task_jobs_dir, recursive = TRUE)
+  }
   dir.create(jobs_dir, recursive = TRUE, showWarnings = FALSE)
   worker <- callr::r_bg(
     func = session_task_main,

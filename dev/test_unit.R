@@ -6,7 +6,7 @@
 #
 # Usage:
 #   R_LIBS=/data/home/dingjia/R/library \
-#   PERCEPTIONx_DEPMAP_CACHE_DIR=/data/home/dingjia/DepMap_cache \
+#   PERCEPTIONX_DEPMAP_CACHE_DIR=/data/home/dingjia/DepMap_cache \
 #     Rscript dev/test_unit.R
 #
 # Exits non-zero if any test FAILS.
@@ -14,8 +14,9 @@
 .libPaths(c('/data/home/dingjia/R/library', .libPaths()))
 suppressMessages(library(PERCEPTIONx))
 
-cache_dir <- Sys.getenv('PERCEPTIONx_DEPMAP_CACHE_DIR',
-                        tools::R_user_dir('PERCEPTIONx', 'data'))
+cache_dir <- Sys.getenv('PERCEPTIONX_DEPMAP_CACHE_DIR',
+                        Sys.getenv('PERCEPTIONx_DEPMAP_CACHE_DIR',
+                                   tools::R_user_dir('PERCEPTIONx', 'data')))
 DepMap <- readRDS(file.path(cache_dir, 'DepMap.RDS'))
 cat('DepMap loaded:', length(DepMap), 'components\n')
 

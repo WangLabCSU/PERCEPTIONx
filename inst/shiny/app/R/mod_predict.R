@@ -1,9 +1,8 @@
 # Prediction Module
 
-# Empty-state card annotations. Rendered STATICALLY in the UI: the results
-# cards live in a hidden nav tab, so server-rendered uiOutput content arrives
-# only after the tab is shown / an event fires (same trap as the Home page
-# stepper). The server just clears — or restores — them via the 'set-html'
+# Empty-state card annotations. Rendered STATICALLY in the UI so the results
+# cards show immediately on first paint (no empty flash waiting for a server
+# round trip). The server just clears — or restores — them via the 'set-html'
 # handler once predictions exist.
 clone_desc_html <- function() {
   div(class = "card-desc",
