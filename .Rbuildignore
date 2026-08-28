@@ -13,5 +13,4 @@
 ^dev$
 ^tools$
 ^tests/testthat/models$
-^articles$
 ^docs$

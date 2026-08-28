@@ -1,6 +1,10 @@
 ---
 title: "PERCEPTION-shiny User Guide"
 description: "Full walkthrough of the interactive Shiny dashboard: data loading, model training, drug-sensitivity prediction, and visualization."
+vignette: >
+  %\VignetteIndexEntry{PERCEPTION-shiny User Guide}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
 
 # PERCEPTION-shiny User Guide
