@@ -1,0 +1,99 @@
+# Build PERCEPTIONx model on bulk expression data
+
+Core training function that builds a glmnet model using bulk expression,
+then evaluates on pseudo-bulk, bulk test, and single-cell test data.
+This is the direct port of build_on_BULK_v2 from step0B.
+
+## Usage
+
+``` r
+build_on_BULK_v2(
+  infunc_drugName,
+  infunc_cancerType = "PanCan",
+  exclude_cancer = "PanCan",
+  infunc_features,
+  single_best = infunc_features[1],
+  k_features = 100,
+  infunc_alpha = 1,
+  model_type = "glmnet",
+  num_folds = 3,
+  num_tree = 500,
+  seed = 1,
+  alpha_gradient = 0.05,
+  lambda_gradient = 20,
+  lambda_range = c(1e-04, 1),
+  cv_method = "cv"
+)
+```
+
+## Arguments
+
+- infunc_drugName:
+
+  Character. Drug name.
+
+- infunc_cancerType:
+
+  Character. Cancer type for training. Default = "PanCan".
+
+- exclude_cancer:
+
+  Character. Cancer type to exclude. Default = "PanCan".
+
+- infunc_features:
+
+  Character vector. Feature gene names (ranked).
+
+- single_best:
+
+  Character. Name of the single best feature. Default =
+  infunc_features\[1\].
+
+- k_features:
+
+  Integer. Number of top features to use. Default = 100.
+
+- infunc_alpha:
+
+  Numeric. Alpha for glmnet (not used directly, tuning via
+  alpha_gradient). Default = 1.
+
+- model_type:
+
+  Character. Model type: "glmnet" or "rf". Default = "glmnet".
+
+- num_folds:
+
+  Integer. Number of CV folds. Default = 3.
+
+- num_tree:
+
+  Integer. Number of trees for random forest. Default = 500.
+
+- seed:
+
+  Integer. Random seed for training. Default = 1.
+
+- alpha_gradient:
+
+  Numeric. Step size for alpha grid in glmnet tuning. Default = 0.05.
+
+- lambda_gradient:
+
+  Integer. Number of lambda values in glmnet tuning grid. Default = 20.
+
+- lambda_range:
+
+  Numeric vector of length 2. Min and max lambda for tuning grid.
+  Default = c(0.0001, 1).
+
+- cv_method:
+
+  Character. Cross-validation method for caret::trainControl. Default =
+  "cv".
+
+## Value
+
+A list containing: model, single_best, model_performance_during_cv,
+performance_in_bulk, performance_in_pseudo_bulk, performance_in_scRNA,
+predVSgroundTruth.
