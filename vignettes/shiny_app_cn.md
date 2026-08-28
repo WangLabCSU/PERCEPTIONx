@@ -1,6 +1,10 @@
 ---
 title: "PERCEPTION-shiny 使用教程"
 description: "交互式 Shiny 仪表盘完整教程：数据加载、模型训练、药物敏感性预测与结果可视化。"
+vignette: >
+  %\VignetteIndexEntry{PERCEPTION-shiny 使用教程}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
 
 # PERCEPTION-shiny 使用教程
