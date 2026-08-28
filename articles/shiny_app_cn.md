@@ -218,6 +218,18 @@ Data 标签页聚类
 - **Download Model (.RDS)**：导出训练好的模型，可日后在 Data
   页直接上传复用
 
+![模型 Validation ROC 曲线（Train
+页）](../reference/figures/shiny-validation-roc.png)
+
+模型 Validation ROC 曲线（Train 页）
+
+**Validation ROC** 展示训练好的模型在三个验证数据集（Bulk / Pseudo-bulk
+/ Single-cell）上区分 Responder 与非 Responder 的能力，含各数据集
+AUC——AUC 越高说明临床分层能力越强。与 Performance Plot 一样，仅对 Train
+页训练 /
+[`train_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/train_models.md)
+产出的模型可用。
+
 ------------------------------------------------------------------------
 
 ### 4. Predict 模块：预测杀伤值
@@ -320,14 +332,20 @@ Fig. 2e）；选单个药物时查看该药的 ROC（对应各单药视图）。
 
 #### 5.6 空间图（UMAP / t-SNE）
 
-![UMAP 基因表达（SLC2A1）](../reference/figures/shiny-umap-gene.png)
+![UMAP
+基因表达（SLC2A1）](../reference/figures/shiny-gene-expression.png)
 
 UMAP 基因表达（SLC2A1）
 
 ![UMAP
-药物活力（erlotinib）](../reference/figures/shiny-umap-viability.png)
+药物活力（erlotinib）](../reference/figures/shiny-drug-viability.png)
 
 UMAP 药物活力（erlotinib）
+
+![UMAP
+克隆身份（全局聚类）](../reference/figures/shiny-clone-identity.png)
+
+UMAP 克隆身份（全局聚类）
 
 选择降维方法和着色变量：
 
@@ -341,7 +359,7 @@ UMAP 药物活力（erlotinib）
 > 对照读法：Gene Expression 高表达的细胞群，如果在 Drug Viability
 > 图中也是暖色（高活力），说明该基因高表达与预测耐药正相关；反之（暗色/低活力）则与敏感相关。注意两图色标刻度不同，只看空间分布模式。
 >
-> 例如，根据上方两个示例图能得出初步的有效信息：
+> 例如，根据上方的基因表达 / 药物活力示例图能得出初步的有效信息：
 >
 > 1.  耐药标志物线索：最右下角的克隆中，SLC2A1
 >     的高表达区与厄洛替尼预测高活力区在空间上存在重叠，提示 SLC2A1

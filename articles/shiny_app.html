@@ -453,6 +453,15 @@ model</li>
 <strong>Download Model (.RDS)</strong>: export the trained model;
 re-upload it later on the Data tab</li>
 </ul>
+<div class="float">
+<img src="../reference/figures/shiny-validation-roc.png" alt="Validation ROC curve (Train tab)"><div class="figcaption">Validation ROC curve (Train tab)</div>
+</div>
+<p>The <strong>Validation ROC</strong> shows how well a trained model
+stratifies responders vs. non-responders on each validation dataset
+(Bulk / Pseudo-bulk / Single-cell), with per-dataset AUC — a higher AUC
+means stronger clinical stratification. Like the Performance Plot, it is
+only available for models trained in the Train tab /
+<code><a href="../reference/train_models.html">train_models()</a></code>.</p>
 <blockquote>
 <p>Note: Performance Plot and Metrics rely on validation metrics
 produced during training and are only available for models from the
@@ -574,10 +583,13 @@ applicable to pre-trained models — the app will tell you).</p>
 <h4 id="spatial-plots-umap-t-sne">5.6 Spatial Plots (UMAP / t-SNE)<a class="anchor" aria-label="anchor" href="#spatial-plots-umap-t-sne"></a>
 </h4>
 <div class="float">
-<img src="../reference/figures/shiny-umap-gene.png" alt="Gene expression on UMAP (SLC2A1)"><div class="figcaption">Gene expression on UMAP (SLC2A1)</div>
+<img src="../reference/figures/shiny-gene-expression.png" alt="Gene expression on UMAP (SLC2A1)"><div class="figcaption">Gene expression on UMAP (SLC2A1)</div>
 </div>
 <div class="float">
-<img src="../reference/figures/shiny-umap-viability.png" alt="Drug viability on UMAP (erlotinib)"><div class="figcaption">Drug viability on UMAP (erlotinib)</div>
+<img src="../reference/figures/shiny-drug-viability.png" alt="Drug viability on UMAP (erlotinib)"><div class="figcaption">Drug viability on UMAP (erlotinib)</div>
+</div>
+<div class="float">
+<img src="../reference/figures/shiny-clone-identity.png" alt="Clone identity on UMAP (global clustering)"><div class="figcaption">Clone identity on UMAP (global clustering)</div>
 </div>
 <p>Choose a dimensionality-reduction method and a color variable:</p>
 <ul>
@@ -602,7 +614,8 @@ viability) on the Drug Viability plot, the gene’s high expression is
 positively associated with resistance; if dark (low viability), with
 sensitivity. The two plots use different color scales — compare spatial
 patterns only, not values.</p>
-<p>For example, the two figures above give preliminary insight:</p>
+<p>For example, the gene-expression and drug-viability figures above
+give preliminary insight:</p>
 <ol style="list-style-type: decimal">
 <li>
 <strong>Resistance-marker clue</strong>: the clone in the

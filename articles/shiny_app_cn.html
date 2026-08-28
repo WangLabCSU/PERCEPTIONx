@@ -400,6 +400,14 @@ Pseudo-bulk / Single-cell</strong> 三个层面上的预测-真实相关系数�
 <strong>Download Model (.RDS)</strong>：导出训练好的模型，可日后在
 Data 页直接上传复用</li>
 </ul>
+<div class="float">
+<img src="../reference/figures/shiny-validation-roc.png" alt="模型 Validation ROC 曲线（Train 页）"><div class="figcaption">模型 Validation ROC 曲线（Train 页）</div>
+</div>
+<p><strong>Validation ROC</strong>
+展示训练好的模型在三个验证数据集（Bulk / Pseudo-bulk /
+Single-cell）上区分 Responder 与非 Responder 的能力，含各数据集 AUC——AUC
+越高说明临床分层能力越强。与 Performance Plot 一样，仅对 Train 页训练 /
+<code><a href="../reference/train_models.html">train_models()</a></code> 产出的模型可用。</p>
 <hr>
 </div>
 </div>
@@ -517,10 +525,13 @@ Plot），不属于 Visualize 页。展示训练模型的验证性能曲线（�
 <h4 id="空间图umap-t-sne">5.6 空间图（UMAP / t-SNE）<a class="anchor" aria-label="anchor" href="#%E7%A9%BA%E9%97%B4%E5%9B%BEumap-t-sne"></a>
 </h4>
 <div class="float">
-<img src="../reference/figures/shiny-umap-gene.png" alt="UMAP 基因表达（SLC2A1）"><div class="figcaption">UMAP 基因表达（SLC2A1）</div>
+<img src="../reference/figures/shiny-gene-expression.png" alt="UMAP 基因表达（SLC2A1）"><div class="figcaption">UMAP 基因表达（SLC2A1）</div>
 </div>
 <div class="float">
-<img src="../reference/figures/shiny-umap-viability.png" alt="UMAP 药物活力（erlotinib）"><div class="figcaption">UMAP 药物活力（erlotinib）</div>
+<img src="../reference/figures/shiny-drug-viability.png" alt="UMAP 药物活力（erlotinib）"><div class="figcaption">UMAP 药物活力（erlotinib）</div>
+</div>
+<div class="float">
+<img src="../reference/figures/shiny-clone-identity.png" alt="UMAP 克隆身份（全局聚类）"><div class="figcaption">UMAP 克隆身份（全局聚类）</div>
 </div>
 <p>选择降维方法和着色变量：</p>
 <ul>
@@ -538,7 +549,7 @@ Cluster</strong>：按克隆（聚类）着色——看分群结构</li>
 <blockquote>
 <p>对照读法：Gene Expression 高表达的细胞群，如果在 Drug Viability
 图中也是暖色（高活力），说明该基因高表达与预测耐药正相关；反之（暗色/低活力）则与敏感相关。注意两图色标刻度不同，只看空间分布模式。</p>
-<p>例如，根据上方两个示例图能得出初步的有效信息：</p>
+<p>例如，根据上方的基因表达 / 药物活力示例图能得出初步的有效信息：</p>
 <ol style="list-style-type: decimal">
 <li>耐药标志物线索：最右下角的克隆中，SLC2A1
 的高表达区与厄洛替尼预测高活力区在空间上存在重叠，提示 SLC2A1

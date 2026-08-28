@@ -256,6 +256,18 @@ the page tells you what’s missing).
 - **Download Model (.RDS)**: export the trained model; re-upload it
   later on the Data tab
 
+![Validation ROC curve (Train
+tab)](../reference/figures/shiny-validation-roc.png)
+
+Validation ROC curve (Train tab)
+
+The **Validation ROC** shows how well a trained model stratifies
+responders vs. non-responders on each validation dataset (Bulk /
+Pseudo-bulk / Single-cell), with per-dataset AUC — a higher AUC means
+stronger clinical stratification. Like the Performance Plot, it is only
+available for models trained in the Train tab /
+[`train_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/train_models.md).
+
 > Note: Performance Plot and Metrics rely on validation metrics produced
 > during training and are only available for models from the Train tab /
 > [`train_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/train_models.md).
@@ -371,14 +383,19 @@ pre-trained models — the app will tell you).
 #### 5.6 Spatial Plots (UMAP / t-SNE)
 
 ![Gene expression on UMAP
-(SLC2A1)](../reference/figures/shiny-umap-gene.png)
+(SLC2A1)](../reference/figures/shiny-gene-expression.png)
 
 Gene expression on UMAP (SLC2A1)
 
 ![Drug viability on UMAP
-(erlotinib)](../reference/figures/shiny-umap-viability.png)
+(erlotinib)](../reference/figures/shiny-drug-viability.png)
 
 Drug viability on UMAP (erlotinib)
+
+![Clone identity on UMAP (global
+clustering)](../reference/figures/shiny-clone-identity.png)
+
+Clone identity on UMAP (global clustering)
 
 Choose a dimensionality-reduction method and a color variable:
 
@@ -400,7 +417,8 @@ Choose a dimensionality-reduction method and a color variable:
 > sensitivity. The two plots use different color scales — compare
 > spatial patterns only, not values.
 >
-> For example, the two figures above give preliminary insight:
+> For example, the gene-expression and drug-viability figures above give
+> preliminary insight:
 >
 > 1.  **Resistance-marker clue**: the clone in the bottom-right region
 >     shows high SLC2A1 expression, which overlaps exactly with the
