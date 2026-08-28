@@ -112,8 +112,13 @@ range01 <- function(x){
   substitute_of_Max <- topXPercentValue(vec=x, X_percentile=95)
   denom <- substitute_of_Max - substitute_of_Min
   if (!is.finite(denom) || denom == 0) {
-    # Constant vector (5th == 95th percentile): return the neutral midpoint.
-    return(rep(0.5, length(x)))
+    # No spread between the 5th and 95th percentiles — the vector is
+    # effectively constant. This is common for sparse/unexpressed genes whose
+    # 5th and 95th percentiles are BOTH 0 (expressed in <=5% of cells). Map
+    # to 0 (the minimum of the scale = "not expressed / no signal"), NOT the
+    # neutral 0.5 — 0.5 made every unexpressed gene glow medium-yellow in the
+    # Gene Expression plot, looking like a median bug.
+    return(rep(0, length(x)))
   }
   x_scaled <- (x - substitute_of_Min) / denom
   x_scaled[x_scaled < 0] <- 0

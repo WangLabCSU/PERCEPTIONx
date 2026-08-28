@@ -1,3 +1,8 @@
+---
+title: "PERCEPTION-shiny 使用教程"
+description: "交互式 Shiny 仪表盘完整教程：数据加载、模型训练、药物敏感性预测与结果可视化。"
+---
+
 # PERCEPTION-shiny 使用教程
 
 **PERCEPTION-shiny** 是 **PERCEPTIONx** R 包的交互式网页应用（Shiny）。它把完整的分析流水线——数据加载、模型训练、药物敏感性预测、结果可视化——封装成点选式界面，无需写代码即可完成从"患者单细胞表达矩阵"到"克隆级杀伤分数 + 患者级响应分层"的全流程分析。
@@ -65,7 +70,7 @@ DepMap 参考数据 ──► 模型训练 ──► 克隆/患者预测 ──�
 
 ## 1. 界面总览
 
-![BQACAgUAAyEGAASHRsPbAAEYrqVqdGKkjlcuARJe5YzI5KXXCeDMvgACfjQAAtsboFcyiuFv_R2_bj0E.png](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrqVqdGKkjlcuARJe5YzI5KXXCeDMvgACfjQAAtsboFcyiuFv_R2_bj0E.png)
+![PERCEPTION-shiny 首页](../man/figures/shiny-home.png)
 
 顶部导航栏包含 6 个标签页：**Home、Data、Train、Predict、Visualize、Help**。数据从左向右流动：先加载数据（Data），再训练/加载模型（Train），然后预测（Predict），最后可视化与验证（Visualize）。
 
@@ -132,7 +137,7 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 > Notes：聚类用于定义clone（细胞亚群），后续预测会以克隆为单位进行。
 
-![BQACAgUAAyEGAASHRsPbAAEYrrpqdGNtTytttAcxi0NLh0PzdHU_SQAClTQAAtsboFfopMIK8x6Grz0E.png](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrrpqdGNtTytttAcxi0NLh0PzdHU_SQAClTQAAtsboFfopMIK8x6Grz0E.png)
+![Data 标签页聚类](../man/figures/shiny-data-clustering.png)
 
 ---
 
@@ -172,7 +177,7 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 输出包括交互式热图（克隆 × 药物，plotly）与可下载的预测表格。
 
-![BQACAgUAAyEGAASHRsPbAAEYrr1qdGOEsPafeye9qfPgBPkIPFAL_gACmDQAAtsboFdiPjfKVPqPXD0E.png](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrr1qdGOEsPafeye9qfPgBPkIPFAL_gACmDQAAtsboFdiPjfKVPqPXD0E.png)
+![Predict 标签页克隆×药物热图](../man/figures/shiny-predict-heatmap.png)
 
 ---
 
@@ -184,7 +189,7 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 ### 5.1 Clone Distribution（stackplot）
 
-![BQACAgUAAyEGAASHRsPbAAEYrsRqdGOsyEvZKa-hX56p8XZe9MdfBAACnzQAAtsboFciL8mgr8EQBT0E.png](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrsRqdGOsyEvZKa-hX56p8XZe9MdfBAACnzQAAtsboFciL8mgr8EQBT0E.png)
+![克隆分布堆叠条形图](../man/figures/shiny-clone-distribution.png)
 
 展示每例患者内部各克隆的占比构成，一个色带 = 一个克隆（≤15 个克隆时使用内置协调色板）。
 
@@ -192,10 +197,10 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 ### 5.2 Clone Viability（lolliplot）
 
-![BQACAgUAAyEGAASHRsPbAAEYrtRqdGQW8zkwfYWQ_VN994k_iZJH8gACsDQAAtsboFe7I7H3sbW6sz0E.png](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrtRqdGQW8zkwfYWQ_VN994k_iZJH8gACsDQAAtsboFe7I7H3sbW6sz0E.png)
+![克隆活力棒棒糖图](../man/figures/shiny-lollipop.png)
 
 - **展示规则**：全样本、全克隆展示，一例患者一个分面，一根棒 = 一个克隆
-- **颜色**：蓝-白-红发散——蓝 = 预测敏感（低活力），红 = 预测耐药（高活力）
+- **颜色**：蓝-白-红发散——蓝 = 预测敏感（低活力），红 = 预测耐药（高活力）。色标范围随数据自适应，极端 z-score 仍有真实颜色（不会变灰/无色）
 - **点大小**：克隆占比（占比大的克隆点大）
 - **排序**：患者内按占比降序；有响应数据时 Responder 排在前面
 - **y 轴**：Predicted Viability（z-score），0 线为中位参考
@@ -204,31 +209,31 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 ### 5.3 ROC Curve
 
-![BQACAgUAAyEGAASHRsPbAAEYrtlqdGQvuGR0iVJf_0IC3FrHl2wx2gACtTQAAtsboFdEeKvbpn7yAT0E.png](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrtlqdGQvuGR0iVJf_0IC3FrHl2wx2gACtTQAAtsboFdEeKvbpn7yAT0E.png)
+![ROC 曲线](../man/figures/shiny-roc.png)
 
 使用真实临床响应（Data 页上传的 Response）与患者级预测分数绘制 ROC 曲线，AUC 越接近 1 说明预测分层能力越强。Drug Name 选 **Combination**（默认）时使用患者级**联合分数**（`weighted_max`，对应论文 Fig. 2e）；选单个药物时查看该药的 ROC（对应各单药视图）。
 
 ### 5.4 Response Boxplot（R vs NR）
 
-![BQACAgUAAyEGAASHRsPbAAEYruFqdGRmVjR7z6AiKJZrmoSvML7-BgACvTQAAtsboFcaROROGDpEdj0E.png](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYruFqdGRmVjR7z6AiKJZrmoSvML7-BgACvTQAAtsboFcaROROGDpEdj0E.png)
+![响应箱线图（R vs NR）](../man/figures/shiny-boxplot.png)
 
 分组展示 Responder 与 Non-responder 的预测分数分布，附带显著性检验结果。同样地，选 **Combination**（默认）即展示联合分数的 R/NR 分布（对应论文 Fig. 2d）。
 
 ### 5.5 Model Performance
 
-![BQACAgUAAyEGAASHRsPbAAEYruZqdGSFqhl8FAYozOIa3fcN_FgDUgACwjQAAtsboFd6-2EPyhNE6D0E.png](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYruZqdGSFqhl8FAYozOIa3fcN_FgDUgACwjQAAtsboFd6-2EPyhNE6D0E.png)
+![模型性能图](../man/figures/shiny-model-performance.png)
 
 该图位于 **Train 页**（对应 3.2 节 Performance Plot），不属于 Visualize 页。展示训练模型的验证性能曲线（需 Train 页训练的模型；预训练模型不适用，页面会提示）。
 
 ### 5.6 空间图（UMAP / t-SNE）
 
-![BQACAgUAAyEGAASHRsPbAAEYru1qdGSiWp9UYiS0DlsprEKVOud1_AACyTQAAtsboFfwQwHtvh_32z0E.png](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYru1qdGSiWp9UYiS0DlsprEKVOud1_AACyTQAAtsboFfwQwHtvh_32z0E.png)
+![UMAP 基因表达（SLC2A1）](../man/figures/shiny-umap-gene.png)
 
-![BQACAgUAAyEGAASHRsPbAAEYrvNqdGS9_DCHZMgsGZFMcIhxBlsf_wACzzQAAtsboFerQBd3_vv2kz0E.png](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrvNqdGS9_DCHZMgsGZFMcIhxBlsf_wACzzQAAtsboFerQBd3_vv2kz0E.png)
+![UMAP 药物活力（erlotinib）](../man/figures/shiny-umap-viability.png)
 
 选择降维方法和着色变量：
 
-- **Gene Expression**：每个细胞的单基因真实表达量，值经 5th–95th 百分位压缩到 [0, 1]（range01 归一化），连续色标——看基因在哪群细胞高表达
+- **Gene Expression**：每个细胞的单基因真实表达量，值经 5th–95th 百分位压缩到 [0, 1]（range01 归一化），灰→红连续色标（灰 = 无/低表达，红 = 高表达）——看基因在哪群细胞高表达
 - **Drug Viability**：每个细胞回填所属克隆的预测活力分数，呈"拼接色块"——看哪些克隆被预测耐药（亮）或敏感（暗）
 - **Clone / Cluster**：按克隆（聚类）着色——看分群结构
 

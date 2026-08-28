@@ -72,8 +72,10 @@ clone_palette <- function(n) {
   unname(grDevices::hcl(h = hues, c = 65, l = 70))
 }
 
-# Diverging scale for z-score style values: blue = low, white = neutral, red = high
-diverging_colors <- c("#2166AC", "#F7F7F7", "#B2182B")
+# Diverging scale for z-score / 0-1 style values: the two ends are pinned to
+# the app's THEME colors (--primary #165C91 = low, --accent #c13232 = high),
+# white at the midpoint — red/blue is more intuitive than viridis.
+diverging_colors <- c("#165C91", "#F7F7F7", "#c13232")
 # Sequential scale for percentile/rank values (viridis family)
 sequential_colors <- c("#440154", "#3B528B", "#21908C", "#5DC863", "#FDE725")
 
@@ -115,6 +117,10 @@ natural_levels <- function(x) {
 #' @param palette Character. One of \code{"viridis"} (sequential, default) or
 #'        \code{"diverging"} (blue-white-red centered at \code{midpoint}).
 #' @param midpoint Numeric. Center value for diverging palette. Default = 0.
+#' @param limits Numeric vector of length 2. Fixed scale limits — pins the
+#'        color at each end (e.g. \code{c(0, 1)} for 0-1 expression,
+#'        \code{c(-2, 2)} for z-scores) so the same value always has the same
+#'        color across plots. Default = NULL (data-driven limits).
 #' @param base_size Numeric. Base font size for theme. Default = 11.
 #' @param tooltip Logical. If TRUE (default) and \pkg{ggiraph} is installed,
 #'        points get hover tooltips (cell id if present, else the colored value).
@@ -143,6 +149,7 @@ plot_tsne_response <- function(tsne_data,
                                colors = NULL,
                                palette = c("viridis", "diverging"),
                                midpoint = 0,
+                               limits = NULL,
                                base_size = 11,
                                tooltip = TRUE,
                                tooltip_col = NULL) {
@@ -205,7 +212,8 @@ plot_tsne_response <- function(tsne_data,
     p <- p + scale_colour_gradient2(low = diverging_colors[1],
                                     mid = diverging_colors[2],
                                     high = diverging_colors[3],
-                                    midpoint = midpoint)
+                                    midpoint = midpoint,
+                                    limits = limits)
   } else {
     cols <- if (is.null(colors)) sequential_colors else colors
     p <- p + scale_colour_gradientn(colours = cols)
@@ -467,9 +475,12 @@ plot_clone_distribution <- function(clone_distribution,
 #' @param drug Character. Drug name, used as plot title. Default = NULL.
 #' @param base_size Numeric. Base font size. Default = 11.
 #' @param y_limits Numeric vector. Y-axis limits. Default = c(-3, 1.2).
-#' @param viridis_scale Logical. If TRUE (default), uses a plain viridis
-#'        sequential scale (dark = low/sensitive, yellow = high/resistant).
-#'        If FALSE, uses the diverging blue-white-red scale centred at 0.
+#' @param viridis_scale Logical. If TRUE, uses a viridis sequential scale
+#'        (dark = low/sensitive, yellow = high/resistant). If FALSE (default),
+#'        uses the diverging red-blue scale (blue = low/sensitive, white =
+#'        neutral, red = high/resistant) with data-driven limits, so every
+#'        value keeps a real color — nothing clips to grey/NA outside a
+#'        fixed window.
 #' @param tooltip Logical. If TRUE (default) and \pkg{ggiraph} is installed,
 #'        points get hover tooltips (clone + viability + proportion).
 #' @param tooltip_col Character. Optional existing column used as the tooltip
@@ -515,7 +526,7 @@ plot_clone_viability <- function(clone_viability,
                                drug = NULL,
                                base_size = 11,
                                y_limits = c(-3, 1.2),
-                               viridis_scale = TRUE,
+                               viridis_scale = FALSE,
                                tooltip = TRUE,
                                tooltip_col = NULL) {
 
@@ -640,10 +651,12 @@ plot_clone_viability <- function(clone_viability,
           legend.key.size = unit(13, "pt"),
           axis.title.y = element_text(margin = margin(r = 6)))
 
-  # Color scale: viridis sequential by default (dark = low/sensitive,
-  # yellow = high/resistant) — the same ramp as the Gene Expression / Drug
-  # Viability UMAPs, so z-scored viability looks the same everywhere. The
-  # diverging blue-white-red scale remains available via viridis_scale = FALSE.
+  # Color scale: red-blue diverging by default (blue = low/sensitive, white =
+  # neutral, red = high/resistant), the same ramp as the Gene Expression /
+  # Drug Viability UMAPs. Limits are DATA-DRIVEN (not pinned): a z-score of
+  # -2.2 (or any value outside a fixed window) still gets a real color
+  # instead of being clipped to grey/NA. The viridis sequential ramp remains
+  # available via viridis_scale = TRUE.
   if (viridis_scale) {
     p <- p + scale_colour_gradientn(
       colours = sequential_colors,
@@ -1573,7 +1586,7 @@ plot_tsne_biomarker_viability <- function(tsne_data,
 
   p1 <- plot_tsne_response(tsne_data, color_var = biomarker_var,
                            color_label = biomarker_label, base_size = base_size,
-                           palette = "diverging")
+                           colors = c("#bdbdbd", "#c13232"))
   p2 <- plot_tsne_response(tsne_data, color_var = viability_var,
                            color_label = viability_label, base_size = base_size,
                            palette = "viridis")

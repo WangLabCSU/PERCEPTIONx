@@ -239,6 +239,17 @@ server <- function(input, output, session) {
     model_active = list()
   )
 
+  # Pre-warm the per-session task worker right away: the process spawn +
+  # package load (~5 s) happens in the background while the user is still on
+  # the landing page, so the FIRST plot/demo/predict does not pay it. If it
+  # fails (no real risk), tasks re-spawn lazily as before.
+  tryCatch(ensure_session_worker(shared), error = function(e) NULL)
+  # Then kick off a warm-up task in that worker (fire-and-forget) so the
+  # heavy Seurat / caret / glmnet namespaces are already loaded when the user
+  # first runs Seurat clustering / the demo — that ~3-4 s load no longer sits
+  # inside the first prepare/demo task.
+  tryCatch(submit_session_task(shared, "warmup", list()), error = function(e) NULL)
+
   # Modules — pass main session for cross-module navigation
   mod_home_server("home", shared, session)
   mod_data_server("data", shared)

@@ -281,7 +281,7 @@ mod_predict_server <- function(id, shared, main_session) {
 
       w <- Waiter$new(
         html = tagList(div(class = "spinner-ring"), h4("Predicting..."),
-                       p(class = "text-muted", "Running predict_drugs() in background worker")),
+                       p(class = "text-muted", "Running prediction...")),
         color = "rgba(255,255,255,0.85)"
       )
       w$show()
@@ -320,7 +320,7 @@ mod_predict_server <- function(id, shared, main_session) {
           patient_pred(res$patient_pred)
           shared$predictions <- res$clone_pred
           shared$patient_pred <- res$patient_pred
-          showNotification("Prediction complete (background worker)", type = "message")
+          showNotification("Prediction complete", type = "message")
         },
         on_error = function(msg) {
           pred_busy(FALSE)

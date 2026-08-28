@@ -15,9 +15,9 @@ chk <- function(name, ok, detail = "") {
   if (!ok) fails <<- fails + 1L
 }
 
-# 1. range01 constant vector -> 0.5 (no NaN)
+# 1. range01 constant vector -> 0 ("no signal", not the old 0.5 midpoint)
 r <- range01(rep(5, 10))
-chk("range01 constant vector returns 0.5", isTRUE(all(r == 0.5)))
+chk("range01 constant vector returns 0", isTRUE(all(r == 0)))
 
 # 2. range01 normal vector stays in [0,1]
 set.seed(1); x <- rnorm(100)

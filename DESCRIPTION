@@ -24,6 +24,7 @@ Imports:
     pROC,
     rlang,
     Seurat,
+    uwot,
     shiny,
     ggiraph,
     parallel,

@@ -474,7 +474,7 @@ read_job_state <- function(shared, jobid) {
 # Self-contained rule (callr): all helpers live INSIDE the entry function.
 # ---------------------------------------------------------------------------
 
-session_task_main <- function(pkg_root, jobs_dir, poll_secs = 1L) {
+session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
   # Source tree check (DESCRIPTION + R/*.R): an installed package dir has
   # DESCRIPTION but no .R sources, and load_all() on it yields an EMPTY
   # namespace ("X is not an exported object from namespace:PERCEPTIONx").
@@ -649,7 +649,8 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 1L) {
       r <- tryCatch(PERCEPTIONx::range01(x), error = function(e) NULL)
       if (!is.null(r) && length(r) == length(x)) return(r)
       rng <- range(x, na.rm = TRUE)
-      if (rng[2] == rng[1]) rep(0.5, length(x)) else (x - rng[1]) / (rng[2] - rng[1])
+      # Constant vector: map to 0 ("no signal"), not the old 0.5 midpoint.
+      if (rng[2] == rng[1]) rep(0, length(x)) else (x - rng[1]) / (rng[2] - rng[1])
     }
     get_embedding_xy <- function(coords, cell_ids) {
       if (!is.data.frame(coords)) stop("umap_coords is not a data frame")
@@ -875,23 +876,25 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 1L) {
       }
       if (pt == "umap_gene") {
         gene <- p$umap_gene
+        # The app pre-extracts only this gene's per-cell expression vector
+        # (named by cell id) — the whole matrix never travels to the worker.
+        expr_vec <- d$umap_gene_expr
         if (is.null(gene) || nchar(gene) == 0) {
           msg <- "Select a gene first."
+        } else if (is.null(expr_vec) || length(expr_vec) == 0) {
+          msg <- paste0("Gene '", gene, "' not found in expression matrix.")
         } else {
-          expr_mat <- d$user_expr
-          if (is.null(expr_mat) || !(gene %in% rownames(expr_mat))) {
-            msg <- paste0("Gene '", gene, "' not found in expression matrix.")
-          } else {
-            cell_expr <- as.numeric(expr_mat[gene, common_cells])
-            xy <- get_embedding_xy(umap_coords, common_cells)
-            n <- length(common_cells)
-            stopifnot(length(xy$X) == n, length(xy$Y) == n, length(cell_expr) == n)
-            umap_data <- data.frame(X = xy$X, Y = xy$Y, expression = safe_range01(cell_expr),
-                                    row.names = common_cells)
-            plot_obj <- PERCEPTIONx::plot_tsne_response(umap_data, color_var = "expression",
-                                                        title = gene, color_label = "Expression (0-1)",
-                                                        palette = "viridis", base_size = 11)
-          }
+          cell_expr <- as.numeric(expr_vec[match(common_cells, names(expr_vec))])
+          xy <- get_embedding_xy(umap_coords, common_cells)
+          n <- length(common_cells)
+          stopifnot(length(xy$X) == n, length(xy$Y) == n, length(cell_expr) == n,
+                    !anyNA(cell_expr))
+          umap_data <- data.frame(X = xy$X, Y = xy$Y, expression = safe_range01(cell_expr),
+                                  row.names = common_cells)
+          plot_obj <- PERCEPTIONx::plot_tsne_response(umap_data, color_var = "expression",
+                                                      title = gene, color_label = "Expression (0-1)",
+                                                      colors = c("#bdbdbd", "#c13232"),
+                                                      limits = c(0, 1), base_size = 11)
         }
       } else if (pt == "umap_viability") {
         pred_mat <- d$predictions
@@ -918,7 +921,8 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 1L) {
                                     row.names = kill_common)
             plot_obj <- PERCEPTIONx::plot_tsne_response(umap_data, color_var = "viability_scaled",
                                                         title = drug, color_label = "Predicted Viability (z-score)",
-                                                        palette = "viridis", base_size = 11)
+                                                        palette = "diverging", midpoint = 0,
+                                                        base_size = 11)
           }
         }
       } else {  # umap_clone
@@ -933,30 +937,6 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 1L) {
     } else {
       stop("Unknown plot type: ", pt)
     }
-
-    # Scale metadata for the UI renderer. ggiraph pays a fixed SVG-conversion
-    # cost per faceted plot (bench: ~1.4 s at 20 panels regardless of point
-    # count), so the app drops large plots to fast static rendering and keeps
-    # hover tooltips only for small ones. panels = facet count, points = rows
-    # in the plotted data frame.
-    meta <- NULL
-    if (!is.null(plot_obj)) {
-      if (pt == "clone_dist") {
-        meta <- list(panels = length(unique(clone_distribution$patients)),
-                     points = nrow(clone_distribution))
-      } else if (pt == "clone_kill") {
-        # combo mode builds combo_df; single-drug mode builds clone_viability_df
-        kill_df <- if (is_combo) combo_df else clone_viability_df
-        meta <- list(panels = length(unique(kill_df$patient)),
-                     points = nrow(kill_df))
-      } else if (pt %in% c("umap_gene", "umap_viability", "umap_clone")) {
-        meta <- list(panels = 1L, points = nrow(umap_data))
-      } else {
-        meta <- list(panels = 1L,
-                     points = if (is.data.frame(plot_obj$data)) nrow(plot_obj$data) else 0L)
-      }
-    }
-    if (!is.null(plot_obj)) attr(plot_obj, "perception_meta") <- meta
 
     list(plot = plot_obj,
          message = if (!is.null(msg)) msg else
@@ -983,6 +963,16 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 1L) {
   # the meta cache is missing or stale). The full read stays in the worker.
   run_extract_meta <- function(a) {
     PERCEPTIONx:::extract_depmap_meta(a$depmap_path, cache_file = a$cache_file)
+  }
+
+  # Warm-up task: pre-load the heavy namespaces (Seurat / caret / glmnet) in
+  # the background so the FIRST prepare/demo task does not pay the ~3-4 s
+  # package load inline (Seurat is only touched on the first Seurat:: call).
+  run_warmup <- function(a) {
+    invisible(requireNamespace("Seurat", quietly = TRUE))
+    invisible(requireNamespace("caret", quietly = TRUE))
+    invisible(requireNamespace("glmnet", quietly = TRUE))
+    TRUE
   }
 
   message("[session-worker] started, polling ", jobs_dir)
@@ -1014,6 +1004,7 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 1L) {
             plot    = run_plot(params$args),
             download = run_download(params$args),
             extract_meta = run_extract_meta(params$args),
+            warmup  = run_warmup(params$args),
             stop("Unknown task: ", params$task)),
           error = function(e) structure(list(message = conditionMessage(e)),
                                         class = "perception_job_error")
@@ -1100,7 +1091,7 @@ read_task_state <- function(shared, jobid) {
 # session worker died mid-task (is_alive == FALSE) the poll gives up with an
 # actionable error instead of spinning forever.
 poll_task <- function(shared, session, jobid, on_done, on_error = NULL,
-                      poll_ms = 1000) {
+                      poll_ms = 250) {
   obs <- NULL
   obs <- observe({
     st <- read_task_state(shared, jobid)

@@ -1,3 +1,8 @@
+---
+title: "PERCEPTION-shiny User Guide"
+description: "Full walkthrough of the interactive Shiny dashboard: data loading, model training, drug-sensitivity prediction, and visualization."
+---
+
 # PERCEPTION-shiny User Guide
 
 **PERCEPTION-shiny** is the interactive web application (Shiny) of the **PERCEPTIONx** R package. It wraps the complete analysis pipeline — data loading, model training, drug-sensitivity prediction, and result visualization — into a point-and-click interface, so you can go from a patient single-cell expression matrix to clone-level viability scores and patient-level response stratification without writing code.
@@ -65,7 +70,7 @@ DepMap reference data ──► Model training ──► Clone/patient predictio
 
 ## 1. Interface Overview
 
-![PERCEPTION-shiny home page](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrqVqdGKkjlcuARJe5YzI5KXXCeDMvgACfjQAAtsboFcyiuFv_R2_bj0E.png)
+![PERCEPTION-shiny home page](../man/figures/shiny-home.png)
 
 The top navbar has 6 tabs: **Home, Data, Train, Predict, Visualize, Help**. Data flows left to right: load data (Data), train/load models (Train), predict (Predict), then visualize and validate (Visualize).
 
@@ -134,7 +139,7 @@ Two ways:
 | Seurat Dims | number of PCA dimensions used | 10–30 |
 | Seurat NFeatures | number of highly variable genes for clustering — fixed at 2000 in the app (not adjustable) | — |
 
-![Clustering in the Data tab](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrrpqdGNtTytttAcxi0NLh0PzdHU_SQAClTQAAtsboFfopMIK8x6Grz0E.png)
+![Clustering in the Data tab](../man/figures/shiny-data-clustering.png)
 
 > Notes: clustering only defines "clones"; downstream prediction is done at the clone level (the clone's expression is the mean expression of its cells).
 
@@ -178,7 +183,7 @@ Select the loaded models (pre-trained from the Data tab or trained on the Train 
 
 Outputs include an interactive heatmap (clones × drugs, plotly) and downloadable prediction tables.
 
-![Predict tab clones×drugs heatmap](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrr1qdGOEsPafeye9qfPgBPkIPFAL_gACmDQAAtsboFdiPjfKVPqPXD0E.png)
+![Predict tab clones×drugs heatmap](../man/figures/shiny-predict-heatmap.png)
 
 ---
 
@@ -190,7 +195,7 @@ All figures are **interactive SVG** (built on ggiraph): hover any point or bar t
 
 ### 5.1 Clone Distribution (stacked bar chart)
 
-![Clone distribution stacked bar chart](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrsRqdGOsyEvZKa-hX56p8XZe9MdfBAACnzQAAtsboFciL8mgr8EQBT0E.png)
+![Clone distribution stacked bar chart](../man/figures/shiny-clone-distribution.png)
 
 Shows the clone composition within each patient; one color band = one clone (a curated palette is used for ≤ 15 clones).
 
@@ -198,41 +203,41 @@ Shows the clone composition within each patient; one color band = one clone (a c
 
 ### 5.2 Clone Viability (lollipop plot)
 
-![Clone viability lollipop plot](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrtRqdGQW8zkwfYWQ_VN994k_iZJH8gACsDQAAtsboFe7I7H3sbW6sz0E.png)
+![Clone viability lollipop plot](../man/figures/shiny-lollipop.png)
 
 - **Rules**: all samples, all clones, one facet per patient, one lollipop per clone
-- **Color**: blue-white-red diverging — blue = predicted sensitive (low viability), red = predicted resistant (high viability)
+- **Color**: blue-white-red diverging — blue = predicted sensitive (low viability), red = predicted resistant (high viability). Color limits adapt to the data, so extreme z-scores keep a real color (never grey/NA).
 - **Point size**: clone proportion (larger clones get bigger points)
 - **Ordering**: within a patient, by proportion descending; responders come first when response data is present
 - **Y-axis**: Predicted Viability (z-score), with a zero line as the reference
 
 ### 5.3 ROC Curve
 
-![ROC curve](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrtlqdGQvuGR0iVJf_0IC3FrHl2wx2gACtTQAAtsboFdEeKvbpn7yAT0E.png)
+![ROC curve](../man/figures/shiny-roc.png)
 
 Uses true clinical responses (uploaded on the Data tab) against patient-level prediction scores. AUC closer to 1 = stronger stratification. If you predicted with multiple models, you can pick a specific model to view.
 
 ### 5.4 Response Boxplot (responders vs. non-responders)
 
-![Response boxplot (R vs NR)](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYruFqdGRmVjR7z6AiKJZrmoSvML7-BgACvTQAAtsboFcaROROGDpEdj0E.png)
+![Response boxplot (R vs NR)](../man/figures/shiny-boxplot.png)
 
 Shows the distribution of prediction scores for Responder vs. Non-responder groups, with a significance test.
 
 ### 5.5 Model Performance
 
-![Model performance plot](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYruZqdGSFqhl8FAYozOIa3fcN_FgDUgACwjQAAtsboFd6-2EPyhNE6D0E.png)
+![Model performance plot](../man/figures/shiny-model-performance.png)
 
 This plot lives on the **Train tab** (see Performance Plot in 3.2), not on the Visualize tab. It shows validation performance curves for trained models (requires models from the Train tab; not applicable to pre-trained models — the app will tell you).
 
 ### 5.6 Spatial Plots (UMAP / t-SNE)
 
-![Gene expression on UMAP (SLC2A1)](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYru1qdGSiWp9UYiS0DlsprEKVOud1_AACyTQAAtsboFfwQwHtvh_32z0E.png)
+![Gene expression on UMAP (SLC2A1)](../man/figures/shiny-umap-gene.png)
 
-![Drug viability on UMAP (erlotinib)](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEYrvNqdGS9_DCHZMgsGZFMcIhxBlsf_wACzzQAAtsboFerQBd3_vv2kz0E.png)
+![Drug viability on UMAP (erlotinib)](../man/figures/shiny-umap-viability.png)
 
 Choose a dimensionality-reduction method and a color variable:
 
-- **Gene Expression**: per-cell expression of a single gene, winsorized to the 5th–95th percentiles and scaled to [0, 1] (range01 normalization), continuous scale — see which cell groups express the gene highly
+- **Gene Expression**: per-cell expression of a single gene, winsorized to the 5th–95th percentiles and scaled to [0, 1] (range01 normalization), continuous grey→red ramp (grey = no/low expression, red = high expression) — see which cell groups express the gene highly
 - **Drug Viability**: each cell colored by its clone's predicted viability score ("patchwork" blocks) — see which clones are predicted resistant (high) vs. sensitive (low)
 - **Clone / Cluster**: color by clone (cluster) — see the population structure
 

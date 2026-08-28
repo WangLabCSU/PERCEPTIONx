@@ -152,6 +152,42 @@ mod_visualize_server <- function(id, shared, main_session) {
     # Guards against double-submitting a plot task (rapid double clicks).
     viz_busy <- reactiveVal(FALSE)
 
+    # --- In-memory plot cache ---
+    # plot_cache   : request signature (plot type + parameters) -> finished ggplot
+    # widget_cache : plot signature + text scale + canvas size -> rendered
+    #                girafe widget, so returning to a plot reuses the SVG
+    #                instead of paying the fixed ~1.4 s conversion again.
+    # Both are dropped whenever the underlying source data is replaced/cleared.
+    # current_plot_key records which signature the currently shown plot came
+    # from, so the widget cache can be keyed stably per plot.
+    plot_cache <- new.env(parent = emptyenv())
+    widget_cache <- new.env(parent = emptyenv())
+    current_plot_key <- reactiveVal(NULL)
+
+    # When ALL source data disappears (e.g. "Clear Demo Data" on the Data
+    # tab), drop the cached plot so the Output area collapses back to the
+    # placeholder shown on first launch instead of a stale blank block. It
+    # expands again once new data is loaded and a new plot is generated.
+    observe({
+      no_data <- is.null(shared$predictions) && is.null(shared$models) &&
+                 is.null(shared$user_clones) && is.null(shared$user_expr)
+      if (no_data && !is.null(current_plot())) {
+        current_plot(NULL)
+        current_plot_type(NULL)
+        current_plot_key(NULL)
+      }
+    })
+
+    # Any source-object change (demo load/clear, uploads, new predictions)
+    # makes every cached plot stale — drop both caches.
+    observe({
+      invisible(list(shared$predictions, shared$user_clones, shared$user_expr,
+                     shared$user_response, shared$patient_pred,
+                     shared$models, shared$prepared_data))
+      if (length(ls(plot_cache)) > 0) rm(list = ls(plot_cache), envir = plot_cache)
+      if (length(ls(widget_cache)) > 0) rm(list = ls(widget_cache), envir = widget_cache)
+    })
+
     # Map response labels to canonical short classes: R/NR spellings collapse
     # to R/NR; ANY other label (e.g. longitudinal time points TN/RD/PD) is kept
     # as-is (uppercased) so multi-group response data is not silently dropped.
@@ -334,9 +370,8 @@ mod_visualize_server <- function(id, shared, main_session) {
     })
 
     # Generate Plot — computation runs in the background per-session worker
-    # (task "plot", see async_jobs.R); the returned ggplot is drawn by the
-    # render backend below (ggiraph or static, auto-chosen by plot scale), so
-    # the main thread never blocks on plot math.
+    # (task "plot", see async_jobs.R); the returned ggplot is drawn by
+    # renderGirafe below, so the main thread never blocks on plot math.
     observeEvent(input$generate, {
       pt <- input$plot_type
       reqs <- plot_requirements[[pt]]
@@ -362,11 +397,24 @@ mod_visualize_server <- function(id, shared, main_session) {
         return()
       }
 
+      # Cache hit: the identical request was generated before — reuse it
+      # instantly (no background task, no waiter overlay).
+      ck <- paste(pt, is_combo, input$drug_name_common,
+                  input$roc_group_a, input$roc_group_b, sep = "\u0001")
+      cached <- get0(ck, envir = plot_cache, inherits = FALSE)
+      if (!is.null(cached)) {
+        current_plot(cached$plot)
+        current_plot_type(pt)
+        current_plot_key(ck)
+        showNotification(paste0(plot_labels[[pt]], " loaded from cache"), type = "message", duration = 3)
+        return()
+      }
+
       w <- Waiter$new(
         html = tagList(
           div(class = "spinner-ring"),
           h4("Generating plot..."),
-          p(class = "text-muted", "Computing in background worker")
+          p(class = "text-muted", "Drawing plot...")
         ),
         color = "rgba(255,255,255,0.85)"
       )
@@ -386,11 +434,9 @@ mod_visualize_server <- function(id, shared, main_session) {
             user_clones   = shared$user_clones,
             user_response = shared$user_response,
             patient_pred  = shared$patient_pred,
-            # Only the spatial plots need the raw expression matrix and the
-            # embedding coordinates — both can be large, and carrying them
-            # into EVERY plot job made the params.rds serialize/deserialize
-            # slow for the chart plots (lollipop / distribution / ROC / box).
-            user_expr = if (pt %in% c("umap_gene", "umap_viability")) shared$user_expr else NULL,
+            # Chart plots never need the expression matrix or embedding
+            # coordinates — carrying them made params.rds serialize/deserialize
+            # slow (lollipop / distribution / ROC / box).
             prepared = list(
               umap_coords = if (!is.null(pd) && pt %in% c("umap_gene", "umap_viability", "umap_clone")) pd$umap_coords else NULL,
               clone_viability_template = if (!is.null(pd)) pd$clone_viability_template else NULL
@@ -412,8 +458,10 @@ mod_visualize_server <- function(id, shared, main_session) {
           viz_busy(FALSE)
           w$hide()
           if (!is.null(res$plot)) {
+            assign(ck, list(plot = res$plot, message = res$message), envir = plot_cache)
             current_plot(res$plot)
             current_plot_type(pt)
+            current_plot_key(ck)
             showNotification(paste0(plot_labels[[pt]], " generated successfully"), type = "message")
           } else {
             msg <- res$message
@@ -449,11 +497,22 @@ mod_visualize_server <- function(id, shared, main_session) {
         return()
       }
 
+      # Cache hit: reuse the identical spatial plot instantly.
+      ck <- paste(pt, input$umap_gene, input$umap_drug, sep = "\u0001")
+      cached <- get0(ck, envir = plot_cache, inherits = FALSE)
+      if (!is.null(cached)) {
+        current_plot(cached$plot)
+        current_plot_type(pt)
+        current_plot_key(ck)
+        showNotification(paste0(spatial_plot_label(pt), " loaded from cache"), type = "message", duration = 3)
+        return()
+      }
+
       w <- Waiter$new(
         html = tagList(
           div(class = "spinner-ring"),
           h4("Generating plot..."),
-          p(class = "text-muted", "Computing in background worker")
+          p(class = "text-muted", "Drawing plot...")
         ),
         color = "rgba(255,255,255,0.85)"
       )
@@ -464,6 +523,18 @@ mod_visualize_server <- function(id, shared, main_session) {
       viz_busy(TRUE)
       w$show()
 
+      # Gene Expression: ship ONLY the selected gene's per-cell expression
+      # vector (a small named numeric) instead of the whole expression matrix
+      # — a full matrix can be hundreds of MB, and serializing it into
+      # params.rds took tens of seconds. NULL when the gene is invalid; the
+      # worker then reports "not found".
+      gene_vec <- NULL
+      if (pt == "umap_gene" && !is.null(input$umap_gene) && nchar(input$umap_gene) > 0 &&
+          !is.null(shared$user_expr) && input$umap_gene %in% rownames(shared$user_expr)) {
+        gene_vec <- setNames(as.numeric(shared$user_expr[input$umap_gene, ]),
+                             colnames(shared$user_expr))
+      }
+
       pd <- shared$prepared_data
       jobid <- tryCatch(
         submit_session_task(shared, "plot", list(
@@ -473,11 +544,10 @@ mod_visualize_server <- function(id, shared, main_session) {
             user_clones   = shared$user_clones,
             user_response = shared$user_response,
             patient_pred  = shared$patient_pred,
-            # Only the spatial plots need the raw expression matrix and the
-            # embedding coordinates — both can be large, and carrying them
-            # into EVERY plot job made the params.rds serialize/deserialize
-            # slow for the chart plots (lollipop / distribution / ROC / box).
-            user_expr = if (pt %in% c("umap_gene", "umap_viability")) shared$user_expr else NULL,
+            # No plot ships the raw expression matrix anymore — umap_gene
+            # gets only the requested gene's vector, umap_viability/clone
+            # need none of it. umap_coords (n_cells x 2) stays small.
+            umap_gene_expr = gene_vec,
             prepared = list(
               umap_coords = if (!is.null(pd) && pt %in% c("umap_gene", "umap_viability", "umap_clone")) pd$umap_coords else NULL,
               clone_viability_template = if (!is.null(pd)) pd$clone_viability_template else NULL
@@ -501,8 +571,10 @@ mod_visualize_server <- function(id, shared, main_session) {
           viz_busy(FALSE)
           w$hide()
           if (!is.null(res$plot)) {
+            assign(ck, list(plot = res$plot, message = res$message), envir = plot_cache)
             current_plot(res$plot)
             current_plot_type(pt)
+            current_plot_key(ck)
             showNotification(paste0(spatial_plot_label(pt), " generated successfully"), type = "message")
           } else {
             msg <- res$message
@@ -517,21 +589,13 @@ mod_visualize_server <- function(id, shared, main_session) {
         })
     })
 
-    # --- Rendering backend: interactive vs static (scale auto-degrade) ---
-    # ggiraph hover is nice, but converting a faceted ggplot to SVG costs a
-    # fixed ~1.4 s (20 panels, independent of point count) and multi-MB SVG
-    # widgets slow the browser down. Plots with >= 10 facets or >= 15k points
-    # are therefore drawn by the fast static renderPlot backend; small plots
-    # keep the ggiraph hover interaction. The scale metadata (panels/points)
-    # is attached by the background worker in run_plot().
-    render_mode <- reactive({
-      p <- current_plot()
-      if (is.null(p)) return("none")
-      meta <- attr(p, "perception_meta")
-      if (is.null(meta)) return("interactive")
-      if (isTRUE(meta$panels >= 10) || isTRUE(meta$points >= 15000)) "static" else "interactive"
-    })
-
+    # --- Interactive rendering via ggiraph (hover tooltips) ---
+    # Renders the ORIGINAL ggplot as an SVG widget. Because the plot is never
+    # converted to plotly, facet/strip layouts stay exactly as designed (no
+    # re-flow, no overlap). Hovering a point shows a rich tooltip. Canvas is
+    # controlled with CSS (.girafe.html-widget) so it grows with the actual
+    # plot height, is centred, and can never overflow the card.
+    #
     # Text-scale the plot (relative to its OWN base font size, so 100% -> base
     # and >100% grows monotonically), and replace gtable/grob/plotly objects
     # — which ggiraph cannot render — with an explanatory static panel.
@@ -562,32 +626,15 @@ mod_visualize_server <- function(id, shared, main_session) {
               strip.text = element_text(size = (base - 1) * scale))
     })
 
-    # Pixel height for the static backend (lollipop stretches, matching the
-    # girafe canvas so every facet gets more vertical room).
-    render_height <- reactive({
-      h <- plot_size()$h
-      if (identical(current_plot_type(), "clone_kill")) h <- round(h * 1.3)
-      h
-    })
-
-    # Host output: swaps the widget binding (girafe vs static plotOutput)
-    # based on the plot's scale.
+    # Conditional host: mount the girafe output ONLY while a plot exists.
+    # Without this, Shiny hides an empty widget with `visibility: hidden`,
+    # which still occupies its full layout space — leaving a large blank
+    # block after "Clear Demo Data". Removing the element entirely makes the
+    # output area collapse to just the placeholder, like on first launch.
     output$main_plot_host <- renderUI({
-      mode <- render_mode()
-      if (mode == "none") return(NULL)
-      if (mode == "static") {
-        plotOutput(ns("main_plot_static"), width = "100%", height = render_height())
-      } else {
-        ggiraph::girafeOutput(ns("main_plot"))
-      }
+      if (is.null(current_plot())) NULL else ggiraph::girafeOutput(ns("main_plot"))
     })
 
-    # --- Interactive rendering via ggiraph (hover tooltips) ---
-    # Renders the ORIGINAL ggplot as an SVG widget. Because the plot is never
-    # converted to plotly, facet/strip layouts stay exactly as designed (no
-    # re-flow, no overlap). Hovering a point shows a rich tooltip. Canvas is
-    # controlled with CSS (.girafe.html-widget) so it grows with the actual
-    # plot height, is centred, and can never overflow the card.
     output$main_plot <- ggiraph::renderGirafe({
       req(current_plot())
       sz <- plot_size()
@@ -596,8 +643,15 @@ mod_visualize_server <- function(id, shared, main_session) {
       if (identical(current_plot_type(), "clone_kill")) {
         sz$h <- round(sz$h * 1.3)
       }
+      # Widget cache: the girafe SVG conversion is the fixed ~1.4 s cost.
+      # Reuse the finished widget whenever the same plot is shown with the
+      # same text scale and canvas size (e.g. switching back to a cached
+      # plot) instead of converting again.
+      wkey <- paste(current_plot_key(), text_scale(), sz$w, sz$h, sep = "\u0001")
+      cached_w <- get0(wkey, envir = widget_cache, inherits = FALSE)
+      if (!is.null(cached_w)) return(cached_w)
       # width_svg/height_svg set the SVG viewBox aspect ratio (canvas shape).
-      ggiraph::girafe(
+      w <- ggiraph::girafe(
         ggobj = scaled_plot(),
         width_svg = max(sz$w / 100, 4),
         height_svg = max(sz$h / 100, 3),
@@ -615,12 +669,8 @@ mod_visualize_server <- function(id, shared, main_session) {
           ggiraph::opts_zoom(min = 1, max = 1)
         )
       )
-    })
-
-    # --- Fast static rendering for large plots ---
-    output$main_plot_static <- renderPlot({
-      req(current_plot())
-      scaled_plot()
+      assign(wkey, w, envir = widget_cache)
+      w
     })
 
     output$plot_status <- renderUI({
@@ -676,12 +726,12 @@ mod_visualize_server <- function(id, shared, main_session) {
       ),
       umap_gene = list(
         title = "Gene Expression",
-        desc = "Shows the expression level of a selected gene (0-1 normalized, 5th-95th percentile) across all single cells in the 2D embedding space. Yellow = higher expression, dark = lower expression — same colour scale as Drug Viability (paper Extended Data Fig. 2 style). Use this to examine how a gene's expression pattern relates to the transcriptional subclone landscape.",
+        desc = "Shows the expression level of a selected gene (0-1 normalized, 5th-95th percentile) across all single cells in the 2D embedding space. Grey = no/low expression, red = high expression (grey-to-red sequential ramp). Use this to examine how a gene's expression pattern relates to the transcriptional subclone landscape.",
         requires = "Clone-level Predictions + Expression Matrix + 2D embedding coordinates"
       ),
       umap_viability = list(
         title = "Drug Viability",
-        desc = "Shows the predicted drug viability (z-score: 0 = cohort mean across clones, higher = more resistant) across all single cells in the 2D embedding space. Yellow = high viability (resistant), dark = low viability (sensitive) — same viridis ramp and z-score scale as the lollipop and boxplot. Use this to identify which regions of the embedding (i.e., which subclones) are most affected by a given drug.",
+        desc = "Shows the predicted drug viability (z-score: 0 = cohort mean across clones, higher = more resistant) across all single cells in the 2D embedding space. Red = high viability (resistant), blue = low viability (sensitive), white = neutral — same diverging red-blue ramp and z-score scale as the lollipop and boxplot. Use this to identify which regions of the embedding (i.e., which subclones) are most affected by a given drug.",
         requires = "Clone-level Predictions + 2D embedding coordinates (auto-generated by Seurat)"
       ),
       umap_clone = list(
