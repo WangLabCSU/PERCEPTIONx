@@ -27,7 +27,7 @@ mod_home_ui <- function(id) {
             actionButton(ns("go_data"), "Quick Start", class = "btn-hero-primary", icon = icon("rocket")),
             actionButton(ns("go_demo"), "Load Demo", class = "btn-hero-secondary", icon = icon("flask"),
                          onclick = "document.getElementById('demo-overlay').style.display='flex';"),
-            tags$a(href = "https://github.com/WangLabCSU/PERCEPTIONx/blob/main/docs/PERCEPTION-shiny.md",
+            tags$a(href = "https://github.com/WangLabCSU/PERCEPTIONx/blob/main/vignettes/shiny_app.Rmd",
                    target = "_blank", class = "btn-hero-secondary",
                    icon("book-open"), " Tutorial")
           )

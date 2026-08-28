@@ -1,4 +1,4 @@
-md <- readLines("docs/PERCEPTION-shiny.md", warn = FALSE)
+md <- readLines("vignettes/shiny_app.Rmd", warn = FALSE)
 cat("lines:", length(md), "\n")
 hits <- grep("remit", md)
 cat("lines containing 'remit':", length(hits), "\n")

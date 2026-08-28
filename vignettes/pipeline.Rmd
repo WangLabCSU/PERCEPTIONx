@@ -337,7 +337,7 @@ visualization — in a point-and-click interface.
 
 Heavy computation (training, clustering, prediction, plotting) runs in
 background worker processes, so the UI never blocks other users; the main
-process keeps only lightweight DepMap metadata. See `docs/PERCEPTION-shiny.md`
+process keeps only lightweight DepMap metadata. See `vignettes/shiny_app.Rmd`
 for the async architecture and the `PERCEPTION_WORKERS` /
 `PERCEPTION_WORKER_IDLE_MINUTES` deployment options.
 

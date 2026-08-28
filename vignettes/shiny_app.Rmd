@@ -1,6 +1,7 @@
 ---
 title: "PERCEPTION-shiny User Guide"
 description: "Full walkthrough of the interactive Shiny dashboard: data loading, model training, drug-sensitivity prediction, and visualization."
+output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{PERCEPTION-shiny User Guide}
   %\VignetteEngine{knitr::rmarkdown}
@@ -40,14 +41,14 @@ vignette: >
 
 From the package source root, run:
 
-```r
+```{r, eval = FALSE}
 devtools::load_all()          # load PERCEPTIONx from source
 run_perception_app()          # launch the app (opens your browser)
 ```
 
 Or run the app directory directly:
 
-```r
+```{r, eval = FALSE}
 shiny::runApp("inst/shiny/app")
 ```
 
