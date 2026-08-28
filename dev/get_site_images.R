@@ -1,7 +1,7 @@
 # get_site_images.R — one-off: download the tutorial screenshots from the
 # external img.remit.ee hotlinks into man/figures/ so both GitHub and the
 # pkgdown site render them reliably.
-md <- readLines("docs/PERCEPTION-shiny.md", warn = FALSE)
+md <- readLines("vignettes/shiny_app.Rmd", warn = FALSE)
 pat <- "https://img\\.remit\\.ee/api/file/[A-Za-z0-9_-]+\\.png"
 urls <- unique(unlist(regmatches(md, gregexpr(pat, md, perl = TRUE))))
 stopifnot(length(urls) >= 9)
