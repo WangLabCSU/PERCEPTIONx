@@ -295,7 +295,7 @@ visualization — in a point-and-click interface.
 Heavy computation (training, Seurat clustering, prediction, plot math) runs in
 **background worker processes**, so the interface stays responsive even while a
 large job runs; the main process only keeps lightweight DepMap metadata. See
-`articles/shiny-app.md` for the async architecture and the
+`articles/shiny_app.md` for the async architecture and the
 `PERCEPTION_WORKERS` / `PERCEPTION_WORKER_IDLE_MINUTES` deployment options.
 
 ### 7.1 Launch

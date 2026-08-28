@@ -7,7 +7,7 @@
 get_depmap()
 }
 \value{
-The DepMap list object, or NULL if not yet loaded.
+The DepMap list object. Errors if the data has not been loaded yet.
 }
 \description{
 Retrieves the DepMap dataset from the package-level cache.

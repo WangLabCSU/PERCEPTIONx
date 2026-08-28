@@ -454,6 +454,26 @@ plot_clone_distribution <- function(clone_distribution,
 # Plot: Clone-level viability (lollipop)
 # ---------------------------------------------------------------------------
 
+# p-value display: always show the number (scientific notation when very
+# small) instead of an abbreviated "< 0.001".
+fmt_pval <- function(p) {
+  if (is.na(p) || !is.finite(p)) return("NA")
+  if (p < 0.001) format(p, scientific = TRUE, digits = 2)
+  else sprintf("%.3f", p)
+}
+
+# Short facet tag for a response label: R/NR for responder/resistant
+# spellings, otherwise the label itself (e.g. TN/RD/PD longitudinal time
+# points) so multi-group response data keeps its own grouping.
+resp_short_tag <- function(rv) {
+  u <- toupper(trimws(as.character(rv)))
+  if (u %in% c("R", "RESPONDER", "SENSITIVE", "RESPONSE", "RESPONSIVE")) "R"
+  else if (u %in% c("NR", "NON-RESPONDER", "NONRESPONDER", "NON RESPONDER",
+                    "NON-RESPONSIVE", "NONRESPONSIVE", "RESISTANT", "RESISTANCE",
+                    "PROGRESSOR", "PROGRESSION")) "NR"
+  else u
+}
+
 #' Plot clone-level viability (lollipop plot)
 #'
 #' Visualizes predicted drug sensitivity for each clone within patients.
@@ -466,7 +486,10 @@ plot_clone_distribution <- function(clone_distribution,
 #'   \item > 12 patients: \code{facet_wrap} grid, one compact panel per patient.
 #' }
 #'
-#' @param clone_viability Data frame with columns: patient, clone_id, viability (or drug-specific).
+#' @param clone_viability Data frame with columns: patient, clone_id, and the
+#'        viability column named by \code{viability_var}. Optionally also
+#'        \code{weights_var} (clone proportion) and \code{response_var}
+#'        (clinical response) columns.
 #' @param viability_var Character. Column name for viability values. Default = "comb_viability".
 #' @param weights_var Character. Optional column name for clone weights (point size).
 #'        Default = NULL.
@@ -498,26 +521,6 @@ plot_clone_distribution <- function(clone_distribution,
 #'   plot_clone_viability(clone_kill, viability_var = "comb_viability")
 #' }
 #'
-# p-value display: always show the number (scientific notation when very
-# small) instead of an abbreviated "< 0.001".
-fmt_pval <- function(p) {
-  if (is.na(p) || !is.finite(p)) return("NA")
-  if (p < 0.001) format(p, scientific = TRUE, digits = 2)
-  else sprintf("%.3f", p)
-}
-
-# Short facet tag for a response label: R/NR for responder/resistant
-# spellings, otherwise the label itself (e.g. TN/RD/PD longitudinal time
-# points) so multi-group response data keeps its own grouping.
-resp_short_tag <- function(rv) {
-  u <- toupper(trimws(as.character(rv)))
-  if (u %in% c("R", "RESPONDER", "SENSITIVE", "RESPONSE", "RESPONSIVE")) "R"
-  else if (u %in% c("NR", "NON-RESPONDER", "NONRESPONDER", "NON RESPONDER",
-                    "NON-RESPONSIVE", "NONRESPONSIVE", "RESISTANT", "RESISTANCE",
-                    "PROGRESSOR", "PROGRESSION")) "NR"
-  else u
-}
-
 #' @export
 plot_clone_viability <- function(clone_viability,
                                viability_var = "comb_viability",

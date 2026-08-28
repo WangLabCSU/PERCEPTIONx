@@ -25,7 +25,7 @@ If TRUE, use mirror sites from \code{get_mirrors()}.}
 \item{mirror_url}{Character. A specific mirror URL to use (e.g.,
 \code{"https://gh-proxy.com/https://github.com"}). Overrides \code{mirror}.}
 
-\item{timeout_seconds}{Numeric, timeout for each download attempt in seconds. Default = 600.}
+\item{timeout_seconds}{Numeric, timeout for each download attempt in seconds. Default = 300.}
 
 \item{retries}{Integer, number of retries for each mirror. Default = 1.}
 }

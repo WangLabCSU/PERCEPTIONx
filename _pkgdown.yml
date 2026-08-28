@@ -31,6 +31,7 @@ reference:
     contents:
       - load_depmap
       - load_model
+      - get_depmap
       - get_mirrors
       - add_mirrors
       - list_mirrors
@@ -39,6 +40,8 @@ reference:
     contents:
       - rank_normalization_mat
       - range01
+      - zscore_viability
+      - prepare_data
   - title: Model Training
     contents:
       - train_models
@@ -57,14 +60,25 @@ reference:
       - get_significant_models
       - get_performance
       - each_patient_pseudo_bulk
+  - title: Clone & Seurat Pipeline
+    contents:
+      - run_seurat_pipeline
+      - annotate_clones
+      - build_clone_counts
+      - build_clone_key
+      - parse_clone_keys
+      - clone_mean_expression
   - title: Visualization
     contents:
       - plot_tsne_response
       - plot_tsne_biomarker_viability
       - plot_clone_distribution
+      - plot_clone_viability
+      - plot_clone_umap
+      - plot_model_performance
+      - plot_model_roc
       - plot_roc_curve
       - plot_response_boxplot
-      - plot_model_performance
       - plot_seurat_clustering
       - plot_patient_response_panel
   - title: Shiny Application
@@ -74,6 +88,8 @@ reference:
     contents:
       - hypergeometric_test_for_twolists
       - fdrcorr
+      - cor.test_trimmed_v0
+      - export_plot_cairo
 
 articles:
   - title: Tutorials
@@ -83,8 +99,8 @@ articles:
   - title: Shiny App Guide
     desc: Full walkthrough of the interactive web dashboard.
     contents:
-      - shiny-app
-      - shiny-app-cn
+      - shiny_app
+      - shiny_app_cn
 
 news:
   releases:

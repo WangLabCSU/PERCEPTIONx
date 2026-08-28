@@ -7,8 +7,7 @@
 get_performance(filepath, drug_names = NULL)
 }
 \arguments{
-\item{filepath}{Character. Path to the saved model RDS file.
-Can be a single file path or a directory with model files.}
+\item{filepath}{Character. Path to a single saved model RDS file.}
 
 \item{drug_names}{Character vector. Optional. Specific drug names to load.
 If NULL, loads all drugs in the file.}
@@ -17,8 +16,9 @@ If NULL, loads all drugs in the file.}
 A list containing performance metrics for each drug model.
 }
 \description{
-Reads only the performance portion of a saved model RDS file.
-Useful when evaluating many models without loading full model objects (memory efficient).
+Loads a saved model RDS file and returns only its performance portion.
+The file is deserialized fully first (an RDS is read as a whole), then the
+performance entries are extracted.
 }
 \examples{
 \dontrun{
