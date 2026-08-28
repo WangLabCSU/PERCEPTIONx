@@ -241,8 +241,8 @@ n_cells_use <- min(100, ncol(expr_test))
 expr_subset <- expr_test[, 1:n_cells_use]
 
 pdf(file.path(output_dir, "07_seurat_clustering.pdf"), width = 6, height = 5)
-seurat_result <- plot_seurat_clustering(expr_subset)
-print(seurat_result$umap_plot)
+seurat_result <- plot_seurat_clustering(method = "umap", expression_matrix = expr_subset)
+print(seurat_result$embedding_plot)
 dev.off()
 message("Saved: 07_seurat_clustering.pdf")
 

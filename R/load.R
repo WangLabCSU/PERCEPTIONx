@@ -15,7 +15,7 @@ NULL
 #' This is the recommended way to access DepMap data after loading
 #' with \code{load_depmap(read = TRUE)}.
 #'
-#' @return The DepMap list object, or NULL if not yet loaded.
+#' @return The DepMap list object. Errors if the data has not been loaded yet.
 #' @export
 #'
 #' @examples
@@ -327,7 +327,7 @@ load_model <- function(..., dest = "./models", read = FALSE, mirror = FALSE,
 #'        If TRUE, use mirror sites from \code{get_mirrors()}.
 #' @param mirror_url Character. A specific mirror URL to use (e.g.,
 #'        \code{"https://gh-proxy.com/https://github.com"}). Overrides \code{mirror}.
-#' @param timeout_seconds Numeric, timeout for each download attempt in seconds. Default = 600.
+#' @param timeout_seconds Numeric, timeout for each download attempt in seconds. Default = 300.
 #' @param retries Integer, number of retries for each mirror. Default = 1.
 #'
 #' @return Invisibly returns the DepMap object if read = TRUE, otherwise NULL.

@@ -33,7 +33,11 @@ if (length(args) >= 2 && args[1] == '--uploaded') uploaded <- args[2]
 # 1.10, so an environment is the faithful non-Shiny stand-in.
 cache_dir <- getOption(
   'PERCEPTIONx.depmap_cache_dir',
-  Sys.getenv('PERCEPTIONx_DEPMAP_CACHE_DIR', tools::R_user_dir('PERCEPTIONx', 'data'))
+  # Accept both env-var spellings (docs use PERCEPTIONX..., early
+  # deployments set PERCEPTIONx...); Sys.getenv is case-sensitive on Linux.
+  Sys.getenv('PERCEPTIONX_DEPMAP_CACHE_DIR',
+             Sys.getenv('PERCEPTIONx_DEPMAP_CACHE_DIR',
+                        tools::R_user_dir('PERCEPTIONx', 'data')))
 )
 shared <- new.env(parent = emptyenv())
 if (!is.null(uploaded)) {

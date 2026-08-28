@@ -308,8 +308,8 @@ predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
 
     # Compute clone weights
     clone_ids <- patient_clones$clone_id
-    total_cells <- sum(clone_counts[x, clone_ids])
-    if (total_cells == 0) {
+    total_cells <- sum(clone_counts[x, clone_ids], na.rm = TRUE)
+    if (!is.finite(total_cells) || total_cells == 0) {
       return(setNames(rep(NA, n_drugs), drug_cols))
     }
     clone_weights <- unlist(clone_counts[x, clone_ids] / total_cells)

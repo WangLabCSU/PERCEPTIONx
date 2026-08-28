@@ -27,19 +27,13 @@ cor.test_trimmed_v0 <- function(x, ...) UseMethod("cor.test_trimmed_v0")
 #' statistics are omitted to improve computational speed for large-scale
 #' analyses (e.g., feature ranking across thousands of genes).
 #'
-#' Supports three correlation methods: Pearson, Kendall, and Spearman, with
-#' one-sided or two-sided alternative hypotheses.
-#'
 #' @param x Numeric vector.
 #' @param y Numeric vector of the same length as x.
 #' @param alternative Alternative hypothesis: "two.sided", "less", or "greater".
 #'        Default is "two.sided".
-#' @param method Correlation method: "pearson", "kendall", or "spearman".
-#'        Default is "pearson".
-#' @param exact Logical; whether to compute exact p-values for Kendall and
-#'        Spearman methods. Ignored for Pearson.
-#' @param continuity Logical; whether to use continuity correction for Kendall
-#'        and Spearman methods.
+#' @param method Correlation method. Currently only "pearson" is supported.
+#' @param exact Ignored (kept for signature compatibility).
+#' @param continuity Ignored (kept for signature compatibility).
 #' @param ... Additional arguments (currently ignored).
 #'
 #' @return A list of class "htest" containing:
@@ -258,8 +252,8 @@ cor.test_trimmed_v0.default <-
 #'
 #' @keywords internal
 #' @noRd
-#' @exportS3Method stats::cor.test
-cor.test.formula <-
+#' @export
+cor.test_trimmed_v0.formula <-
   function(formula, data, subset, na.action, ...)
   {
     if(missing(formula)

@@ -174,7 +174,17 @@ mod_data_ui <- function(id) {
             strong("Try it out! "),
             "Click the button below to load demo data (49 genes × 400 cells, 20 patients) and explore all features without uploading anything."
           ),
-          uiOutput(ns("demo_btn"))
+          # Static button (NOT uiOutput/renderUI): server-rendered content
+          # arrives only after a round trip, so the button would flash in a
+          # second late on first load. The server swaps its HTML in place via
+          # the 'set-html' handler when the demo loads / is cleared.
+          div(id = ns("demo_btn"),
+            actionButton(ns("load_demo"), "Load Demo Data",
+                         class = "btn-demo btn-sm", icon = icon("play"),
+                         # Instant client-side feedback: disable on click so
+                         # the ~1s Shiny round trip before the waiter overlay
+                         # appears does not look like a dead button.
+                         onclick = "document.getElementById('demo-overlay').style.display='flex'; this.style.opacity='0.6'; var b=this; setTimeout(function(){b.style.opacity='';},2000);"))
         )
       )
     ),
@@ -539,14 +549,21 @@ mod_data_server <- function(id, shared) {
     # idle. The progress observer below polls the growing file while set.
     download_progress <- reactiveVal(NULL)
 
-    output$demo_btn <- renderUI({
-      if (isTRUE(shared$demo_loaded)) {
-        actionButton(ns("load_demo"), "Clear Demo Data",
-                     class = "btn-danger btn-sm", icon = icon("trash"))
+    # Demo button state. The button is rendered STATICALLY in the UI (no
+    # round-trip flash on first paint); this observer swaps it in place when
+    # the demo loads (-> "Clear Demo Data") and back when it is cleared or
+    # the user switches to their own data.
+    observe({
+      html <- if (isTRUE(shared$demo_loaded)) {
+        as.character(actionButton(ns("load_demo"), "Clear Demo Data",
+                                  class = "btn-danger btn-sm", icon = icon("trash"),
+                                  onclick = "document.getElementById('demo-overlay').style.display='flex'; this.style.opacity='0.6'; var b=this; setTimeout(function(){b.style.opacity='';},2000);"))
       } else {
-        actionButton(ns("load_demo"), "Load Demo Data",
-                     class = "btn-demo btn-sm", icon = icon("play"))
+        as.character(actionButton(ns("load_demo"), "Load Demo Data",
+                                  class = "btn-demo btn-sm", icon = icon("play"),
+                                  onclick = "document.getElementById('demo-overlay').style.display='flex'; this.style.opacity='0.6'; var b=this; setTimeout(function(){b.style.opacity='';},2000);"))
       }
+      session$sendCustomMessage("set-html", list(id = ns("demo_btn"), html = html))
     })
 
     # Auto-prepare in clone-level mode (skip clustering) ---
@@ -604,6 +621,16 @@ mod_data_server <- function(id, shared) {
 
     # --- Load / Clear Demo Data ---
     observeEvent(input$load_demo, {
+      # Guard against double-submitting: the ~1s round trip before the waiter
+      # overlay covers the page would otherwise let a second click queue a
+      # duplicate demo task.
+      if (isTRUE(shared$demo_busy)) {
+        # Overlay was shown by onclick — hide it again since nothing new starts.
+        session$sendCustomMessage("hide-demo-overlay", list())
+        showNotification("Demo data is already being prepared...", type = "warning", duration = 5)
+        return()
+      }
+      shared$demo_busy <- TRUE
       # Toggle: once the demo is loaded, the button becomes "Clear Demo Data".
       if (isTRUE(shared$demo_loaded)) {
         shared$user_response <- NULL
@@ -617,12 +644,16 @@ mod_data_server <- function(id, shared) {
         shared$model_cache   <- list()
         shared$model_active  <- list()
         shared$demo_loaded <- FALSE
+        shared$demo_busy <- FALSE
+        session$sendCustomMessage("hide-demo-overlay", list())
         showNotification("Demo data cleared. Upload your own data or load the demo again.",
                          type = "message", duration = 5)
         return()
       }
       # Shared demo pipeline (also used by the Home "Load Demo" button).
-      run_demo_pipeline(shared, session, on_success = function() shared$demo_loaded <- TRUE)
+      run_demo_pipeline(shared, session,
+        on_success = function() { shared$demo_loaded <- TRUE; shared$demo_busy <- FALSE },
+        on_error = function() shared$demo_busy <- FALSE)
     })
 
     # --- Load DepMap (download) ---
@@ -638,8 +669,12 @@ mod_data_server <- function(id, shared) {
       use_mirror <- isTRUE(input$depmap_mirror)
       cache_dir <- getOption(
         "PERCEPTIONx.depmap_cache_dir",
-        Sys.getenv("PERCEPTIONx_DEPMAP_CACHE_DIR",
-                   tools::R_user_dir("PERCEPTIONx", "data"))
+        # Accept both spellings of the env var (docs use PERCEPTIONX...,
+        # early deployments set PERCEPTIONx...); Sys.getenv is case-sensitive
+        # on Linux, so probe both, uppercase first.
+        Sys.getenv("PERCEPTIONX_DEPMAP_CACHE_DIR",
+                   Sys.getenv("PERCEPTIONx_DEPMAP_CACHE_DIR",
+                              tools::R_user_dir("PERCEPTIONx", "data")))
       )
       dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
       destfile <- file.path(cache_dir, "DepMap.RDS")

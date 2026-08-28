@@ -220,6 +220,13 @@ mod_train_server <- function(id, shared, main_session) {
 
     # Train
     observeEvent(input$train, {
+      # Guard against double-submitting: a second click would overwrite
+      # active_job, orphan the first job and leak its waiter overlay.
+      if (!is.null(shared$active_job)) {
+        showNotification("A training job is already running — wait for it to finish.",
+                         type = "warning", duration = 6)
+        return()
+      }
       # Validate
       if (is.null(shared$depmap_meta)) {
         showNotification("Please load DepMap data first (Data tab)", type = "error")
@@ -338,7 +345,7 @@ mod_train_server <- function(id, shared, main_session) {
       if (st$status == "done") {
         job_dir <- file.path(shared$jobs_dir, jobid)
         result <- tryCatch(readRDS(file.path(job_dir, "result.rds")), error = function(e) NULL)
-        requested_drugs <- shared$active_job_drugs %||% character(0)
+        requested_drugs <- if (is.null(shared$active_job_drugs)) character(0) else shared$active_job_drugs
         shared$active_job <- NULL
         shared$active_job_drugs <- NULL
         # Result is in memory now — drop the on-disk job dir (models can be

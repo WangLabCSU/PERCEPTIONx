@@ -80,7 +80,7 @@ if (!is.null(prepared)) {
 # Same shape as mod_predict.R: expr = clone_expression_rnorm, patient_input =
 # list(clone_viability_template, clone_counts).
 jid <- submit_session_task(shared, 'predict',
-  list(model_list = list(erlotinib = res$models[[1]]),
+  list(model_list = list(erlotinib = res$models$erlotinib),
        expr = prepared$clone_expression_rnorm,
        patient_input = list(
          clone_viability_template = prepared$clone_viability_template,

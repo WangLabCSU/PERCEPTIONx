@@ -190,23 +190,21 @@ data_dashboard_html <- function(shared) {
 #
 # @return Invisibly, a list with the loaded counts (genes/cells/patients/clones).
 # ---------------------------------------------------------------------------
-run_demo_pipeline <- function(shared, session, on_success = NULL) {
+run_demo_pipeline <- function(shared, session, on_success = NULL, on_error = NULL) {
   # The whole demo (structured data + Seurat clustering + 2 demo models) runs
   # in the per-session background worker (task "demo", see async_jobs.R), so
   # the main Shiny thread never blocks other users while it prepares.
-  w <- Waiter$new(
-    html = tagList(
-      div(class = "spinner-ring"),
-      h4("Preparing demo data..."),
-      p(class = "text-muted", "Running Seurat clustering")
-    ),
-    color = "rgba(255,255,255,0.85)"
-  )
-  w$show()
+  #
+  # The full-screen overlay is a PRE-BUILT hidden div in app.R: the Load Demo
+  # buttons show it instantly from their onclick (no ~1s server round trip
+  # before feedback). This function only hides it once the task resolves.
+  hide_overlay <- function() {
+    session$sendCustomMessage("hide-demo-overlay", list())
+  }
   jobid <- tryCatch(
     submit_session_task(shared, "demo", list()),
     error = function(e) {
-      w$hide()
+      hide_overlay()
       showNotification(paste("Demo failed to start:", e$message), type = "error", duration = 10)
       NULL
     }
@@ -214,7 +212,7 @@ run_demo_pipeline <- function(shared, session, on_success = NULL) {
   if (is.null(jobid)) return(invisible(NULL))
   poll_task(shared, session, jobid,
     on_done = function(res) {
-      w$hide()
+      hide_overlay()
       shared$user_response <- res$user_response
       shared$user_mapping  <- res$user_mapping
       shared$user_expr     <- res$user_expr       # stays CELL-level for spatial plots
@@ -231,8 +229,9 @@ run_demo_pipeline <- function(shared, session, on_success = NULL) {
                        type = "message", duration = 6)
     },
     on_error = function(msg) {
-      w$hide()
+      hide_overlay()
       showNotification(paste("Demo data preparation error:", msg), type = "error", duration = 10)
+      if (!is.null(on_error)) on_error()
     })
   invisible(NULL)
 }

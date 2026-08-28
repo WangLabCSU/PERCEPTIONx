@@ -1,9 +1,0 @@
-Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
-
-Number of nodes: 400
-Number of edges: 17491
-
-Running Louvain algorithm...
-Maximum modularity in 10 random starts: 0.5683
-Number of communities: 2
-Elapsed time: 0 seconds

@@ -186,10 +186,10 @@ clone_viability_df <- data.frame(
 clone_dist_df <- data.frame(
   patients = clone_viability_df$patient,
   clones   = clone_viability_df$clone_id,
-  weights  = prepared$clone_counts[
+  weights  = as.numeric(prepared$clone_counts[cbind(
     match(clone_viability_df$patient, prepared$clone_counts$patients),
     match(clone_viability_df$clone_id, colnames(prepared$clone_counts)[-1])
-  ]
+  )])
 )
 # Normalize weights per patient
 for (pid in unique(clone_dist_df$patients)) {

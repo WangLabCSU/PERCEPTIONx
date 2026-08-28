@@ -25,7 +25,8 @@ mod_home_ui <- function(id) {
           ),
           div(class = "hero-actions",
             actionButton(ns("go_data"), "Quick Start", class = "btn-hero-primary", icon = icon("rocket")),
-            actionButton(ns("go_demo"), "Load Demo", class = "btn-hero-secondary", icon = icon("flask")),
+            actionButton(ns("go_demo"), "Load Demo", class = "btn-hero-secondary", icon = icon("flask"),
+                         onclick = "document.getElementById('demo-overlay').style.display='flex';"),
             tags$a(href = "https://github.com/WangLabCSU/PERCEPTIONx/blob/main/docs/PERCEPTION-shiny.md",
                    target = "_blank", class = "btn-hero-secondary",
                    icon("book-open"), " Tutorial")
@@ -202,10 +203,18 @@ mod_home_server <- function(id, shared, main_session) {
     # Load Demo Data — full pipeline, via the shared helper (same code path
     # as the Data-tab "Load Demo Data" button; see shiny_helpers.R).
     observeEvent(input$go_demo, {
+      if (isTRUE(shared$demo_busy)) {
+        # Overlay was shown by onclick — hide it again since nothing new starts.
+        session$sendCustomMessage("hide-demo-overlay", list())
+        showNotification("Demo data is already being prepared...", type = "warning", duration = 5)
+        return()
+      }
+      shared$demo_busy <- TRUE
       run_demo_pipeline(shared, session, on_success = function() {
         shared$demo_loaded <- TRUE
+        shared$demo_busy <- FALSE
         bslib::nav_select("navbar", selected = "data", session = main_session)
-      })
+      }, on_error = function() shared$demo_busy <- FALSE)
     })
 
     # Data Status Dashboard — real-time overview

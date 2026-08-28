@@ -26,7 +26,8 @@ Imports:
     Seurat,
     shiny,
     ggiraph,
-    parallel
+    parallel,
+    callr
 URL: https://github.com/WangLabCSU/PERCEPTIONx
 BugReports: https://github.com/WangLabCSU/PERCEPTIONx/issues
 Suggests:

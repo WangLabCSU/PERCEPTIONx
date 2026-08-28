@@ -7,7 +7,7 @@
 #'
 #' @name plot_perception
 #' @keywords internal
-#' @importFrom ggplot2 ggplot aes geom_point geom_segment geom_boxplot geom_violin geom_bar geom_hline geom_line geom_vline geom_jitter geom_text geom_rect coord_cartesian coord_equal theme theme_bw theme_void labs element_text element_rect element_line element_blank facet_grid facet_wrap vars scale_colour_gradientn scale_colour_gradient2 scale_fill_manual scale_color_manual scale_x_discrete scale_size margin unit guide_colourbar guides guide_legend ggtitle annotate rel
+#' @importFrom ggplot2 ggplot aes geom_point geom_segment geom_boxplot geom_violin geom_bar geom_hline geom_line geom_vline geom_jitter geom_text geom_rect coord_cartesian coord_equal theme theme_bw theme_void labs element_text element_rect element_line element_blank facet_grid facet_wrap vars scale_colour_gradientn scale_colour_gradient2 scale_fill_manual scale_color_manual scale_colour_manual scale_x_discrete scale_size margin unit guide_colourbar guides guide_legend ggtitle annotate rel
 #' @importFrom rlang .data
 #' @importFrom pROC ggroc roc auc smooth
 #' @importFrom stats t.test wilcox.test
@@ -467,9 +467,9 @@ plot_clone_distribution <- function(clone_distribution,
 #' @param drug Character. Drug name, used as plot title. Default = NULL.
 #' @param base_size Numeric. Base font size. Default = 11.
 #' @param y_limits Numeric vector. Y-axis limits. Default = c(-3, 1.2).
-#' @param viridis_scale Logical. If TRUE (default), uses the standard PERCEPTIONx
-#'        diverging scale (blue = sensitive, red = resistant) centred at 0.
-#'        If FALSE, uses a plain viridis sequential scale.
+#' @param viridis_scale Logical. If TRUE (default), uses a plain viridis
+#'        sequential scale (dark = low/sensitive, yellow = high/resistant).
+#'        If FALSE, uses the diverging blue-white-red scale centred at 0.
 #' @param tooltip Logical. If TRUE (default) and \pkg{ggiraph} is installed,
 #'        points get hover tooltips (clone + viability + proportion).
 #' @param tooltip_col Character. Optional existing column used as the tooltip

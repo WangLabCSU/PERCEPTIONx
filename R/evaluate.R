@@ -163,11 +163,11 @@ compare_performance <- function(model_list, threshold = 0.3, verbose = TRUE) {
 
 #' Load performance metrics from a saved model file
 #'
-#' Reads only the performance portion of a saved model RDS file.
-#' Useful when evaluating many models without loading full model objects (memory efficient).
+#' Loads a saved model RDS file and returns only its performance portion.
+#' The file is deserialized fully first (an RDS is read as a whole), then the
+#' performance entries are extracted.
 #'
-#' @param filepath Character. Path to the saved model RDS file.
-#'                 Can be a single file path or a directory with model files.
+#' @param filepath Character. Path to a single saved model RDS file.
 #' @param drug_names Character vector. Optional. Specific drug names to load.
 #'                   If NULL, loads all drugs in the file.
 #'
@@ -320,7 +320,11 @@ each_patient_pseudo_bulk <- function(x = 1,
   cols <- which(parsed$patient == patient)
   col_clone_ids <- parsed$clone_id[cols]
 
-  total_cells <- sum(unlist(Clone_Counts_per_patients[x, col_clone_ids]))
+  total_cells <- sum(unlist(Clone_Counts_per_patients[x, col_clone_ids]), na.rm = TRUE)
+  if (!is.finite(total_cells) || total_cells == 0 || length(cols) == 0) {
+    # No cells / no clones for this patient: return all-NA pseudo-bulk.
+    return(rep(NA_real_, nrow(clone_Level_z_expression_df)))
+  }
   clone_weights <- unlist(Clone_Counts_per_patients[x, col_clone_ids] / total_cells)
 
   sub <- clone_Level_z_expression_df[, cols, drop = FALSE]

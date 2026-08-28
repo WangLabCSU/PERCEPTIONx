@@ -2,7 +2,8 @@
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
 
-# RowMeans functions considering the boundary case where mat only has one row
+# RowMeans functions considering the boundary case where mat has a single
+# column (one cell / sample) — rowMeans would error on a one-column matrix.
 rowMeans_if_one_row <- function(mat){
   if(ncol(mat)>1){
     return(rowMeans(mat))
@@ -23,8 +24,8 @@ count_row_NAs <- function(df){
 err_handle <- function(x){ tryCatch(x, error=function(e){NA}) }
 
 
-# Strip all non-char and non-numeric and make lower case
-# this is primarily to facilitate inconsistent naming comparison (eg. drugNames)
+# Lowercase and strip non-alphanumeric characters (keep underscores) — used
+# to make inconsistent drug / gene names comparable (e.g. "Drug-1" vs "Drug_1").
 stripall2match <- function(x){
   tolower(gsub('[^A-z0-9]', '', x) )
 }
