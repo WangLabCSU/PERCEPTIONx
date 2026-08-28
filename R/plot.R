@@ -216,7 +216,10 @@ plot_tsne_response <- function(tsne_data,
                                     limits = limits)
   } else {
     cols <- if (is.null(colors)) sequential_colors else colors
-    p <- p + scale_colour_gradientn(colours = cols)
+    # Pass limits through: with a fixed 0-1 scale (e.g. gene expression),
+    # a constant-0 vector maps to the LOW (grey) end instead of falling to
+    # the high end (red) when the data range degenerates to a single value.
+    p <- p + scale_colour_gradientn(colours = cols, limits = limits)
   }
 
   if (!is.null(title)) {
@@ -1589,7 +1592,7 @@ plot_tsne_biomarker_viability <- function(tsne_data,
 
   p1 <- plot_tsne_response(tsne_data, color_var = biomarker_var,
                            color_label = biomarker_label, base_size = base_size,
-                           colors = c("#bdbdbd", "#c13232"))
+                           colors = c("#e0e0e0", "#c13232"))
   p2 <- plot_tsne_response(tsne_data, color_var = viability_var,
                            color_label = viability_label, base_size = base_size,
                            palette = "viridis")

@@ -10,11 +10,11 @@ suppressMessages({ library(ggplot2) })
 set.seed(1)
 xy <- data.frame(X = rnorm(50), Y = rnorm(50))
 
-# 1. Gene Expression: grey -> red, low = grey, high = red, no blue/white mid.
+# 1. Gene Expression: light grey -> red, low = grey, high = red, no blue/white mid.
 p_gene <- PERCEPTIONx::plot_tsne_response(
   data.frame(X = xy$X, Y = xy$Y, expression = runif(50)),
   color_var = "expression",
-  colors = c("#bdbdbd", "#c13232"))
+  colors = c("#e0e0e0", "#c13232"))
 sc <- ggplot_build(p_gene)$plot$scales$get_scales("colour")
 # gradientn stores the ramp as a palette() function over RESCALED positions
 # (0 = low limit, 1 = high limit); sample those positions.
@@ -23,11 +23,21 @@ hex_at <- function(sc) {
 }
 cols_g <- tolower(hex_at(sc))
 cat("gene expr: colors at low/mid/high =", cols_g, "\n")
-# endpoints are exact (grey -> red); midpoint is interpolated in Lab space,
-# so only require it stays a red-ish tint, never blue/white.
-stopifnot(identical(cols_g[c(1, 3)], c("#bdbdbd", "#c13232")))
+# endpoints are exact (light grey -> red); midpoint is interpolated in Lab
+# space, so only require it stays a red-ish tint, never blue/white.
+stopifnot(identical(cols_g[c(1, 3)], c("#e0e0e0", "#c13232")))
 mid_rgb <- grDevices::col2rgb(cols_g[2])
 stopifnot(mid_rgb[1] >= mid_rgb[3])  # red channel >= blue channel
+
+# 1b. Constant-0 expression must map to the GREY end (not red).
+p_zero <- PERCEPTIONx::plot_tsne_response(
+  data.frame(X = xy$X, Y = xy$Y, expression = rep(0, 50)),
+  color_var = "expression",
+  colors = c("#e0e0e0", "#c13232"),
+  limits = c(0, 1))
+b0 <- ggplot_build(p_zero)
+cat("gene expr all-0: point colour =", unique(b0$data[[1]]$colour), "\n")
+stopifnot(identical(unique(b0$data[[1]]$colour), "#e0e0e0"))
 
 # 2. Drug Viability: diverging, DATA-DRIVEN limits (not pinned to -2/2).
 set.seed(2)

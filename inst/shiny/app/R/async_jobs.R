@@ -893,7 +893,7 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
                                   row.names = common_cells)
           plot_obj <- PERCEPTIONx::plot_tsne_response(umap_data, color_var = "expression",
                                                       title = gene, color_label = "Expression (0-1)",
-                                                      colors = c("#bdbdbd", "#c13232"),
+                                                      colors = c("#e0e0e0", "#c13232"),
                                                       limits = c(0, 1), base_size = 11)
         }
       } else if (pt == "umap_viability") {
