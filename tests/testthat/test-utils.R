@@ -33,7 +33,8 @@ test_that("range01 scales vector to [0, 1]", {
 test_that("range01 handles constant vector", {
   x <- rep(5, 10)
   result <- range01(x)
-  expect_true(all(is.nan(result)))
+  # Constant vector maps to 0 ("no signal"), not NaN / 0.5
+  expect_true(all(result == 0))
 })
 
 test_that("fdrcorr returns correct structure", {

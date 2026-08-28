@@ -1,9 +1,25 @@
 # PERCEPTIONx
+
 <!-- badges: start -->
+
+[![R >= 4.1.0](https://img.shields.io/badge/R-%3E%3D%204.1.0-276DC3.svg)](https://www.r-project.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/license/mit)
+[![pkgdown](https://github.com/WangLabCSU/PERCEPTIONx/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/WangLabCSU/PERCEPTIONx/actions/workflows/pkgdown.yaml)
+[![DOI](https://img.shields.io/badge/DOI-10.1038/s43018--024--00756--7-informational)](https://doi.org/10.1038/s43018-024-00756-7)
 
 <!-- badges: end -->
 
-An R package for predicting patient response and resistance to cancer treatment using single-cell transcriptomics.
+<p align="center">
+  <img src="man/figures/shiny-home.png" width="80%" alt="PERCEPTIONx dashboard">
+</p>
+
+**Predicting personalized drug response and resistance from single-cell tumor transcriptomics.**
+
+PERCEPTIONx is an R package that predicts how **individual patients** will respond to cancer
+treatment by combining **bulk cell-line screens** (DepMap) with **patient single-cell expression
+profiles**. It trains drug-response models on 44 FDA-approved drugs, scores sensitivity at the
+**clone** and **patient** level, and ships an interactive visualization suite plus a point-and-click
+**Shiny web application** — from raw scRNA-seq to clinical stratification in one pipeline.
 
 ## 1. Overview
 
@@ -279,7 +295,7 @@ visualization — in a point-and-click interface.
 Heavy computation (training, Seurat clustering, prediction, plot math) runs in
 **background worker processes**, so the interface stays responsive even while a
 large job runs; the main process only keeps lightweight DepMap metadata. See
-`docs/PERCEPTION-shiny.md` for the async architecture and the
+`articles/shiny-app.md` for the async architecture and the
 `PERCEPTION_WORKERS` / `PERCEPTION_WORKER_IDLE_MINUTES` deployment options.
 
 ### 7.1 Launch

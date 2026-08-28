@@ -1,0 +1,101 @@
+url: https://wanglabcsu.github.io/PERCEPTIONx/
+
+template:
+  bootstrap: 5
+  bootswatch: flatly
+  bslib:
+    base_font: {google: "Inter"}
+    heading_font: {google: "Inter"}
+    primary: "#165c91"
+    navbar_bg: "#165c91"
+  includes:
+    in_header: |
+      <meta name="description" content="PERCEPTIONx — predict patient drug response and resistance from single-cell tumor transcriptomics.">
+
+navbar:
+  structure:
+    left: [home, reference, articles, news]
+    right: [github]
+  components:
+    home:
+      text: Home
+      href: index.html
+    github:
+      icon: fa-github
+      href: https://github.com/WangLabCSU/PERCEPTIONx
+      aria-label: GitHub
+
+reference:
+  - title: Data Loading
+    desc: Download and load DepMap reference data and pre-trained models.
+    contents:
+      - load_depmap
+      - load_model
+      - get_mirrors
+      - add_mirrors
+      - list_mirrors
+      - reset_mirrors
+  - title: Preprocessing
+    contents:
+      - rank_normalization_mat
+      - range01
+  - title: Model Training
+    contents:
+      - train_models
+      - get_response_matrix
+      - get_cellLine_list
+      - feature_ranking_bulk
+      - run_parallel_feature_ranking_bulk
+      - build_on_BULK_v2
+  - title: Prediction
+    contents:
+      - predict_drugs
+      - predict_patients
+  - title: Evaluation
+    contents:
+      - compare_performance
+      - get_significant_models
+      - get_performance
+      - each_patient_pseudo_bulk
+  - title: Visualization
+    contents:
+      - plot_tsne_response
+      - plot_tsne_biomarker_viability
+      - plot_clone_distribution
+      - plot_roc_curve
+      - plot_response_boxplot
+      - plot_model_performance
+      - plot_seurat_clustering
+      - plot_patient_response_panel
+  - title: Shiny Application
+    contents:
+      - run_perception_app
+  - title: Utilities
+    contents:
+      - hypergeometric_test_for_twolists
+      - fdrcorr
+
+articles:
+  - title: Tutorials
+    desc: Step-by-step guides.
+    contents:
+      - pipeline
+  - title: Shiny App Guide
+    desc: Full walkthrough of the interactive web dashboard.
+    contents:
+      - shiny-app
+      - shiny-app-cn
+
+news:
+  releases:
+  - text: "Changelog"
+    href: news/index.html
+
+footer:
+  structure:
+    left: [developed_by, built_with]
+    right: [github, citation]
+  components:
+    developed_by: Developed by Jia Ding
+    github: <a href="https://github.com/WangLabCSU/PERCEPTIONx">GitHub</a>
+    citation: <a href="https://doi.org/10.1038/s43018-024-00756-7">Cite the paper</a>

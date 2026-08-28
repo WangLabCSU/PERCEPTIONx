@@ -2479,27 +2479,13 @@ table.dataTable thead th {
   height: auto !important;
   margin: 0 auto !important;
 }
+/* All plots render through ggiraph (girafe); the old plotOutput/static-plot
+   CSS below was removed when the static fallback backend was dropped. */
 .viz-output-card div.girafe.html-widget svg.ggiraph-svg {
   display: block !important;
   max-width: 100% !important;
   height: auto !important;
   margin: 0 auto !important;
-}
-/* Static renderPlot backend (scale auto-degrade): the old rule pinned the
-   container height to auto, so the Height slider (which drives the element's
-   inline height) had no effect. Let Shiny control the box; just keep the
-   image centred and never overflowing the card width. */
-.viz-output-card .shiny-plot-output {
-  width: 100% !important;
-  min-height: 300px;
-  display: flex !important;
-  justify-content: center !important;
-  align-items: flex-start !important;
-}
-.viz-output-card .shiny-plot-output img {
-  max-width: 100% !important;
-  display: block;
-  border-radius: 0.35rem;
 }
 
 /* --- conditionalPanel + actionButton equal-length  ---

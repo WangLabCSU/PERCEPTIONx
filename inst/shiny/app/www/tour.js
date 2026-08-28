@@ -19,7 +19,7 @@
       center: true,
       title: 'Welcome to PERCEPTION-shiny!',
       text: 'This tool predicts patient response and resistance to cancer treatment ' +
-            'from single-cell transcriptomics. Take 30 seconds to walk through the core workflow.'
+            'from single-cell transcriptomics. Let\'s take 30 seconds to walk through the core workflow.'
     },
     {
       target: '#home-go_demo',
@@ -36,7 +36,7 @@
     {
       target: 'a[data-value="train"]',
       title: 'Train',
-      text: 'If the drugs you need are not listed in the pretrained models, try to train a new model here.' +
+      text: 'If the drugs you need are not listed in the pretrained models, try to train a new model here. ' +
             'Drug-response models will be trained based on DepMap expression data.'
     },
     {
@@ -60,7 +60,7 @@
     },
     {
       center: true,
-      title: 'You\'re all set!',
+      title: '🎉 You\'re all set!',
       text: 'Click "Load Demo" to start with the demo data, or upload your own. Enjoy!'
     }
   ];
