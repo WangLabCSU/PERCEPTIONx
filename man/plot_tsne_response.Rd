@@ -13,6 +13,7 @@ plot_tsne_response(
   colors = NULL,
   palette = c("viridis", "diverging"),
   midpoint = 0,
+  limits = NULL,
   base_size = 11,
   tooltip = TRUE,
   tooltip_col = NULL
@@ -39,6 +40,11 @@ for the sequential palette. Default = NULL (uses built-in viridis).}
 \code{"diverging"} (blue-white-red centered at \code{midpoint}).}
 
 \item{midpoint}{Numeric. Center value for diverging palette. Default = 0.}
+
+\item{limits}{Numeric vector of length 2. Optional fixed scale limits
+(e.g. \code{c(0, 1)} for 0-1 expression) to pin the color at each
+end. Default = NULL (data-driven limits — recommended, so extreme
+values always keep a real color instead of clipping to grey/NA).}
 
 \item{base_size}{Numeric. Base font size for theme. Default = 11.}
 

@@ -29,7 +29,7 @@ Imports:
     ggiraph,
     parallel,
     callr
-URL: https://github.com/WangLabCSU/PERCEPTIONx
+URL: https://wanglabcsu.github.io/PERCEPTIONx, https://github.com/WangLabCSU/PERCEPTIONx
 BugReports: https://github.com/WangLabCSU/PERCEPTIONx/issues
 Suggests:
     testthat (>= 3.0.0),

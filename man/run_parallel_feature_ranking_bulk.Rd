@@ -21,11 +21,18 @@ run_parallel_feature_ranking_bulk(
 
 \item{infunc_GOI}{Character vector. Genes of Interest.}
 
-\item{ncores}{Integer. Number of cores for parallel processing. Default = 4.}
+\item{ncores}{Integer. Kept for API compatibility; ignored (see NOTE above).}
 }
 \value{
 A list of feature ranking results, one per drug.
 }
 \description{
-Runs feature_ranking_bulk in parallel for a list of drugs.
+Runs feature_ranking_bulk for a list of drugs.
+}
+\details{
+NOTE: feature ranking is fully vectorized (~0.15 s per drug over 15k genes),
+so this deliberately runs SERIALLY. The old Windows PSOCK path serialized
+the 567 MB DepMap into every worker (clusterExport) and then still failed —
+workers are clean R sessions without the package's internal helpers — before
+silently falling back to serial; that cost ~10x for zero benefit.
 }
