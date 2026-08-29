@@ -61,8 +61,12 @@ run_seurat_pipeline <- function(expression_matrix, method,
     # and everything downstream work unchanged.
     pca_emb <- Seurat::Embeddings(so, "pca")[, seq_len(actual_dims), drop = FALSE]
     n_threads <- max(1L, min(4L, as.integer(parallel::detectCores()), na.rm = TRUE))
+    # uwot requires n_neighbors < number of points; cap it for tiny datasets
+    # so a small test matrix (<= 15 cells) does not crash with an Annoy
+    # index error.
+    n_neighbors <- min(15, max(2L, nrow(pca_emb) - 1L))
     coords <- uwot::umap(
-      X = pca_emb, n_neighbors = 15, n_components = 2, n_epochs = 200,
+      X = pca_emb, n_neighbors = n_neighbors, n_components = 2, n_epochs = 200,
       n_trees = 10, metric = "cosine", learning_rate = 1, min_dist = 0.3,
       spread = 1, set_op_mix_ratio = 1, local_connectivity = 1,
       repulsion_strength = 1, negative_sample_rate = 5,
