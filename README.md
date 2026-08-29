@@ -17,6 +17,8 @@
 
 PERCEPTIONx trains drug-response models on DepMap cell-line screens and applies them to a patient's single-cell expression profile. It scores sensitivity at the clone and patient level, then turns the results into publication-ready figures — with a point-and-click Shiny web application wrapping the whole pipeline. The method is the [PERCEPTION](https://doi.org/10.1038/s43018-024-00756-7) approach (Sinha et al., *Nat Cancer* 5, 938–952, 2024).
 
+<br clear="right">
+
 ---
 
 ## 1. Installation

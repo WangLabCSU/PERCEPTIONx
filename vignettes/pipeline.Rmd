@@ -339,6 +339,10 @@ source("tools/test_pipeline.R")
 
 # 4. Citation
 
-If you use this package, please cite:
+If you use this app or package, please cite the original methodology paper:
 
-Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts patient response and resistance to treatment using single-cell transcriptomics of their tumors. *Nat Cancer* 5, 938--952 (2024). https://doi.org/10.1038/s43018-024-00756-7
+> Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts patient response and resistance to treatment using single-cell transcriptomics of their tumors. *Nature Cancer* 5, 938–952 (2024). DOI: [10.1038/s43018-024-00756-7](https://doi.org/10.1038/s43018-024-00756-7)
+
+Repository: [github.com/WangLabCSU/PERCEPTIONx](https://github.com/WangLabCSU/PERCEPTIONx)
+
+Feedback: jiading682@qq.com
