@@ -17,10 +17,6 @@
 
 PERCEPTIONx trains drug-response models on DepMap cell-line screens and applies them to a patient's single-cell expression profile. It scores sensitivity at the clone and patient level, then turns the results into publication-ready figures — with a point-and-click Shiny web application wrapping the whole pipeline. The method is the [PERCEPTION](https://doi.org/10.1038/s43018-024-00756-7) approach (Sinha et al., *Nat Cancer* 5, 938–952, 2024).
 
-<br clear="all">
-
----
-
 ## 1. Installation
 
 Install the development version from GitHub:
@@ -29,8 +25,6 @@ Install the development version from GitHub:
 # install.packages("devtools")
 devtools::install_github("WangLabCSU/PERCEPTIONx")
 ```
-
----
 
 ## 2. Quick Start
 
@@ -77,8 +71,6 @@ plot_response_boxplot(exp_vs_pred = exp_vs_pred, response_var = "response")
 
 Every plot accepts `tooltip = TRUE` (default): with the `ggiraph` package installed, points and bars get hover tooltips (clone id, viability score, proportion, FPR/TPR). See the [R Package Tutorial](https://wanglabcsu.github.io/PERCEPTIONx/articles/pipeline.html) for the full workflow, including training, model evaluation, and the complete plotting suite.
 
----
-
 ## 3. Shiny Web Application
 
 PERCEPTION-shiny wraps the whole pipeline in an interactive web dashboard. Heavy computation (training, Seurat clustering, prediction, plotting) runs in background worker processes, so the interface stays responsive while a large job runs.
@@ -89,8 +81,6 @@ run_perception_app()          # starts the app in your browser
 ```
 
 The app has five tabs — Data, Train, Predict, Visualize, and Help — with a Load Demo button that generates a small synthetic dataset (49 genes x 400 cells x 20 patients) to smoke-test the whole flow. See the [Shiny App Guide](https://wanglabcsu.github.io/PERCEPTIONx/articles/shiny_app.html) for a full walkthrough.
-
----
 
 ## 4. Function Reference
 
@@ -150,8 +140,6 @@ The app has five tabs — Data, Train, Predict, Visualize, and Help — with a L
 | `plot_seurat_clustering()` | Seurat clustering and UMAP visualization |
 | `plot_patient_response_panel()` | Composite patient response panel |
 
----
-
 ## 5. Workflow
 
 ```
@@ -165,15 +153,11 @@ Patient scRNA ──► prepare_data()                Visualization & Evaluation
                     rank normalization)        plot_*() / compare_performance()
 ```
 
----
-
 ## 6. Data Requirements
 
 - **DepMap reference data**: downloaded automatically via `load_depmap()` (bulk expression, single-cell expression, drug response, cell line annotations).
 - **Patient data**: single-cell RNA expression matrix (genes as rows, cells as columns). `prepare_data()` handles clustering and rank normalization.
 - **Clinical responses (optional)**: patient-level response labels, used for validation (ROC, responder vs. non-responder boxplots).
-
----
 
 ## 7. Citation
 
@@ -183,8 +167,6 @@ If you use this package, please cite both the package and the original PERCEPTIO
 - Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts patient response and resistance to treatment using single-cell transcriptomics of their tumors. *Nat Cancer* 5, 938–952 (2024). https://doi.org/10.1038/s43018-024-00756-7
 
 Feedback: jiading682@qq.com
-
----
 
 ## 8. License
 
