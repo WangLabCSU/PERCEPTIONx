@@ -1,4 +1,4 @@
-# PERCEPTIONx <img src="man/figures/logo.png" class="home-logo" width="140" alt="PERCEPTIONx hex sticker">
+# PERCEPTIONx <img src="man/figures/logo.png" alt="logo" align="right" height="160" width="160">
 
 <!-- badges: start -->
 
