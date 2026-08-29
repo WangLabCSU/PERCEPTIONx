@@ -2,49 +2,62 @@
 
 ## PERCEPTION-shiny User Guide
 
-**PERCEPTION-shiny** is the interactive web application (Shiny) of the
-**PERCEPTIONx** R package. It wraps the complete analysis pipeline —
-data loading, model training, drug-sensitivity prediction, and result
-visualization — into a point-and-click interface, so you can go from a
-patient single-cell expression matrix to clone-level viability scores
-and patient-level response stratification without writing code.
+PERCEPTION-shiny is the web interface of the PERCEPTIONx R package. It
+wraps the full analysis pipeline — data loading, model training,
+drug-sensitivity prediction, and visualization — into a point-and-click
+application. You can go from a patient single-cell expression matrix to
+clone-level viability scores and patient-level response stratification
+without writing code.
 
-> Methodological basis: PERCEPTION (PERsonalized single-Cell
-> Expression-based Planning for Treatments In ONcology), which trains
-> elastic-net models on DepMap cell-line data to predict patient
-> response and resistance to drug treatment.
+The methodology is PERCEPTION (PERsonalized single-Cell Expression-based
+Planning for Treatments In ONcology): elastic-net models are trained on
+DepMap cell-line screens, then applied to a patient’s single-cell
+profile to predict drug response and resistance.
 
 ------------------------------------------------------------------------
 
 ### Contents
 
 - [0. Requirements & Launch](#id_0-requirements--launch)
+
 - [1. Interface Overview](#id_1-interface-overview)
+
 - [2. Data Tab: Loading Data](#id_2-data-tab-loading-data)
+
 - [3. Train Tab: Training Models
   (Optional)](#id_3-train-tab-training-models-optional)
+
 - [4. Predict Tab: Predicting Viability
   Scores](#id_4-predict-tab-predicting-viability-scores)
+
 - [5. Visualize Tab](#id_5-visualize-tab)
+
 - [6. Help Tab](#id_6-help-tab)
+
 - [7. FAQ](#id_7-faq)
+
 - [8. Citation & Contact](#id_8-citation--contact)
 
 ------------------------------------------------------------------------
 
 ### 0. Requirements & Launch
 
+------------------------------------------------------------------------
+
 #### 0.1 Requirements
 
-- **R** ≥ 4.1.0
+- R ≥ 4.1.0.
+
 - Main dependencies: `devtools`, `shiny`, `bslib`, `Seurat`, `ggplot2`,
   `ggiraph`, `glmnet`, `caret`, `DT`, `plotly`, `waiter`, `thematic`,
-  `callr`, `readxl` (the app prompts you to install any that are missing
-  when a feature needs them)
+  `callr`, `readxl`. The app prompts you to install anything that is
+  missing when a feature needs it.
+
+------------------------------------------------------------------------
 
 #### 0.2 Launch
 
-From the package source root, run:
+From the package source root:
 
 ``` r
 
@@ -59,6 +72,8 @@ Or run the app directory directly:
 shiny::runApp("inst/shiny/app")
 ```
 
+------------------------------------------------------------------------
+
 #### 0.3 Overall Flow
 
     DepMap reference data ──► Model training ──► Clone/patient prediction ──► Visualization & validation
@@ -68,26 +83,26 @@ shiny::runApp("inst/shiny/app")
        models directly)       use the 44 pre-
                               trained models)
 
-> For the fastest result, follow **Load Demo → Predict → Visualize**. No
-> training needed.
+For the fastest result, follow Load Demo → Predict → Visualize. No
+training is needed.
 
-> **Async architecture (multi-user friendly)**: all heavy computation —
-> model training, Seurat clustering, prediction, and plot math — runs in
-> **background worker processes**, never in the interface. The UI polls
-> and shows progress, so one user’s large task never freezes other
-> users.
->
-> - **Training**: the standard DepMap uses a **shared master** (one
->   global background process holding a single in-memory copy of DepMap;
->   on Linux, concurrent jobs share that one copy via fork; after 12 h
->   idle it exits to release memory). Uploaded DepMaps run in **isolated
->   per-session workers** so a bad upload cannot affect others.
-> - **Clustering / prediction / plots / Load Demo**: a light per-session
->   worker handles each, writing results back to files that the UI picks
->   up.
-> - **Env vars** (deployment): `PERCEPTION_WORKERS` (shared-pool
->   parallelism, default 16), `PERCEPTION_WORKER_IDLE_MINUTES` (master
->   idle-exit minutes, default 720).
+A note on the architecture: all heavy computation — model training,
+Seurat clustering, prediction, and plot math — runs in background worker
+processes, never in the interface. The UI polls the workers and shows
+progress, so one user’s large task never freezes anyone else.
+
+- Training with the standard DepMap uses a shared master process: a
+  single global background worker holds one in-memory copy of DepMap,
+  shared across concurrent jobs on Linux via fork, and exits after 12
+  idle hours to release memory. Uploaded DepMap files run in isolated
+  per-session workers so a bad upload cannot affect others.
+
+- Clustering, prediction, plots, and Load Demo each run in a light
+  per-session worker that writes results back to files the UI picks up.
+
+- Deployment knobs: `PERCEPTION_WORKERS` (shared-pool parallelism,
+  default 16) and `PERCEPTION_WORKER_IDLE_MINUTES` (master idle-exit
+  minutes, default 720).
 
 ------------------------------------------------------------------------
 
@@ -97,221 +112,250 @@ shiny::runApp("inst/shiny/app")
 
 PERCEPTION-shiny home page
 
-The top navbar has 6 tabs: **Home, Data, Train, Predict, Visualize,
-Help**. Data flows left to right: load data (Data), train/load models
-(Train), predict (Predict), then visualize and validate (Visualize).
+The home page shown above is the entry point. The top bar has six tabs:
+Home, Data, Train, Predict, Visualize, and Help, and the workflow runs
+left to right — load data, train or load a model, predict, then
+visualize and validate.
 
-The **Home** page includes: an introduction, a four-step guide (Load
-Data → Train Model → Predict → Visualize; click any step to jump to the
-corresponding tab), a live data-status overview, key features, and
-citation info. The **Quick Start** and **Load Demo** buttons load the
-demo data in one click.
+On the home page itself you get an introduction, a four-step guide (Load
+Data → Train Model → Predict → Visualize; each step jumps to the
+matching tab), a live data-status overview, key feature cards, and
+citation info. The Quick Start and Load Demo buttons load the demo data
+in one click.
 
 ------------------------------------------------------------------------
 
 ### 2. Data Tab: Loading Data
 
-The Data tab is the entry point. It loads four kinds of data: **demo
-data / DepMap reference data / your expression matrix / clinical
-responses**. Each item turns its status badge green once loaded.
+The Data tab is where everything starts. It loads four kinds of input: a
+demo dataset, the DepMap reference, your own expression matrix, and
+clinical responses. Each item turns its status badge green once loaded.
 
-> **Load Demo**
->
-> Click **Load Demo** to generate a synthetic demo dataset on the fly:
-> **49 genes × 400 cells × 20 patients**, automatically clustered
-> (Seurat), rank-normalized, and then used to train demo models. Great
-> for smoke-testing the whole flow and getting familiar with the
-> interactions.
+Click Load Demo to generate a synthetic dataset on the fly — 49 genes ×
+400 cells × 20 patients — that is automatically clustered,
+rank-normalized, and used to train demo models. It is a quick way to
+smoke-test the whole flow.
+
+------------------------------------------------------------------------
 
 #### 2.1 Loading DepMap Reference Data (required for training)
 
-Two ways:
+There are two ways to get the DepMap reference data:
 
-1.  **Download & Load**: downloads the DepMap reference set (~567 MB,
-    15k+ genes × 1,000+ cell lines) from the official mirror and loads
-    it automatically. This is the standard training input and the most
-    memory/disk-demanding step.
-2.  **Upload a local .RDS**: if you already have the DepMap file
-    (`DepMap.RDS`), browse and select it — it loads automatically.
+1.  **Download & Load**: downloads the reference set (~567 MB, 15k+
+    genes × 1,000+ cell lines) from the official mirror and loads it
+    automatically. This is the standard training input and the most
+    memory- and disk-hungry step.
 
-> **About memory**: the interface process reads only DepMap **metadata**
-> (gene names, drug list, component dimensions — a few hundred KB). The
-> full multi-GB object is loaded by a **background worker** in a
-> separate process for training only, so concurrent users do not each
-> hold an 8 GB copy (see the architecture note in 0.3).
+2.  **Upload a local .RDS**: if you already have the `DepMap.RDS` file,
+    browse to it and it loads automatically.
+
+Memory note: the interface process only reads DepMap metadata (gene
+names, drug list, component dimensions — a few hundred KB). The full
+multi-GB object is loaded by a background worker in a separate process,
+only when training runs, so concurrent users do not each hold an 8 GB
+copy.
+
+------------------------------------------------------------------------
 
 #### 2.2 Loading Models
 
 Two ways:
 
-1.  **Download & Load**: one-click download of the 44 FDA-approved drug
-    pre-trained models (e.g. `abemaciclib`, `erlotinib`, `osimertinib`).
-    Multi-selected items each show an × to remove individually
+1.  **Download & Load**: one-click download of the 44 FDA-approved
+    pre-trained models (for example `abemaciclib`, `erlotinib`,
+    `osimertinib`). Multi-selected items each show an × to remove them
+    individually.
+
 2.  **Upload a local .RDS**: select a trained model file (from
     [`train_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/train_models.md)
-    or exported from the Train tab) — loads automatically
+    or exported from the Train tab) and it loads automatically.
+
+------------------------------------------------------------------------
 
 #### 2.3 Uploading an Expression Matrix (patient scRNA-seq)
 
-- **Accepted formats**: CSV / TSV / TXT / Excel (.xlsx/.xls) / RDS
-- **Accepted R objects** (RDS): a numeric matrix or data.frame (genes ×
-  cells); Seurat objects are not accepted directly — export the matrix
-  first
-- **Orientation**: genes × cells (rows = genes, columns = cells). If the
-  first column is a character column of gene names (common in Excel/CSV
-  exports), it is converted to row names automatically
-- **Normalization**: expression should be **rank-normalized**. If you
-  upload raw counts, the app can normalize them automatically during
-  clustering
+- Accepted formats: CSV / TSV / TXT / Excel (.xlsx / .xls) / RDS.
+
+- Accepted R objects: a numeric matrix or data.frame (genes × cells).
+  Seurat objects are not accepted directly — export the matrix first.
+
+- Orientation: genes as rows, cells as columns. If the first column is a
+  character column of gene names (common in Excel/CSV exports), it is
+  converted to row names automatically.
+
+- Normalization: the expression should be rank-normalized. If you upload
+  raw counts, the app can normalize them automatically during
+  clustering.
+
+------------------------------------------------------------------------
 
 #### 2.4 Uploading the Cell-to-Patient Map (Mapping)
 
-- **Accepted formats**: CSV / TSV / TXT / Excel / RDS
-- **Required columns**: `cell_id` (cell names, matching the expression
+- Accepted formats: CSV / TSV / TXT / Excel / RDS.
+
+- Required columns: `cell_id` (cell names, matching the expression
   matrix column names) and `patient_id` (the patient each cell belongs
-  to). Column names are case-insensitive (`Patient`, `PATIENT` all work)
-- **Named list RDS**: if the RDS is a named list of “patient → cell-name
-  vector” (e.g. the paper demo’s `PRJNA591860_sample_cell_names.RDS`),
-  it is converted to long format automatically; empty samples are
-  dropped
+  to). Column names are case-insensitive, so `Patient`, `PATIENT` all
+  work.
+
+- Named list RDS: if the RDS is a named list of patient → cell-name
+  vector (for example the paper demo’s
+  `PRJNA591860_sample_cell_names.RDS`), it is converted to long format
+  automatically; empty samples are dropped.
+
+------------------------------------------------------------------------
 
 #### 2.5 Uploading Clinical Responses (Response, optional but recommended)
 
-- **Accepted formats**: CSV / TSV / TXT / Excel / RDS
-- **Required columns**: `patient` (must exactly match `patient_id` in
-  the Mapping) and `response` (the patient’s true clinical outcome for
-  the drug)
-- **Labels are normalized automatically**: `responder` / `responsive` /
-  `r` / `sensitive` → **Responder**; `non-responder` / `nr` /
-  `resistant` → **Non-responder**
-- A check runs on upload: if the patient IDs do not overlap with the
-  Mapping at all, a warning is shown
-- **Why it’s needed**: only with true outcomes can you validate
-  predictions (ROC curves, responder vs. non-responder boxplots). Skip
-  it if you only want prediction scores
+- Accepted formats: CSV / TSV / TXT / Excel / RDS.
 
-> **Example** (paper demo lung cohort PRJNA591860): label by treatment
-> timepoint, keeping the groups as-is (e.g. `TN` / `RD` / `PD`) — no
-> collapsing into two classes. When a binary label is needed for ROC,
-> choose two groups to compare on the Visualize tab.
+- Required columns: `patient` (must exactly match `patient_id` in the
+  Mapping) and `response` (the patient’s true clinical outcome for the
+  drug).
+
+- Labels are normalized automatically: `responder` / `responsive` / `r`
+  / `sensitive` become Responder; `non-responder` / `nr` / `resistant`
+  become Non-responder.
+
+- A check runs on upload: if the patient IDs do not overlap with the
+  Mapping at all, a warning is shown.
+
+- Why it is needed: only with true outcomes can you validate predictions
+  (ROC curves, responder vs. non-responder boxplots). Skip it if you
+  only want prediction scores.
+
+For the paper demo lung cohort (PRJNA591860), you can label patients by
+treatment timepoint and keep the groups as-is (TN / RD / PD) without
+collapsing them into two classes. When a binary label is needed for the
+ROC, choose two groups to compare on the Visualize tab.
+
+------------------------------------------------------------------------
 
 #### 2.6 Clustering (Seurat)
 
-> **Don’t Forget to Run Seurat!**
->
-> Clustering (Seurat) defines the cell subpopulations (“clones”) for
-> downstream prediction and visualization. If you skip it, clone-level
-> prediction and clone-level figures will have no input.
-
-**Choose a clustering method**: UMAP / tSNE.
-
-| Parameter | Description | Suggested |
-|----|----|----|
-| Seurat Resolution | clustering resolution; higher = finer clusters | 0.5–1.0 |
-| Seurat Dims | number of PCA dimensions used | 10–30 |
-| Seurat NFeatures | number of highly variable genes for clustering — fixed at 2000 in the app (not adjustable) | — |
+Do not skip this step: clustering defines the cell subpopulations
+(“clones”) that downstream prediction and visualization are built on.
+Without it, clone-level prediction and clone-level figures have no
+input.
 
 ![Clustering in the Data
 tab](../reference/figures/shiny-data-clustering.png)
 
 Clustering in the Data tab
 
-> Notes: clustering only defines “clones”; downstream prediction is done
-> at the clone level (the clone’s expression is the mean expression of
-> its cells).
+Choose a clustering method (UMAP or tSNE) and set the parameters shown
+in the screenshot above, then run the clustering. The embedding is
+displayed with cells colored by cluster. The clustering only defines
+clones; prediction then works at the clone level, using each clone’s
+mean expression.
+
+| Parameter | Description | Suggested |
+|----|----|----|
+| Seurat Resolution | clustering resolution; higher = finer clusters | 0.5–1.0 |
+| Seurat Dims | number of PCA dimensions used | 10–30 |
+| Seurat NFeatures | number of highly variable genes; fixed at 2000 in the app | — |
 
 ------------------------------------------------------------------------
 
 ### 3. Train Tab: Training Models (Optional)
 
-**Prerequisite**: DepMap reference data must be loaded first (the top of
-the page tells you what’s missing).
+DepMap reference data must be loaded first; the top of the page tells
+you what is missing.
 
-> If you only want to predict, **you don’t need to train** — just use
-> the 44 pre-trained models from the Data tab. The Train tab is for:
-> other drugs, other cancer types, custom gene sets, or inspecting model
-> performance on the three validation datasets.
+If you only want to predict, you do not need to train — just use the 44
+pre-trained models from the Data tab. The Train tab exists for other
+drugs, other cancer types, custom gene sets, or inspecting model
+performance on the three validation datasets.
+
+------------------------------------------------------------------------
 
 #### 3.1 Parameters
 
 | Parameter | Description |
 |----|----|
-| **Drug Name** | free-text input; one drug per line or comma/space-separated (combination regimens supported) |
-| **Cancer Type (include)** | cancer types to include, default PanCan (pan-cancer) |
-| **Cancer Type (exclude)** | cancer types to exclude (to avoid self-validation) |
-| **Gene Symbols** | gene list; leave empty = use all DepMap genes (recommended); paste text or upload .txt/.csv |
-| **Top k Features** | keep the top-k ranked features in the model |
-| **Algorithm** | elastic net `glmnet` (recommended) or random forest `rf` |
-| **CPU Cores** | number of parallel cores |
+| Drug Name | free-text input; one drug per line or comma/space-separated (combination regimens supported) |
+| Cancer Type (include) | cancer types to include, default PanCan (pan-cancer) |
+| Cancer Type (exclude) | cancer types to exclude (to avoid self-validation) |
+| Gene Symbols | gene list; leave empty = use all DepMap genes (recommended); paste text or upload .txt/.csv |
+| Top k Features | keep the top-k ranked features in the model |
+| Algorithm | elastic net `glmnet` (recommended) or random forest `rf` |
+| CPU Cores | number of parallel cores |
+
+------------------------------------------------------------------------
 
 #### 3.2 Interpreting the Results
 
+Once training finishes, the Train tab reports four things:
+
 - **Model Summary**: model type and hyperparameters per drug (glmnet
-  alpha/lambda, or rf ntree/RMSE)
+  alpha/lambda, or rf ntree/RMSE).
+
 - **Performance Plot**: model performance curve (threshold
-  vs. correlation)
+  vs. correlation).
+
 - **Performance Metrics**: prediction–truth Pearson correlation and
-  p-value on **Bulk / Pseudo-bulk / Single-cell** levels. Higher
-  correlation + lower p-value = better model
-- **Download Model (.RDS)**: export the trained model; re-upload it
-  later on the Data tab
+  p-value on Bulk, Pseudo-bulk, and Single-cell levels. Higher
+  correlation and lower p-value mean a better model.
+
+- **Download Model (.RDS)**: export the trained model, to re-upload
+  later on the Data tab.
 
 ![Validation ROC curve (Train
 tab)](../reference/figures/shiny-validation-roc.png)
 
 Validation ROC curve (Train tab)
 
-The **Validation ROC** shows how well a trained model stratifies
-responders vs. non-responders on each validation dataset (Bulk /
-Pseudo-bulk / Single-cell), with per-dataset AUC — a higher AUC means
-stronger clinical stratification. Like the Performance Plot, it is only
-available for models trained in the Train tab /
-[`train_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/train_models.md).
-
-> Note: Performance Plot and Metrics rely on validation metrics produced
-> during training and are only available for models from the Train tab /
-> [`train_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/train_models.md).
-> Pre-trained models
-> ([`load_model()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/load_model.md))
-> do not carry these fields; the app will tell you they’re not
-> applicable.
+The validation ROC curve (above) shows how well the trained model
+separates responders from non-responders on each of the three validation
+cohorts. Every curve is annotated with its AUC: the closer the AUC is to
+1, the stronger the clinical stratification. Like the Performance Plot,
+it is only available for models trained in the Train tab (or via
+[`train_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/train_models.md)).
+Pre-trained models loaded with
+[`load_model()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/load_model.md)
+do not carry validation fields; the app will tell you they are not
+applicable.
 
 ------------------------------------------------------------------------
 
 ### 4. Predict Tab: Predicting Viability Scores
 
 Select the loaded models (pre-trained from the Data tab or trained on
-the Train tab) and click predict:
+the Train tab) and click predict. Prediction runs in two stages:
 
-1.  **Clone-level**: viability score for every clone × every drug.
-    Semantics: the model outputs **viability (survival)**, where
-    **higher = more resistant, lower = more sensitive**. The prediction
-    heatmap shows the model’s raw predictions (not normalized); the
-    lollipop plot and UMAP Drug Viability use a z-score (centered at 0,
-    can be negative)
+1.  **Clone-level**: a viability score for every clone × every drug. The
+    model outputs viability (survival), so higher = more resistant and
+    lower = more sensitive. The prediction heatmap shows raw model
+    values; the lollipop plot and UMAP Drug Viability use a z-score
+    centered at 0.
+
 2.  **Patient-level**: clone scores are aggregated to patients by clone
     proportion (default `weighted_max`), giving each patient’s
-    drug-sensitivity stratification
-
-Outputs include an interactive heatmap (clones × drugs, plotly) and
-downloadable prediction tables.
+    drug-sensitivity stratification.
 
 ![Predict tab clones×drugs
 heatmap](../reference/figures/shiny-predict-heatmap.png)
 
 Predict tab clones×drugs heatmap
 
+The heatmap above shows the raw predictions for every clone (rows)
+against every drug (columns). Darker cells mean lower viability (more
+sensitive), brighter cells mean higher viability (more resistant). Hover
+any cell for the exact value. The downloadable prediction tables below
+the heatmap carry the same numbers.
+
 ------------------------------------------------------------------------
 
 ### 5. Visualize Tab
 
-This module visualizes the prediction results, so **you must run a
-prediction first**.
+This tab turns the predictions into figures, so run a prediction first.
+All figures are interactive SVG built on ggiraph: hover any point or bar
+to see details (clone id, viability score, proportion, FPR/TPR). The
+in-figure toolbar has zoom disabled; export to PNG/PDF via the download
+buttons at the top of the page.
 
-All figures are **interactive SVG** (built on ggiraph): hover any point
-or bar to see details (clone id, viability score, proportion, FPR/TPR,
-…). The in-figure toolbar has zoom disabled; export to PNG/PDF via the
-download buttons at the top of the page.
+------------------------------------------------------------------------
 
 #### 5.1 Clone Distribution (stacked bar chart)
 
@@ -320,14 +364,19 @@ chart](../reference/figures/shiny-clone-distribution.png)
 
 Clone distribution stacked bar chart
 
-Shows the clone composition within each patient; one color band = one
-clone (a curated palette is used for ≤ 15 clones).
+The stacked bar chart shows, for each patient, the proportion of each
+clone inside the tumor; one color band is one clone. A clone that
+dominates a patient’s tumor is a natural candidate for driving that
+patient’s response, so this chart is the first place to look for
+heterogeneity.
 
-> Note: clone identity depends on the data source — with global
-> clustering, the same clone (color) is genuinely shared across
-> patients; with clone-level input using per-patient labels
-> (e.g. c1/c2/c3), **the same color across patients does not imply the
-> same clone origin** — it is only a shared category label.
+One caveat: clone identity depends on the data source. With global
+clustering, the same clone color is genuinely shared across patients.
+With clone-level input using per-patient labels (c1/c2/c3), the same
+color across patients is only a shared category label, not the same
+clone.
+
+------------------------------------------------------------------------
 
 #### 5.2 Clone Viability (lollipop plot)
 
@@ -336,17 +385,26 @@ plot](../reference/figures/shiny-lollipop.png)
 
 Clone viability lollipop plot
 
-- **Rules**: all samples, all clones, one facet per patient, one
-  lollipop per clone
-- **Color**: blue-white-red diverging — blue = predicted sensitive (low
-  viability), red = predicted resistant (high viability). Color limits
-  adapt to the data, so extreme z-scores keep a real color (never
-  grey/NA).
-- **Point size**: clone proportion (larger clones get bigger points)
-- **Ordering**: within a patient, by proportion descending; responders
-  come first when response data is present
-- **Y-axis**: Predicted Viability (z-score), with a zero line as the
-  reference
+Each lollipop is one clone of one patient:
+
+- One facet per patient, one lollipop per clone, all samples and all
+  clones shown.
+
+- Color is a blue-white-red diverging ramp: blue = predicted sensitive
+  (low viability), red = predicted resistant (high viability). The color
+  limits adapt to the data, so extreme z-scores keep a real color
+  instead of clipping to grey.
+
+- Point size encodes the clone’s proportion in the tumor — the biggest
+  balls are the clones that matter most for the patient.
+
+- Within a patient, clones are ordered by proportion descending;
+  responders come first when response data is present.
+
+- The y-axis is Predicted Viability (z-score), with a zero line as the
+  reference: above zero means resistant, below zero means sensitive.
+
+------------------------------------------------------------------------
 
 #### 5.3 ROC Curve
 
@@ -354,10 +412,14 @@ Clone viability lollipop plot
 
 ROC curve
 
-Uses true clinical responses (uploaded on the Data tab) against
-patient-level prediction scores. AUC closer to 1 = stronger
-stratification. If you predicted with multiple models, you can pick a
-specific model to view.
+The ROC curve compares patient-level prediction scores against the true
+clinical labels uploaded on the Data tab, and every curve is annotated
+with its AUC. An AUC above 0.5 means the model stratifies better than
+chance, and values closer to 1 indicate strong clinical separation. If
+you predicted with several models, pick a specific one from the dropdown
+to view its curve.
+
+------------------------------------------------------------------------
 
 #### 5.4 Response Boxplot (responders vs. non-responders)
 
@@ -365,8 +427,13 @@ specific model to view.
 
 Response boxplot (R vs NR)
 
-Shows the distribution of prediction scores for Responder
-vs. Non-responder groups, with a significance test.
+This boxplot compares the distribution of prediction scores between
+Responder and Non-responder groups, with a significance test result
+printed above the plot. Clear separation between the two boxes means the
+model separates the two groups well and that the score is clinically
+meaningful.
+
+------------------------------------------------------------------------
 
 #### 5.5 Model Performance
 
@@ -375,128 +442,130 @@ plot](../reference/figures/shiny-model-performance.png)
 
 Model performance plot
 
-This plot lives on the **Train tab** (see Performance Plot in 3.2), not
-on the Visualize tab. It shows validation performance curves for trained
-models (requires models from the Train tab; not applicable to
-pre-trained models — the app will tell you).
+This plot lives on the Train tab (it is the Performance Plot from
+section 3.2), not on the Visualize tab. It traces how prediction–truth
+correlation changes across model thresholds on the validation cohorts. A
+curve that stays high and flat across thresholds indicates a stable
+model. It requires models trained on the Train tab; it is not applicable
+to pre-trained models.
+
+------------------------------------------------------------------------
 
 #### 5.6 Spatial Plots (UMAP / t-SNE)
 
-![Gene expression on UMAP
-(SLC2A1)](../reference/figures/shiny-gene-expression.png)
+![Gene expression on
+UMAP](../reference/figures/shiny-gene-expression.png)
 
-Gene expression on UMAP (SLC2A1)
+Gene expression on UMAP
 
-![Drug viability on UMAP
-(erlotinib)](../reference/figures/shiny-drug-viability.png)
+The gene expression view colors every cell by the expression of a single
+gene. Values are winsorized to the 5th–95th percentiles and scaled to
+\[0, 1\], then shown on a grey-to-red ramp: grey means no or low
+expression, red means high expression. Use it to see which cell groups
+express the gene highly.
 
-Drug viability on UMAP (erlotinib)
+![Drug viability on UMAP](../reference/figures/shiny-drug-viability.png)
+
+Drug viability on UMAP
+
+The drug viability view colors every cell by its clone’s predicted
+viability score, which produces a patchwork of blocks: red blocks are
+predicted resistant (high viability), blue blocks are predicted
+sensitive (low viability). It shows where the resistant and sensitive
+subclones sit in the embedding.
 
 ![Clone identity on UMAP (global
 clustering)](../reference/figures/shiny-clone-identity.png)
 
 Clone identity on UMAP (global clustering)
 
-Choose a dimensionality-reduction method and a color variable:
+The clone identity view colors by clone (cluster) to show the population
+structure. It is the reference view that ties the two previous ones
+together: when a clone’s territory is red in the viability view and also
+red in the gene expression view, that gene and that resistance go
+together spatially.
 
-- **Gene Expression**: per-cell expression of a single gene, winsorized
-  to the 5th–95th percentiles and scaled to \[0, 1\] (range01
-  normalization), continuous grey→red ramp (grey = no/low expression,
-  red = high expression) — see which cell groups express the gene highly
-- **Drug Viability**: each cell colored by its clone’s predicted
-  viability score (“patchwork” blocks) — see which clones are predicted
-  resistant (high) vs. sensitive (low)
-- **Clone / Cluster**: color by clone (cluster) — see the population
-  structure
+How to read the three views together: if the cells with high gene
+expression are also bright (high viability) in the viability view, the
+gene’s high expression is positively associated with resistance; if
+dark, with sensitivity. Keep in mind that the two color scales are
+different, so compare spatial patterns, not absolute values.
 
-> **How to read them together**
->
-> If the cells with high Gene Expression are also bright (high
-> viability) on the Drug Viability plot, the gene’s high expression is
-> positively associated with resistance; if dark (low viability), with
-> sensitivity. The two plots use different color scales — compare
-> spatial patterns only, not values.
->
-> For example, the gene-expression and drug-viability figures above give
-> preliminary insight:
->
-> 1.  **Resistance-marker clue**: the clone in the bottom-right region
->     shows high SLC2A1 expression, which overlaps exactly with the
->     region of high predicted erlotinib viability — suggesting SLC2A1
->     overexpression may mark this resistant clone.
-> 2.  **Sensitive main population**: the major cell groups at the top
->     barely express SLC2A1, yet are precisely the region with the
->     lowest predicted drug viability.
->
-> So in the PRJNA591860 dataset, locally abnormal SLC2A1 overexpression
-> strongly points to erlotinib resistance, while most
-> non-SLC2A1-expressing cells are highly drug-sensitive — preliminary
-> single-cell evidence that **SLC2A1 may be a resistance target**.
+------------------------------------------------------------------------
 
 #### 5.7 High-Resolution Download
 
-| Format    | Resolution                                                    |
-|-----------|---------------------------------------------------------------|
-| PNG       | 600 dpi (Cairo anti-aliased), ~6000 × 4200 px at default size |
-| PDF / SVG | Vector, infinitely zoomable, **recommended for publication**  |
+| Format | Resolution |
+|----|----|
+| PNG | 600 dpi (Cairo anti-aliased), about 6000 × 4200 px at default size |
+| PDF / SVG | Vector, infinitely zoomable, recommended for publication |
 
 ------------------------------------------------------------------------
 
 ### 6. Help Tab
 
-Built-in documentation covering every tab, the FAQ, and usage tips.
-Check it first when you get stuck.
+The Help tab contains built-in documentation covering every tab, the
+FAQ, and usage tips. Check it first when you get stuck.
 
 ------------------------------------------------------------------------
 
 ### 7. FAQ
 
-**Q1: “Maximum upload size exceeded”?** The upload limit is 1 GB. For
-larger data, preprocess locally (e.g. subset genes) first; for DepMap,
-prefer the “Download & Load” button (server-side download, not via the
-browser).
+**Q1: “Maximum upload size exceeded”?**
 
-**Q2: Model Performance says performance fields are missing?** That plot
-needs validation metrics produced during training; pre-trained models
+The upload limit is 1 GB. For larger data, preprocess locally first (for
+example subset genes); for DepMap, prefer the Download & Load button,
+which downloads on the server side rather than through the browser.
+
+**Q2: Model Performance says performance fields are missing?**
+
+That plot needs validation metrics produced during training. Pre-trained
+models
 ([`load_model()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/load_model.md))
-don’t carry them. Train on the Train tab first, or load the demo models
+do not carry them. Train on the Train tab first, or load the demo models
 on the Data tab.
 
-**Q3: How do I construct the response labels?** Build a two-column table
-`patient` / `response`. `patient` must exactly match `patient_id` in the
-Mapping; `response` values are normalized automatically (responder →
-Responder, etc.). Response labels keep multiple groups (e.g. TN/RD/PD) —
-no timepoint collapsing; when ROC needs a binary label, pick two groups
-to compare on the Visualize tab.
+**Q3: How do I construct the response labels?**
 
-**Q4: Why is a viability score lower than I expected?** Scores are
-relative ranks learned from DepMap (not normalized): the prediction
-heatmap shows raw model values, while the lollipop plot and UMAP Drug
-Viability use a z-score (centered at 0, can be negative). Higher values
-mean the most resistant clone in this batch (highest viability), not an
-absolute viability percentage. Clonal heterogeneity and activated
-resistance pathways both raise the viability score.
+Build a two-column table `patient` / `response`. `patient` must exactly
+match `patient_id` in the Mapping. `response` values are normalized
+automatically (responder → Responder, and so on). Response labels keep
+multiple groups (for example TN/RD/PD) without collapsing timepoints;
+when the ROC needs a binary label, pick two groups to compare on the
+Visualize tab.
 
-**Q5: Does data persist after I close the app?** It persists. DepMap
-data is cached in a persistent directory (Windows: the user data
-directory; on Linux, set the `PERCEPTIONX_DEPMAP_CACHE_DIR` environment
-variable), with a 12-hour unused-expiry (TTL) mechanism. Files stay on
-disk after the app closes; if unused for more than 12 hours, the next
+**Q4: Why is a viability score lower than I expected?**
+
+Scores are relative ranks learned from DepMap, not absolute percentages.
+The prediction heatmap shows raw model values, while the lollipop plot
+and UMAP Drug Viability use a z-score centered at 0. Higher values mean
+the most resistant clone in this batch, not an absolute viability
+percentage. Clonal heterogeneity and activated resistance pathways both
+raise the score.
+
+**Q5: Does data persist after I close the app?**
+
+Yes. DepMap data is cached in a persistent directory (on Windows, the
+user data directory; on Linux, set the `PERCEPTIONX_DEPMAP_CACHE_DIR`
+environment variable) with a 12-hour unused-expiry mechanism. Files stay
+on disk after the app closes; if unused for more than 12 hours, the next
 click deletes and re-downloads them.
 
-**Q6: Why doesn’t the interface freeze during training / clustering /
-prediction?** All heavy computation runs in **background worker
-processes**; the interface only polls and shows progress, so you can
-keep using other pages while a big task runs. If a worker ever stops
-unexpectedly, the app reports “Background worker stopped” instead of
-spinning forever — just submit again.
+**Q6: Why does the interface stay responsive during training /
+clustering / prediction?**
+
+All heavy computation runs in background worker processes; the interface
+only polls and shows progress, so you can keep using other pages while a
+big task runs. If a worker ever stops unexpectedly, the app reports
+“Background worker stopped” instead of spinning forever — just submit
+again.
 
 ------------------------------------------------------------------------
 
 ### 8. Citation & Contact
 
-**If you use this app/package, please cite the original methodology
-paper:**
+If you use this app or package, please cite the original methodology
+paper:
 
 > Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts
 > patient response and resistance to treatment using single-cell
@@ -504,12 +573,7 @@ paper:**
 > DOI:
 > [10.1038/s43018-024-00756-7](https://doi.org/10.1038/s43018-024-00756-7)
 
-**Repository**:
+Repository:
 [github.com/WangLabCSU/PERCEPTIONx](https://github.com/WangLabCSU/PERCEPTIONx)
 
-**Feedback**: <jiading682@qq.com>
-
-------------------------------------------------------------------------
-
-*PERCEPTION-shiny © PERCEPTIONx authors. Screens may vary from the
-version you are using.*
+Feedback: <jiading682@qq.com>

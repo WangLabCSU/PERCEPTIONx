@@ -6,21 +6,29 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>PERCEPTION-shiny User Guide • PERCEPTIONx</title>
+<!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
+<link rel="icon" type="”image/svg+xml”" href="../favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="icon" sizes="any" href="../favicon.ico">
+<link rel="manifest" href="../site.webmanifest">
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/Inter-0.4.10/font.css" rel="stylesheet">
+<link href="../deps/Lora-0.4.10/font.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="PERCEPTION-shiny User Guide">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
+<script src="../extra.js"></script><meta property="og:title" content="PERCEPTION-shiny User Guide">
 <meta name="description" content="Full walkthrough of the interactive Shiny dashboard: data loading, model training, drug-sensitivity prediction, and visualization.">
 <meta property="og:description" content="Full walkthrough of the interactive Shiny dashboard: data loading, model training, drug-sensitivity prediction, and visualization.">
+<meta property="og:image" content="https://wanglabcsu.github.io/PERCEPTIONx/logo.png">
 <meta name="description" content="PERCEPTIONx — predict patient drug response and resistance from single-cell tumor transcriptomics.">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
-    <nav class="navbar navbar-expand-lg fixed-top bg-primary" data-bs-theme="dark" aria-label="Site navigation"><div class="container">
+    <nav class="navbar navbar-expand-lg fixed-top bg-light" data-bs-theme="light" aria-label="Site navigation"><div class="container">
 
     <a class="navbar-brand me-2" href="../index.html">PERCEPTIONx</a>
 
@@ -34,17 +42,15 @@
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
 <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
-<li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
-<li class="active nav-item"><a class="nav-link" href="../articles/index.html">Articles</a></li>
-<li class="nav-item dropdown">
-  <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-news">
-<li><h6 class="dropdown-header" data-toc-skip>Releases</h6></li>
-    <li><a class="dropdown-item" href="../news/index.html">Changelog</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><a class="dropdown-item" href="../news/index.html">Changelog</a></li>
+<li class="active nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-tutorial" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Tutorial</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-tutorial">
+<li><a class="dropdown-item" href="../articles/shiny_app.html">Shiny App Guide</a></li>
+    <li><a class="dropdown-item" href="../articles/pipeline.html">R Package Tutorial</a></li>
   </ul>
 </li>
+<li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><a class="external-link nav-link" href="https://github.com/WangLabCSU/PERCEPTIONx" aria-label="GitHub"><span class="fa fa-github"></span></a></li>
@@ -60,8 +66,7 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-
-      <h1>PERCEPTION-shiny User Guide</h1>
+      <img src="../logo.png" class="logo" alt=""><h1>PERCEPTION-shiny User Guide</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/WangLabCSU/PERCEPTIONx/blob/main/vignettes/shiny_app.Rmd" class="external-link"><code>vignettes/shiny_app.Rmd</code></a></small>
@@ -73,68 +78,70 @@
 <div class="section level2">
 <h2 id="perception-shiny-user-guide">PERCEPTION-shiny User Guide<a class="anchor" aria-label="anchor" href="#perception-shiny-user-guide"></a>
 </h2>
-<p><strong>PERCEPTION-shiny</strong> is the interactive web application
-(Shiny) of the <strong>PERCEPTIONx</strong> R package. It wraps the
-complete analysis pipeline — data loading, model training,
-drug-sensitivity prediction, and result visualization — into a
-point-and-click interface, so you can go from a patient single-cell
-expression matrix to clone-level viability scores and patient-level
-response stratification without writing code.</p>
-<blockquote>
-<p>Methodological basis: PERCEPTION (PERsonalized single-Cell
-Expression-based Planning for Treatments In ONcology), which trains
-elastic-net models on DepMap cell-line data to predict patient response
-and resistance to drug treatment.</p>
-</blockquote>
+<p>PERCEPTION-shiny is the web interface of the PERCEPTIONx R package.
+It wraps the full analysis pipeline — data loading, model training,
+drug-sensitivity prediction, and visualization — into a point-and-click
+application. You can go from a patient single-cell expression matrix to
+clone-level viability scores and patient-level response stratification
+without writing code.</p>
+<p>The methodology is PERCEPTION (PERsonalized single-Cell
+Expression-based Planning for Treatments In ONcology): elastic-net
+models are trained on DepMap cell-line screens, then applied to a
+patient’s single-cell profile to predict drug response and
+resistance.</p>
 <hr>
 <div class="section level3">
 <h3 id="contents">Contents<a class="anchor" aria-label="anchor" href="#contents"></a>
 </h3>
 <ul>
-<li><a href="#id_0-requirements--launch">0. Requirements &amp;
-Launch</a></li>
-<li><a href="#id_1-interface-overview">1. Interface Overview</a></li>
-<li><a href="#id_2-data-tab-loading-data">2. Data Tab: Loading
-Data</a></li>
-<li><a href="#id_3-train-tab-training-models-optional">3. Train Tab:
-Training Models (Optional)</a></li>
-<li><a href="#id_4-predict-tab-predicting-viability-scores">4. Predict
-Tab: Predicting Viability Scores</a></li>
-<li><a href="#id_5-visualize-tab">5. Visualize Tab</a></li>
-<li><a href="#id_6-help-tab">6. Help Tab</a></li>
-<li><a href="#id_7-faq">7. FAQ</a></li>
-<li><a href="#id_8-citation--contact">8. Citation &amp; Contact</a></li>
+<li><p><a href="#id_0-requirements--launch">0. Requirements &amp;
+Launch</a></p></li>
+<li><p><a href="#id_1-interface-overview">1. Interface
+Overview</a></p></li>
+<li><p><a href="#id_2-data-tab-loading-data">2. Data Tab: Loading
+Data</a></p></li>
+<li><p><a href="#id_3-train-tab-training-models-optional">3. Train Tab:
+Training Models (Optional)</a></p></li>
+<li><p><a href="#id_4-predict-tab-predicting-viability-scores">4.
+Predict Tab: Predicting Viability Scores</a></p></li>
+<li><p><a href="#id_5-visualize-tab">5. Visualize Tab</a></p></li>
+<li><p><a href="#id_6-help-tab">6. Help Tab</a></p></li>
+<li><p><a href="#id_7-faq">7. FAQ</a></p></li>
+<li><p><a href="#id_8-citation--contact">8. Citation &amp;
+Contact</a></p></li>
 </ul>
 <hr>
 </div>
 <div class="section level3">
 <h3 id="requirements-launch">0. Requirements &amp; Launch<a class="anchor" aria-label="anchor" href="#requirements-launch"></a>
 </h3>
+<hr>
 <div class="section level4">
 <h4 id="requirements">0.1 Requirements<a class="anchor" aria-label="anchor" href="#requirements"></a>
 </h4>
 <ul>
-<li>
-<strong>R</strong> ≥ 4.1.0</li>
-<li>Main dependencies: <code>devtools</code>, <code>shiny</code>,
+<li><p>R ≥ 4.1.0.</p></li>
+<li><p>Main dependencies: <code>devtools</code>, <code>shiny</code>,
 <code>bslib</code>, <code>Seurat</code>, <code>ggplot2</code>,
 <code>ggiraph</code>, <code>glmnet</code>, <code>caret</code>,
 <code>DT</code>, <code>plotly</code>, <code>waiter</code>,
-<code>thematic</code>, <code>callr</code>, <code>readxl</code> (the app
-prompts you to install any that are missing when a feature needs
-them)</li>
+<code>thematic</code>, <code>callr</code>, <code>readxl</code>. The app
+prompts you to install anything that is missing when a feature needs
+it.</p></li>
 </ul>
+<hr>
 </div>
 <div class="section level4">
 <h4 id="launch">0.2 Launch<a class="anchor" aria-label="anchor" href="#launch"></a>
 </h4>
-<p>From the package source root, run:</p>
+<p>From the package source root:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">load_all</span><span class="op">(</span><span class="op">)</span>          <span class="co"># load PERCEPTIONx from source</span></span>
 <span><span class="fu"><a href="../reference/run_perception_app.html">run_perception_app</a></span><span class="op">(</span><span class="op">)</span>          <span class="co"># launch the app (opens your browser)</span></span></code></pre></div>
 <p>Or run the app directory directly:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">shiny</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/shiny/man/runApp.html" class="external-link">runApp</a></span><span class="op">(</span><span class="st">"inst/shiny/app"</span><span class="op">)</span></span></code></pre></div>
+<hr>
 </div>
 <div class="section level4">
 <h4 id="overall-flow">0.3 Overall Flow<a class="anchor" aria-label="anchor" href="#overall-flow"></a>
@@ -145,35 +152,25 @@ them)</li>
  (or load pre-trained   (or skip training —
    models directly)       use the 44 pre-
                           trained models)</code></pre>
-<blockquote>
-<p>For the fastest result, follow <strong>Load Demo → Predict →
-Visualize</strong>. No training needed.</p>
-</blockquote>
-<blockquote>
-<p><strong>Async architecture (multi-user friendly)</strong>: all heavy
-computation — model training, Seurat clustering, prediction, and plot
-math — runs in <strong>background worker processes</strong>, never in
-the interface. The UI polls and shows progress, so one user’s large task
-never freezes other users.</p>
+<p>For the fastest result, follow Load Demo → Predict → Visualize. No
+training is needed.</p>
+<p>A note on the architecture: all heavy computation — model training,
+Seurat clustering, prediction, and plot math — runs in background worker
+processes, never in the interface. The UI polls the workers and shows
+progress, so one user’s large task never freezes anyone else.</p>
 <ul>
-<li>
-<strong>Training</strong>: the standard DepMap uses a <strong>shared
-master</strong> (one global background process holding a single
-in-memory copy of DepMap; on Linux, concurrent jobs share that one copy
-via fork; after 12 h idle it exits to release memory). Uploaded DepMaps
-run in <strong>isolated per-session workers</strong> so a bad upload
-cannot affect others.</li>
-<li>
-<strong>Clustering / prediction / plots / Load Demo</strong>: a
-light per-session worker handles each, writing results back to files
-that the UI picks up.</li>
-<li>
-<strong>Env vars</strong> (deployment):
-<code>PERCEPTION_WORKERS</code> (shared-pool parallelism, default 16),
-<code>PERCEPTION_WORKER_IDLE_MINUTES</code> (master idle-exit minutes,
-default 720).</li>
+<li><p>Training with the standard DepMap uses a shared master process: a
+single global background worker holds one in-memory copy of DepMap,
+shared across concurrent jobs on Linux via fork, and exits after 12 idle
+hours to release memory. Uploaded DepMap files run in isolated
+per-session workers so a bad upload cannot affect others.</p></li>
+<li><p>Clustering, prediction, plots, and Load Demo each run in a light
+per-session worker that writes results back to files the UI picks
+up.</p></li>
+<li><p>Deployment knobs: <code>PERCEPTION_WORKERS</code> (shared-pool
+parallelism, default 16) and <code>PERCEPTION_WORKER_IDLE_MINUTES</code>
+(master idle-exit minutes, default 720).</p></li>
 </ul>
-</blockquote>
 <hr>
 </div>
 </div>
@@ -183,157 +180,139 @@ default 720).</li>
 <div class="float">
 <img src="../reference/figures/shiny-home.png" alt="PERCEPTION-shiny home page"><div class="figcaption">PERCEPTION-shiny home page</div>
 </div>
-<p>The top navbar has 6 tabs: <strong>Home, Data, Train, Predict,
-Visualize, Help</strong>. Data flows left to right: load data (Data),
-train/load models (Train), predict (Predict), then visualize and
-validate (Visualize).</p>
-<p>The <strong>Home</strong> page includes: an introduction, a four-step
-guide (Load Data → Train Model → Predict → Visualize; click any step to
-jump to the corresponding tab), a live data-status overview, key
-features, and citation info. The <strong>Quick Start</strong> and
-<strong>Load Demo</strong> buttons load the demo data in one click.</p>
+<p>The home page shown above is the entry point. The top bar has six
+tabs: Home, Data, Train, Predict, Visualize, and Help, and the workflow
+runs left to right — load data, train or load a model, predict, then
+visualize and validate.</p>
+<p>On the home page itself you get an introduction, a four-step guide
+(Load Data → Train Model → Predict → Visualize; each step jumps to the
+matching tab), a live data-status overview, key feature cards, and
+citation info. The Quick Start and Load Demo buttons load the demo data
+in one click.</p>
 <hr>
 </div>
 <div class="section level3">
 <h3 id="data-tab-loading-data">2. Data Tab: Loading Data<a class="anchor" aria-label="anchor" href="#data-tab-loading-data"></a>
 </h3>
-<p>The Data tab is the entry point. It loads four kinds of data:
-<strong>demo data / DepMap reference data / your expression matrix /
-clinical responses</strong>. Each item turns its status badge green once
+<p>The Data tab is where everything starts. It loads four kinds of
+input: a demo dataset, the DepMap reference, your own expression matrix,
+and clinical responses. Each item turns its status badge green once
 loaded.</p>
-<blockquote>
-<p><strong>Load Demo</strong></p>
-<p>Click <strong>Load Demo</strong> to generate a synthetic demo dataset
-on the fly: <strong>49 genes × 400 cells × 20 patients</strong>,
-automatically clustered (Seurat), rank-normalized, and then used to
-train demo models. Great for smoke-testing the whole flow and getting
-familiar with the interactions.</p>
-</blockquote>
+<p>Click Load Demo to generate a synthetic dataset on the fly — 49 genes
+× 400 cells × 20 patients — that is automatically clustered,
+rank-normalized, and used to train demo models. It is a quick way to
+smoke-test the whole flow.</p>
+<hr>
 <div class="section level4">
 <h4 id="loading-depmap-reference-data-required-for-training">2.1 Loading DepMap Reference Data (required for training)<a class="anchor" aria-label="anchor" href="#loading-depmap-reference-data-required-for-training"></a>
 </h4>
-<p>Two ways:</p>
+<p>There are two ways to get the DepMap reference data:</p>
 <ol style="list-style-type: decimal">
-<li>
-<strong>Download &amp; Load</strong>: downloads the DepMap reference
-set (~567 MB, 15k+ genes × 1,000+ cell lines) from the official mirror
-and loads it automatically. This is the standard training input and the
-most memory/disk-demanding step.</li>
-<li>
-<strong>Upload a local .RDS</strong>: if you already have the DepMap
-file (<code>DepMap.RDS</code>), browse and select it — it loads
-automatically.</li>
+<li><p><strong>Download &amp; Load</strong>: downloads the reference set
+(~567 MB, 15k+ genes × 1,000+ cell lines) from the official mirror and
+loads it automatically. This is the standard training input and the most
+memory- and disk-hungry step.</p></li>
+<li><p><strong>Upload a local .RDS</strong>: if you already have the
+<code>DepMap.RDS</code> file, browse to it and it loads
+automatically.</p></li>
 </ol>
-<blockquote>
-<p><strong>About memory</strong>: the interface process reads only
-DepMap <strong>metadata</strong> (gene names, drug list, component
-dimensions — a few hundred KB). The full multi-GB object is loaded by a
-<strong>background worker</strong> in a separate process for training
-only, so concurrent users do not each hold an 8 GB copy (see the
-architecture note in 0.3).</p>
-</blockquote>
+<p>Memory note: the interface process only reads DepMap metadata (gene
+names, drug list, component dimensions — a few hundred KB). The full
+multi-GB object is loaded by a background worker in a separate process,
+only when training runs, so concurrent users do not each hold an 8 GB
+copy.</p>
+<hr>
 </div>
 <div class="section level4">
 <h4 id="loading-models">2.2 Loading Models<a class="anchor" aria-label="anchor" href="#loading-models"></a>
 </h4>
 <p>Two ways:</p>
 <ol style="list-style-type: decimal">
-<li>
-<strong>Download &amp; Load</strong>: one-click download of the 44
-FDA-approved drug pre-trained models (e.g. <code>abemaciclib</code>,
-<code>erlotinib</code>, <code>osimertinib</code>). Multi-selected items
-each show an × to remove individually</li>
-<li>
-<strong>Upload a local .RDS</strong>: select a trained model file
-(from <code><a href="../reference/train_models.html">train_models()</a></code> or exported from the Train tab) —
-loads automatically</li>
+<li><p><strong>Download &amp; Load</strong>: one-click download of the
+44 FDA-approved pre-trained models (for example
+<code>abemaciclib</code>, <code>erlotinib</code>,
+<code>osimertinib</code>). Multi-selected items each show an × to remove
+them individually.</p></li>
+<li><p><strong>Upload a local .RDS</strong>: select a trained model file
+(from <code><a href="../reference/train_models.html">train_models()</a></code> or exported from the Train tab) and it
+loads automatically.</p></li>
 </ol>
+<hr>
 </div>
 <div class="section level4">
 <h4 id="uploading-an-expression-matrix-patient-scrna-seq">2.3 Uploading an Expression Matrix (patient scRNA-seq)<a class="anchor" aria-label="anchor" href="#uploading-an-expression-matrix-patient-scrna-seq"></a>
 </h4>
 <ul>
-<li>
-<strong>Accepted formats</strong>: CSV / TSV / TXT / Excel
-(.xlsx/.xls) / RDS</li>
-<li>
-<strong>Accepted R objects</strong> (RDS): a numeric matrix or
-data.frame (genes × cells); Seurat objects are not accepted directly —
-export the matrix first</li>
-<li>
-<strong>Orientation</strong>: genes × cells (rows = genes, columns =
-cells). If the first column is a character column of gene names (common
-in Excel/CSV exports), it is converted to row names automatically</li>
-<li>
-<strong>Normalization</strong>: expression should be
-<strong>rank-normalized</strong>. If you upload raw counts, the app can
-normalize them automatically during clustering</li>
+<li><p>Accepted formats: CSV / TSV / TXT / Excel (.xlsx / .xls) /
+RDS.</p></li>
+<li><p>Accepted R objects: a numeric matrix or data.frame (genes ×
+cells). Seurat objects are not accepted directly — export the matrix
+first.</p></li>
+<li><p>Orientation: genes as rows, cells as columns. If the first column
+is a character column of gene names (common in Excel/CSV exports), it is
+converted to row names automatically.</p></li>
+<li><p>Normalization: the expression should be rank-normalized. If you
+upload raw counts, the app can normalize them automatically during
+clustering.</p></li>
 </ul>
+<hr>
 </div>
 <div class="section level4">
 <h4 id="uploading-the-cell-to-patient-map-mapping">2.4 Uploading the Cell-to-Patient Map (Mapping)<a class="anchor" aria-label="anchor" href="#uploading-the-cell-to-patient-map-mapping"></a>
 </h4>
 <ul>
-<li>
-<strong>Accepted formats</strong>: CSV / TSV / TXT / Excel /
-RDS</li>
-<li>
-<strong>Required columns</strong>: <code>cell_id</code> (cell names,
-matching the expression matrix column names) and <code>patient_id</code>
-(the patient each cell belongs to). Column names are case-insensitive
-(<code>Patient</code>, <code>PATIENT</code> all work)</li>
-<li>
-<strong>Named list RDS</strong>: if the RDS is a named list of
-“patient → cell-name vector” (e.g. the paper demo’s
+<li><p>Accepted formats: CSV / TSV / TXT / Excel / RDS.</p></li>
+<li><p>Required columns: <code>cell_id</code> (cell names, matching the
+expression matrix column names) and <code>patient_id</code> (the patient
+each cell belongs to). Column names are case-insensitive, so
+<code>Patient</code>, <code>PATIENT</code> all work.</p></li>
+<li><p>Named list RDS: if the RDS is a named list of patient → cell-name
+vector (for example the paper demo’s
 <code>PRJNA591860_sample_cell_names.RDS</code>), it is converted to long
-format automatically; empty samples are dropped</li>
+format automatically; empty samples are dropped.</p></li>
 </ul>
+<hr>
 </div>
 <div class="section level4">
 <h4 id="uploading-clinical-responses-response-optional-but-recommended">2.5 Uploading Clinical Responses (Response, optional but
 recommended)<a class="anchor" aria-label="anchor" href="#uploading-clinical-responses-response-optional-but-recommended"></a>
 </h4>
 <ul>
-<li>
-<strong>Accepted formats</strong>: CSV / TSV / TXT / Excel /
-RDS</li>
-<li>
-<strong>Required columns</strong>: <code>patient</code> (must
-exactly match <code>patient_id</code> in the Mapping) and
-<code>response</code> (the patient’s true clinical outcome for the
-drug)</li>
-<li>
-<strong>Labels are normalized automatically</strong>:
-<code>responder</code> / <code>responsive</code> / <code>r</code> /
-<code>sensitive</code> → <strong>Responder</strong>;
-<code>non-responder</code> / <code>nr</code> / <code>resistant</code> →
-<strong>Non-responder</strong>
-</li>
-<li>A check runs on upload: if the patient IDs do not overlap with the
-Mapping at all, a warning is shown</li>
-<li>
-<strong>Why it’s needed</strong>: only with true outcomes can you
-validate predictions (ROC curves, responder vs. non-responder boxplots).
-Skip it if you only want prediction scores</li>
+<li><p>Accepted formats: CSV / TSV / TXT / Excel / RDS.</p></li>
+<li><p>Required columns: <code>patient</code> (must exactly match
+<code>patient_id</code> in the Mapping) and <code>response</code> (the
+patient’s true clinical outcome for the drug).</p></li>
+<li><p>Labels are normalized automatically: <code>responder</code> /
+<code>responsive</code> / <code>r</code> / <code>sensitive</code> become
+Responder; <code>non-responder</code> / <code>nr</code> /
+<code>resistant</code> become Non-responder.</p></li>
+<li><p>A check runs on upload: if the patient IDs do not overlap with
+the Mapping at all, a warning is shown.</p></li>
+<li><p>Why it is needed: only with true outcomes can you validate
+predictions (ROC curves, responder vs. non-responder boxplots). Skip it
+if you only want prediction scores.</p></li>
 </ul>
-<blockquote>
-<p><strong>Example</strong> (paper demo lung cohort PRJNA591860): label
-by treatment timepoint, keeping the groups as-is (e.g. <code>TN</code> /
-<code>RD</code> / <code>PD</code>) — no collapsing into two classes.
-When a binary label is needed for ROC, choose two groups to compare on
-the Visualize tab.</p>
-</blockquote>
+<p>For the paper demo lung cohort (PRJNA591860), you can label patients
+by treatment timepoint and keep the groups as-is (TN / RD / PD) without
+collapsing them into two classes. When a binary label is needed for the
+ROC, choose two groups to compare on the Visualize tab.</p>
+<hr>
 </div>
 <div class="section level4">
 <h4 id="clustering-seurat">2.6 Clustering (Seurat)<a class="anchor" aria-label="anchor" href="#clustering-seurat"></a>
 </h4>
-<blockquote>
-<p><strong>Don’t Forget to Run Seurat!</strong></p>
-<p>Clustering (Seurat) defines the cell subpopulations (“clones”) for
-downstream prediction and visualization. If you skip it, clone-level
-prediction and clone-level figures will have no input.</p>
-</blockquote>
-<p><strong>Choose a clustering method</strong>: UMAP / tSNE.</p>
+<p>Do not skip this step: clustering defines the cell subpopulations
+(“clones”) that downstream prediction and visualization are built on.
+Without it, clone-level prediction and clone-level figures have no
+input.</p>
+<div class="float">
+<img src="../reference/figures/shiny-data-clustering.png" alt="Clustering in the Data tab"><div class="figcaption">Clustering in the Data tab</div>
+</div>
+<p>Choose a clustering method (UMAP or tSNE) and set the parameters
+shown in the screenshot above, then run the clustering. The embedding is
+displayed with cells colored by cluster. The clustering only defines
+clones; prediction then works at the clone level, using each clone’s
+mean expression.</p>
 <table class="table">
 <colgroup>
 <col width="33%">
@@ -358,34 +337,24 @@ prediction and clone-level figures will have no input.</p>
 </tr>
 <tr class="odd">
 <td>Seurat NFeatures</td>
-<td>number of highly variable genes for clustering — fixed at 2000 in
-the app (not adjustable)</td>
+<td>number of highly variable genes; fixed at 2000 in the app</td>
 <td>—</td>
 </tr>
 </tbody>
 </table>
-<div class="float">
-<img src="../reference/figures/shiny-data-clustering.png" alt="Clustering in the Data tab"><div class="figcaption">Clustering in the Data tab</div>
-</div>
-<blockquote>
-<p>Notes: clustering only defines “clones”; downstream prediction is
-done at the clone level (the clone’s expression is the mean expression
-of its cells).</p>
-</blockquote>
 <hr>
 </div>
 </div>
 <div class="section level3">
 <h3 id="train-tab-training-models-optional">3. Train Tab: Training Models (Optional)<a class="anchor" aria-label="anchor" href="#train-tab-training-models-optional"></a>
 </h3>
-<p><strong>Prerequisite</strong>: DepMap reference data must be loaded
-first (the top of the page tells you what’s missing).</p>
-<blockquote>
-<p>If you only want to predict, <strong>you don’t need to train</strong>
-— just use the 44 pre-trained models from the Data tab. The Train tab is
-for: other drugs, other cancer types, custom gene sets, or inspecting
-model performance on the three validation datasets.</p>
-</blockquote>
+<p>DepMap reference data must be loaded first; the top of the page tells
+you what is missing.</p>
+<p>If you only want to predict, you do not need to train — just use the
+44 pre-trained models from the Data tab. The Train tab exists for other
+drugs, other cancer types, custom gene sets, or inspecting model
+performance on the three validation datasets.</p>
+<hr>
 <div class="section level4">
 <h4 id="parameters">3.1 Parameters<a class="anchor" aria-label="anchor" href="#parameters"></a>
 </h4>
@@ -400,75 +369,67 @@ model performance on the three validation datasets.</p>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td><strong>Drug Name</strong></td>
+<td>Drug Name</td>
 <td>free-text input; one drug per line or comma/space-separated
 (combination regimens supported)</td>
 </tr>
 <tr class="even">
-<td><strong>Cancer Type (include)</strong></td>
+<td>Cancer Type (include)</td>
 <td>cancer types to include, default PanCan (pan-cancer)</td>
 </tr>
 <tr class="odd">
-<td><strong>Cancer Type (exclude)</strong></td>
+<td>Cancer Type (exclude)</td>
 <td>cancer types to exclude (to avoid self-validation)</td>
 </tr>
 <tr class="even">
-<td><strong>Gene Symbols</strong></td>
+<td>Gene Symbols</td>
 <td>gene list; leave empty = use all DepMap genes (recommended); paste
 text or upload .txt/.csv</td>
 </tr>
 <tr class="odd">
-<td><strong>Top k Features</strong></td>
+<td>Top k Features</td>
 <td>keep the top-k ranked features in the model</td>
 </tr>
 <tr class="even">
-<td><strong>Algorithm</strong></td>
+<td>Algorithm</td>
 <td>elastic net <code>glmnet</code> (recommended) or random forest
 <code>rf</code>
 </td>
 </tr>
 <tr class="odd">
-<td><strong>CPU Cores</strong></td>
+<td>CPU Cores</td>
 <td>number of parallel cores</td>
 </tr>
 </tbody>
 </table>
+<hr>
 </div>
 <div class="section level4">
 <h4 id="interpreting-the-results">3.2 Interpreting the Results<a class="anchor" aria-label="anchor" href="#interpreting-the-results"></a>
 </h4>
+<p>Once training finishes, the Train tab reports four things:</p>
 <ul>
-<li>
-<strong>Model Summary</strong>: model type and hyperparameters per
-drug (glmnet alpha/lambda, or rf ntree/RMSE)</li>
-<li>
-<strong>Performance Plot</strong>: model performance curve
-(threshold vs. correlation)</li>
-<li>
-<strong>Performance Metrics</strong>: prediction–truth Pearson
-correlation and p-value on <strong>Bulk / Pseudo-bulk /
-Single-cell</strong> levels. Higher correlation + lower p-value = better
-model</li>
-<li>
-<strong>Download Model (.RDS)</strong>: export the trained model;
-re-upload it later on the Data tab</li>
+<li><p><strong>Model Summary</strong>: model type and hyperparameters
+per drug (glmnet alpha/lambda, or rf ntree/RMSE).</p></li>
+<li><p><strong>Performance Plot</strong>: model performance curve
+(threshold vs. correlation).</p></li>
+<li><p><strong>Performance Metrics</strong>: prediction–truth Pearson
+correlation and p-value on Bulk, Pseudo-bulk, and Single-cell levels.
+Higher correlation and lower p-value mean a better model.</p></li>
+<li><p><strong>Download Model (.RDS)</strong>: export the trained model,
+to re-upload later on the Data tab.</p></li>
 </ul>
 <div class="float">
 <img src="../reference/figures/shiny-validation-roc.png" alt="Validation ROC curve (Train tab)"><div class="figcaption">Validation ROC curve (Train tab)</div>
 </div>
-<p>The <strong>Validation ROC</strong> shows how well a trained model
-stratifies responders vs. non-responders on each validation dataset
-(Bulk / Pseudo-bulk / Single-cell), with per-dataset AUC — a higher AUC
-means stronger clinical stratification. Like the Performance Plot, it is
-only available for models trained in the Train tab /
-<code><a href="../reference/train_models.html">train_models()</a></code>.</p>
-<blockquote>
-<p>Note: Performance Plot and Metrics rely on validation metrics
-produced during training and are only available for models from the
-Train tab / <code><a href="../reference/train_models.html">train_models()</a></code>. Pre-trained models
-(<code><a href="../reference/load_model.html">load_model()</a></code>) do not carry these fields; the app will tell
-you they’re not applicable.</p>
-</blockquote>
+<p>The validation ROC curve (above) shows how well the trained model
+separates responders from non-responders on each of the three validation
+cohorts. Every curve is annotated with its AUC: the closer the AUC is to
+1, the stronger the clinical stratification. Like the Performance Plot,
+it is only available for models trained in the Train tab (or via
+<code><a href="../reference/train_models.html">train_models()</a></code>). Pre-trained models loaded with
+<code><a href="../reference/load_model.html">load_model()</a></code> do not carry validation fields; the app will
+tell you they are not applicable.</p>
 <hr>
 </div>
 </div>
@@ -476,51 +437,53 @@ you they’re not applicable.</p>
 <h3 id="predict-tab-predicting-viability-scores">4. Predict Tab: Predicting Viability Scores<a class="anchor" aria-label="anchor" href="#predict-tab-predicting-viability-scores"></a>
 </h3>
 <p>Select the loaded models (pre-trained from the Data tab or trained on
-the Train tab) and click predict:</p>
+the Train tab) and click predict. Prediction runs in two stages:</p>
 <ol style="list-style-type: decimal">
-<li>
-<strong>Clone-level</strong>: viability score for every clone ×
-every drug. Semantics: the model outputs <strong>viability
-(survival)</strong>, where <strong>higher = more resistant, lower = more
-sensitive</strong>. The prediction heatmap shows the model’s raw
-predictions (not normalized); the lollipop plot and UMAP Drug Viability
-use a z-score (centered at 0, can be negative)</li>
-<li>
-<strong>Patient-level</strong>: clone scores are aggregated to
+<li><p><strong>Clone-level</strong>: a viability score for every clone ×
+every drug. The model outputs viability (survival), so higher = more
+resistant and lower = more sensitive. The prediction heatmap shows raw
+model values; the lollipop plot and UMAP Drug Viability use a z-score
+centered at 0.</p></li>
+<li><p><strong>Patient-level</strong>: clone scores are aggregated to
 patients by clone proportion (default <code>weighted_max</code>), giving
-each patient’s drug-sensitivity stratification</li>
+each patient’s drug-sensitivity stratification.</p></li>
 </ol>
-<p>Outputs include an interactive heatmap (clones × drugs, plotly) and
-downloadable prediction tables.</p>
 <div class="float">
 <img src="../reference/figures/shiny-predict-heatmap.png" alt="Predict tab clones×drugs heatmap"><div class="figcaption">Predict tab clones×drugs heatmap</div>
 </div>
+<p>The heatmap above shows the raw predictions for every clone (rows)
+against every drug (columns). Darker cells mean lower viability (more
+sensitive), brighter cells mean higher viability (more resistant). Hover
+any cell for the exact value. The downloadable prediction tables below
+the heatmap carry the same numbers.</p>
 <hr>
 </div>
 <div class="section level3">
 <h3 id="visualize-tab">5. Visualize Tab<a class="anchor" aria-label="anchor" href="#visualize-tab"></a>
 </h3>
-<p>This module visualizes the prediction results, so <strong>you must
-run a prediction first</strong>.</p>
-<p>All figures are <strong>interactive SVG</strong> (built on ggiraph):
-hover any point or bar to see details (clone id, viability score,
-proportion, FPR/TPR, …). The in-figure toolbar has zoom disabled; export
-to PNG/PDF via the download buttons at the top of the page.</p>
+<p>This tab turns the predictions into figures, so run a prediction
+first. All figures are interactive SVG built on ggiraph: hover any point
+or bar to see details (clone id, viability score, proportion, FPR/TPR).
+The in-figure toolbar has zoom disabled; export to PNG/PDF via the
+download buttons at the top of the page.</p>
+<hr>
 <div class="section level4">
 <h4 id="clone-distribution-stacked-bar-chart">5.1 Clone Distribution (stacked bar chart)<a class="anchor" aria-label="anchor" href="#clone-distribution-stacked-bar-chart"></a>
 </h4>
 <div class="float">
 <img src="../reference/figures/shiny-clone-distribution.png" alt="Clone distribution stacked bar chart"><div class="figcaption">Clone distribution stacked bar chart</div>
 </div>
-<p>Shows the clone composition within each patient; one color band = one
-clone (a curated palette is used for ≤ 15 clones).</p>
-<blockquote>
-<p>Note: clone identity depends on the data source — with global
-clustering, the same clone (color) is genuinely shared across patients;
-with clone-level input using per-patient labels (e.g. c1/c2/c3),
-<strong>the same color across patients does not imply the same clone
-origin</strong> — it is only a shared category label.</p>
-</blockquote>
+<p>The stacked bar chart shows, for each patient, the proportion of each
+clone inside the tumor; one color band is one clone. A clone that
+dominates a patient’s tumor is a natural candidate for driving that
+patient’s response, so this chart is the first place to look for
+heterogeneity.</p>
+<p>One caveat: clone identity depends on the data source. With global
+clustering, the same clone color is genuinely shared across patients.
+With clone-level input using per-patient labels (c1/c2/c3), the same
+color across patients is only a shared category label, not the same
+clone.</p>
+<hr>
 </div>
 <div class="section level4">
 <h4 id="clone-viability-lollipop-plot">5.2 Clone Viability (lollipop plot)<a class="anchor" aria-label="anchor" href="#clone-viability-lollipop-plot"></a>
@@ -528,25 +491,23 @@ origin</strong> — it is only a shared category label.</p>
 <div class="float">
 <img src="../reference/figures/shiny-lollipop.png" alt="Clone viability lollipop plot"><div class="figcaption">Clone viability lollipop plot</div>
 </div>
+<p>Each lollipop is one clone of one patient:</p>
 <ul>
-<li>
-<strong>Rules</strong>: all samples, all clones, one facet per
-patient, one lollipop per clone</li>
-<li>
-<strong>Color</strong>: blue-white-red diverging — blue = predicted
+<li><p>One facet per patient, one lollipop per clone, all samples and
+all clones shown.</p></li>
+<li><p>Color is a blue-white-red diverging ramp: blue = predicted
 sensitive (low viability), red = predicted resistant (high viability).
-Color limits adapt to the data, so extreme z-scores keep a real color
-(never grey/NA).</li>
-<li>
-<strong>Point size</strong>: clone proportion (larger clones get
-bigger points)</li>
-<li>
-<strong>Ordering</strong>: within a patient, by proportion
-descending; responders come first when response data is present</li>
-<li>
-<strong>Y-axis</strong>: Predicted Viability (z-score), with a zero
-line as the reference</li>
+The color limits adapt to the data, so extreme z-scores keep a real
+color instead of clipping to grey.</p></li>
+<li><p>Point size encodes the clone’s proportion in the tumor — the
+biggest balls are the clones that matter most for the patient.</p></li>
+<li><p>Within a patient, clones are ordered by proportion descending;
+responders come first when response data is present.</p></li>
+<li><p>The y-axis is Predicted Viability (z-score), with a zero line as
+the reference: above zero means resistant, below zero means
+sensitive.</p></li>
 </ul>
+<hr>
 </div>
 <div class="section level4">
 <h4 id="roc-curve">5.3 ROC Curve<a class="anchor" aria-label="anchor" href="#roc-curve"></a>
@@ -554,10 +515,13 @@ line as the reference</li>
 <div class="float">
 <img src="../reference/figures/shiny-roc.png" alt="ROC curve"><div class="figcaption">ROC curve</div>
 </div>
-<p>Uses true clinical responses (uploaded on the Data tab) against
-patient-level prediction scores. AUC closer to 1 = stronger
-stratification. If you predicted with multiple models, you can pick a
-specific model to view.</p>
+<p>The ROC curve compares patient-level prediction scores against the
+true clinical labels uploaded on the Data tab, and every curve is
+annotated with its AUC. An AUC above 0.5 means the model stratifies
+better than chance, and values closer to 1 indicate strong clinical
+separation. If you predicted with several models, pick a specific one
+from the dropdown to view its curve.</p>
+<hr>
 </div>
 <div class="section level4">
 <h4 id="response-boxplot-responders-vs--non-responders">5.4 Response Boxplot (responders vs. non-responders)<a class="anchor" aria-label="anchor" href="#response-boxplot-responders-vs--non-responders"></a>
@@ -565,8 +529,12 @@ specific model to view.</p>
 <div class="float">
 <img src="../reference/figures/shiny-boxplot.png" alt="Response boxplot (R vs NR)"><div class="figcaption">Response boxplot (R vs NR)</div>
 </div>
-<p>Shows the distribution of prediction scores for Responder
-vs. Non-responder groups, with a significance test.</p>
+<p>This boxplot compares the distribution of prediction scores between
+Responder and Non-responder groups, with a significance test result
+printed above the plot. Clear separation between the two boxes means the
+model separates the two groups well and that the score is clinically
+meaningful.</p>
+<hr>
 </div>
 <div class="section level4">
 <h4 id="model-performance">5.5 Model Performance<a class="anchor" aria-label="anchor" href="#model-performance"></a>
@@ -574,65 +542,47 @@ vs. Non-responder groups, with a significance test.</p>
 <div class="float">
 <img src="../reference/figures/shiny-model-performance.png" alt="Model performance plot"><div class="figcaption">Model performance plot</div>
 </div>
-<p>This plot lives on the <strong>Train tab</strong> (see Performance
-Plot in 3.2), not on the Visualize tab. It shows validation performance
-curves for trained models (requires models from the Train tab; not
-applicable to pre-trained models — the app will tell you).</p>
+<p>This plot lives on the Train tab (it is the Performance Plot from
+section 3.2), not on the Visualize tab. It traces how prediction–truth
+correlation changes across model thresholds on the validation cohorts. A
+curve that stays high and flat across thresholds indicates a stable
+model. It requires models trained on the Train tab; it is not applicable
+to pre-trained models.</p>
+<hr>
 </div>
 <div class="section level4">
 <h4 id="spatial-plots-umap-t-sne">5.6 Spatial Plots (UMAP / t-SNE)<a class="anchor" aria-label="anchor" href="#spatial-plots-umap-t-sne"></a>
 </h4>
 <div class="float">
-<img src="../reference/figures/shiny-gene-expression.png" alt="Gene expression on UMAP (SLC2A1)"><div class="figcaption">Gene expression on UMAP (SLC2A1)</div>
+<img src="../reference/figures/shiny-gene-expression.png" alt="Gene expression on UMAP"><div class="figcaption">Gene expression on UMAP</div>
 </div>
+<p>The gene expression view colors every cell by the expression of a
+single gene. Values are winsorized to the 5th–95th percentiles and
+scaled to [0, 1], then shown on a grey-to-red ramp: grey means no or low
+expression, red means high expression. Use it to see which cell groups
+express the gene highly.</p>
 <div class="float">
-<img src="../reference/figures/shiny-drug-viability.png" alt="Drug viability on UMAP (erlotinib)"><div class="figcaption">Drug viability on UMAP (erlotinib)</div>
+<img src="../reference/figures/shiny-drug-viability.png" alt="Drug viability on UMAP"><div class="figcaption">Drug viability on UMAP</div>
 </div>
+<p>The drug viability view colors every cell by its clone’s predicted
+viability score, which produces a patchwork of blocks: red blocks are
+predicted resistant (high viability), blue blocks are predicted
+sensitive (low viability). It shows where the resistant and sensitive
+subclones sit in the embedding.</p>
 <div class="float">
 <img src="../reference/figures/shiny-clone-identity.png" alt="Clone identity on UMAP (global clustering)"><div class="figcaption">Clone identity on UMAP (global clustering)</div>
 </div>
-<p>Choose a dimensionality-reduction method and a color variable:</p>
-<ul>
-<li>
-<strong>Gene Expression</strong>: per-cell expression of a single
-gene, winsorized to the 5th–95th percentiles and scaled to [0, 1]
-(range01 normalization), continuous grey→red ramp (grey = no/low
-expression, red = high expression) — see which cell groups express the
-gene highly</li>
-<li>
-<strong>Drug Viability</strong>: each cell colored by its clone’s
-predicted viability score (“patchwork” blocks) — see which clones are
-predicted resistant (high) vs. sensitive (low)</li>
-<li>
-<strong>Clone / Cluster</strong>: color by clone (cluster) — see the
-population structure</li>
-</ul>
-<blockquote>
-<p><strong>How to read them together</strong></p>
-<p>If the cells with high Gene Expression are also bright (high
-viability) on the Drug Viability plot, the gene’s high expression is
-positively associated with resistance; if dark (low viability), with
-sensitivity. The two plots use different color scales — compare spatial
-patterns only, not values.</p>
-<p>For example, the gene-expression and drug-viability figures above
-give preliminary insight:</p>
-<ol style="list-style-type: decimal">
-<li>
-<strong>Resistance-marker clue</strong>: the clone in the
-bottom-right region shows high SLC2A1 expression, which overlaps exactly
-with the region of high predicted erlotinib viability — suggesting
-SLC2A1 overexpression may mark this resistant clone.</li>
-<li>
-<strong>Sensitive main population</strong>: the major cell groups at
-the top barely express SLC2A1, yet are precisely the region with the
-lowest predicted drug viability.</li>
-</ol>
-<p>So in the PRJNA591860 dataset, locally abnormal SLC2A1 overexpression
-strongly points to erlotinib resistance, while most
-non-SLC2A1-expressing cells are highly drug-sensitive — preliminary
-single-cell evidence that <strong>SLC2A1 may be a resistance
-target</strong>.</p>
-</blockquote>
+<p>The clone identity view colors by clone (cluster) to show the
+population structure. It is the reference view that ties the two
+previous ones together: when a clone’s territory is red in the viability
+view and also red in the gene expression view, that gene and that
+resistance go together spatially.</p>
+<p>How to read the three views together: if the cells with high gene
+expression are also bright (high viability) in the viability view, the
+gene’s high expression is positively associated with resistance; if
+dark, with sensitivity. Keep in mind that the two color scales are
+different, so compare spatial patterns, not absolute values.</p>
+<hr>
 </div>
 <div class="section level4">
 <h4 id="high-resolution-download">5.7 High-Resolution Download<a class="anchor" aria-label="anchor" href="#high-resolution-download"></a>
@@ -649,13 +599,12 @@ target</strong>.</p>
 <tbody>
 <tr class="odd">
 <td>PNG</td>
-<td>600 dpi (Cairo anti-aliased), ~6000 × 4200 px at default size</td>
+<td>600 dpi (Cairo anti-aliased), about 6000 × 4200 px at default
+size</td>
 </tr>
 <tr class="even">
 <td>PDF / SVG</td>
-<td>Vector, infinitely zoomable, <strong>recommended for
-publication</strong>
-</td>
+<td>Vector, infinitely zoomable, recommended for publication</td>
 </tr>
 </tbody>
 </table>
@@ -665,67 +614,68 @@ publication</strong>
 <div class="section level3">
 <h3 id="help-tab">6. Help Tab<a class="anchor" aria-label="anchor" href="#help-tab"></a>
 </h3>
-<p>Built-in documentation covering every tab, the FAQ, and usage tips.
-Check it first when you get stuck.</p>
+<p>The Help tab contains built-in documentation covering every tab, the
+FAQ, and usage tips. Check it first when you get stuck.</p>
 <hr>
 </div>
 <div class="section level3">
 <h3 id="faq">7. FAQ<a class="anchor" aria-label="anchor" href="#faq"></a>
 </h3>
-<p><strong>Q1: “Maximum upload size exceeded”?</strong> The upload limit
-is 1 GB. For larger data, preprocess locally (e.g. subset genes) first;
-for DepMap, prefer the “Download &amp; Load” button (server-side
-download, not via the browser).</p>
+<p><strong>Q1: “Maximum upload size exceeded”?</strong></p>
+<p>The upload limit is 1 GB. For larger data, preprocess locally first
+(for example subset genes); for DepMap, prefer the Download &amp; Load
+button, which downloads on the server side rather than through the
+browser.</p>
 <p><strong>Q2: Model Performance says performance fields are
-missing?</strong> That plot needs validation metrics produced during
-training; pre-trained models (<code><a href="../reference/load_model.html">load_model()</a></code>) don’t carry
-them. Train on the Train tab first, or load the demo models on the Data
-tab.</p>
-<p><strong>Q3: How do I construct the response labels?</strong> Build a
-two-column table <code>patient</code> / <code>response</code>.
-<code>patient</code> must exactly match <code>patient_id</code> in the
-Mapping; <code>response</code> values are normalized automatically
-(responder → Responder, etc.). Response labels keep multiple groups
-(e.g. TN/RD/PD) — no timepoint collapsing; when ROC needs a binary
-label, pick two groups to compare on the Visualize tab.</p>
-<p><strong>Q4: Why is a viability score lower than I expected?</strong>
-Scores are relative ranks learned from DepMap (not normalized): the
-prediction heatmap shows raw model values, while the lollipop plot and
-UMAP Drug Viability use a z-score (centered at 0, can be negative).
-Higher values mean the most resistant clone in this batch (highest
-viability), not an absolute viability percentage. Clonal heterogeneity
-and activated resistance pathways both raise the viability score.</p>
-<p><strong>Q5: Does data persist after I close the app?</strong> It
-persists. DepMap data is cached in a persistent directory (Windows: the
+missing?</strong></p>
+<p>That plot needs validation metrics produced during training.
+Pre-trained models (<code><a href="../reference/load_model.html">load_model()</a></code>) do not carry them. Train
+on the Train tab first, or load the demo models on the Data tab.</p>
+<p><strong>Q3: How do I construct the response labels?</strong></p>
+<p>Build a two-column table <code>patient</code> /
+<code>response</code>. <code>patient</code> must exactly match
+<code>patient_id</code> in the Mapping. <code>response</code> values are
+normalized automatically (responder → Responder, and so on). Response
+labels keep multiple groups (for example TN/RD/PD) without collapsing
+timepoints; when the ROC needs a binary label, pick two groups to
+compare on the Visualize tab.</p>
+<p><strong>Q4: Why is a viability score lower than I
+expected?</strong></p>
+<p>Scores are relative ranks learned from DepMap, not absolute
+percentages. The prediction heatmap shows raw model values, while the
+lollipop plot and UMAP Drug Viability use a z-score centered at 0.
+Higher values mean the most resistant clone in this batch, not an
+absolute viability percentage. Clonal heterogeneity and activated
+resistance pathways both raise the score.</p>
+<p><strong>Q5: Does data persist after I close the app?</strong></p>
+<p>Yes. DepMap data is cached in a persistent directory (on Windows, the
 user data directory; on Linux, set the
-<code>PERCEPTIONX_DEPMAP_CACHE_DIR</code> environment variable), with a
-12-hour unused-expiry (TTL) mechanism. Files stay on disk after the app
+<code>PERCEPTIONX_DEPMAP_CACHE_DIR</code> environment variable) with a
+12-hour unused-expiry mechanism. Files stay on disk after the app
 closes; if unused for more than 12 hours, the next click deletes and
 re-downloads them.</p>
-<p><strong>Q6: Why doesn’t the interface freeze during training /
-clustering / prediction?</strong> All heavy computation runs in
-<strong>background worker processes</strong>; the interface only polls
-and shows progress, so you can keep using other pages while a big task
-runs. If a worker ever stops unexpectedly, the app reports “Background
-worker stopped” instead of spinning forever — just submit again.</p>
+<p><strong>Q6: Why does the interface stay responsive during training /
+clustering / prediction?</strong></p>
+<p>All heavy computation runs in background worker processes; the
+interface only polls and shows progress, so you can keep using other
+pages while a big task runs. If a worker ever stops unexpectedly, the
+app reports “Background worker stopped” instead of spinning forever —
+just submit again.</p>
 <hr>
 </div>
 <div class="section level3">
 <h3 id="citation-contact">8. Citation &amp; Contact<a class="anchor" aria-label="anchor" href="#citation-contact"></a>
 </h3>
-<p><strong>If you use this app/package, please cite the original
-methodology paper:</strong></p>
+<p>If you use this app or package, please cite the original methodology
+paper:</p>
 <blockquote>
 <p>Sinha, S., Vegesna, R., Mukherjee, S. <em>et al.</em> PERCEPTION
 predicts patient response and resistance to treatment using single-cell
 transcriptomics of their tumors. <em>Nature Cancer</em> 5, 938–952
 (2024). DOI: <a href="https://doi.org/10.1038/s43018-024-00756-7" class="external-link">10.1038/s43018-024-00756-7</a></p>
 </blockquote>
-<p><strong>Repository</strong>: <a href="https://github.com/WangLabCSU/PERCEPTIONx" class="external-link">github.com/WangLabCSU/PERCEPTIONx</a></p>
-<p><strong>Feedback</strong>: <a href="mailto:jiading682@qq.com" class="email">jiading682@qq.com</a></p>
-<hr>
-<p><em>PERCEPTION-shiny © PERCEPTIONx authors. Screens may vary from the
-version you are using.</em></p>
+<p>Repository: <a href="https://github.com/WangLabCSU/PERCEPTIONx" class="external-link">github.com/WangLabCSU/PERCEPTIONx</a></p>
+<p>Feedback: <a href="mailto:jiading682@qq.com" class="email">jiading682@qq.com</a></p>
 </div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

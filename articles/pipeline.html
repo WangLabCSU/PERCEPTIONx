@@ -6,19 +6,26 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>PERCEPTIONx: Complete Pipeline Tutorial • PERCEPTIONx</title>
+<!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
+<link rel="icon" type="”image/svg+xml”" href="../favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="icon" sizes="any" href="../favicon.ico">
+<link rel="manifest" href="../site.webmanifest">
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/Inter-0.4.10/font.css" rel="stylesheet">
+<link href="../deps/Lora-0.4.10/font.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="PERCEPTIONx: Complete Pipeline Tutorial">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
+<script src="../extra.js"></script><meta property="og:title" content="PERCEPTIONx: Complete Pipeline Tutorial">
 <meta name="description" content="PERCEPTIONx — predict patient drug response and resistance from single-cell tumor transcriptomics.">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
-    <nav class="navbar navbar-expand-lg fixed-top bg-primary" data-bs-theme="dark" aria-label="Site navigation"><div class="container">
+    <nav class="navbar navbar-expand-lg fixed-top bg-light" data-bs-theme="light" aria-label="Site navigation"><div class="container">
 
     <a class="navbar-brand me-2" href="../index.html">PERCEPTIONx</a>
 
@@ -32,17 +39,15 @@
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
 <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
-<li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
-<li class="active nav-item"><a class="nav-link" href="../articles/index.html">Articles</a></li>
-<li class="nav-item dropdown">
-  <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-news">
-<li><h6 class="dropdown-header" data-toc-skip>Releases</h6></li>
-    <li><a class="dropdown-item" href="../news/index.html">Changelog</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><a class="dropdown-item" href="../news/index.html">Changelog</a></li>
+<li class="active nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-tutorial" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Tutorial</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-tutorial">
+<li><a class="dropdown-item" href="../articles/shiny_app.html">Shiny App Guide</a></li>
+    <li><a class="dropdown-item" href="../articles/pipeline.html">R Package Tutorial</a></li>
   </ul>
 </li>
+<li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><a class="external-link nav-link" href="https://github.com/WangLabCSU/PERCEPTIONx" aria-label="GitHub"><span class="fa fa-github"></span></a></li>
@@ -58,11 +63,10 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-
-      <h1>PERCEPTIONx: Complete Pipeline Tutorial</h1>
+      <img src="../logo.png" class="logo" alt=""><h1>PERCEPTIONx: Complete Pipeline Tutorial</h1>
                         <h4 data-toc-skip class="author">Jia Ding</h4>
             
-            <h4 data-toc-skip class="date">2026-08-28</h4>
+            <h4 data-toc-skip class="date">2026-08-29</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/WangLabCSU/PERCEPTIONx/blob/main/vignettes/pipeline.Rmd" class="external-link"><code>vignettes/pipeline.Rmd</code></a></small>
       <div class="d-none name"><code>pipeline.Rmd</code></div>
@@ -73,167 +77,275 @@
 <div class="section level2">
 <h2 id="overview">1. Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<p>PERCEPTIONx implements the PERCEPTION approach (PERsonalized
-single-Cell Expression-based Planning for Treatments In ONcology), which
-predicts how individual patients respond to drug treatments by
-leveraging both bulk and single-cell RNA sequencing data. This vignette
-walks through the complete pipeline:</p>
+<p>PERCEPTIONx predicts how individual patients respond to cancer drugs.
+Models are trained on DepMap cell-line screens and applied to a
+patient’s single-cell expression profile, giving clone-level viability
+scores and patient-level response stratification.</p>
+<p>The core workflow is short — five function calls:</p>
 <ol style="list-style-type: decimal">
-<li>
-<strong>Load Data</strong> — Download DepMap reference data and
-pre-trained models</li>
-<li>
-<strong>Train Models</strong> — Build drug response models from cell
-line data</li>
-<li>
-<strong>Predict</strong> — Score drug sensitivity at clone and
-patient levels</li>
-<li>
-<strong>Evaluate</strong> — Assess model performance and
-significance</li>
-<li>
-<strong>Visualize</strong> — Generate publication-quality
-figures</li>
+<li>Load the DepMap reference data</li>
+<li>Load pre-trained models (no training needed)</li>
+<li>Prepare the data with <code><a href="../reference/prepare_data.html">prepare_data()</a></code> (clustering + rank
+normalization)</li>
+<li>Predict at clone and patient level</li>
+<li>Plot the results</li>
 </ol>
+<p>Everything else — training new models, evaluating them, validating on
+DepMap cell lines, and the full plotting suite — is optional and covered
+in section 3 (Advanced Topics). If you only want prediction scores,
+section 2 is all you need.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://wanglabcsu.github.io/PERCEPTIONx">PERCEPTIONx</a></span><span class="op">)</span></span></code></pre></div>
+<hr>
 </div>
 <div class="section level2">
-<h2 id="load-data">2. Load Data<a class="anchor" aria-label="anchor" href="#load-data"></a>
+<h2 id="minimal-workflow">2. Minimal Workflow<a class="anchor" aria-label="anchor" href="#minimal-workflow"></a>
 </h2>
+<hr>
 <div class="section level3">
-<h3 id="depmap-reference-data">2.1 DepMap Reference Data<a class="anchor" aria-label="anchor" href="#depmap-reference-data"></a>
+<h3 id="load-the-depmap-reference-data">2.1 Load the DepMap reference data<a class="anchor" aria-label="anchor" href="#load-the-depmap-reference-data"></a>
 </h3>
-<p>PERCEPTIONx relies on DepMap bulk expression, single-cell expression,
-and drug response (AUC) data. The <code><a href="../reference/load_depmap.html">load_depmap()</a></code> function
-downloads and caches these datasets automatically.</p>
+<p><code><a href="../reference/load_depmap.html">load_depmap()</a></code> downloads and caches the DepMap bulk
+expression, single-cell expression, drug response (AUC), and cell line
+annotations. The first run downloads about 500 MB; afterwards the cache
+is reused.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Load DepMap data (first run downloads ~500MB)</span></span>
-<span><span class="fu"><a href="../reference/load_depmap.html">load_depmap</a></span><span class="op">(</span>read <span class="op">=</span> <span class="cn">TRUE</span>, mirror <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
-<p>The <code>mirror = TRUE</code> argument attempts GitHub mirrors for
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/load_depmap.html">load_depmap</a></span><span class="op">(</span>read <span class="op">=</span> <span class="cn">TRUE</span>, mirror <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p>The <code>mirror = TRUE</code> argument uses GitHub mirrors for
 faster downloads in regions with limited connectivity. You can also add
 custom mirrors:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/add_mirrors.html">add_mirrors</a></span><span class="op">(</span><span class="st">"https://my-mirror.example.com/PERCEPTIONx"</span><span class="op">)</span></span></code></pre></div>
+<hr>
 </div>
 <div class="section level3">
-<h3 id="pre-trained-models">2.2 Pre-trained Models<a class="anchor" aria-label="anchor" href="#pre-trained-models"></a>
+<h3 id="load-pre-trained-models">2.2 Load pre-trained models<a class="anchor" aria-label="anchor" href="#load-pre-trained-models"></a>
 </h3>
-<p>For quick exploration, you can load pre-trained models without
-training from scratch:</p>
+<p>PERCEPTIONx ships 44 pre-trained models for FDA-approved drugs, so
+you can predict without training:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Load a single pre-trained model</span></span>
+<code class="sourceCode R"><span><span class="co"># Load a single model</span></span>
 <span><span class="va">models</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/load_model.html">load_model</a></span><span class="op">(</span><span class="st">"abemaciclib"</span>, read <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Load multiple drugs</span></span>
+<span><span class="co"># Or several at once</span></span>
 <span><span class="va">models</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/load_model.html">load_model</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"abemaciclib"</span>, <span class="st">"erlotinib"</span><span class="op">)</span>, read <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p>If you want to train models for other drugs or settings instead, see
+section 3.1.</p>
+<hr>
+</div>
+<div class="section level3">
+<h3 id="prepare-the-clone-level-expression-data">2.3 Prepare the clone-level expression data<a class="anchor" aria-label="anchor" href="#prepare-the-clone-level-expression-data"></a>
+</h3>
+<p>PERCEPTIONx models are trained on rank-normalized expression, and
+clone-level prediction needs clones defined first.
+<code><a href="../reference/prepare_data.html">prepare_data()</a></code> does both: it clusters the cells with Seurat
+(UMAP or t-SNE), merges each clone’s expression, and rank-normalizes it
+— one call:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">prepared</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/prepare_data.html">prepare_data</a></span><span class="op">(</span><span class="va">my_expression_matrix</span>, method <span class="op">=</span> <span class="st">"umap"</span><span class="op">)</span></span></code></pre></div>
+<p>The returned list carries everything downstream needs:
+<code>clone_expression_rnorm</code> (the rank-normalized clone-level
+matrix) and <code>clone_counts</code> (clone abundances per patient).
+Rank normalization happens inside <code><a href="../reference/prepare_data.html">prepare_data()</a></code> — it calls
+<code><a href="../reference/rank_normalization_mat.html">rank_normalization_mat()</a></code> on the merged clone expression —
+so you do not run it yourself on this path. See section 3.5 for the
+details and the <code>skip_clustering</code> option.</p>
+<hr>
+</div>
+<div class="section level3">
+<h3 id="predict-drug-sensitivity">2.4 Predict drug sensitivity<a class="anchor" aria-label="anchor" href="#predict-drug-sensitivity"></a>
+</h3>
+<p>Prediction runs in two stages: clone-level scoring, then
+patient-level aggregation.</p>
+<div class="section level4">
+<h4 id="clone-level-prediction">2.4.1 Clone-level prediction<a class="anchor" aria-label="anchor" href="#clone-level-prediction"></a>
+</h4>
+<p><code><a href="../reference/predict_drugs.html">predict_drugs()</a></code> scores each clone against every loaded
+model, using the clone-level expression from
+<code><a href="../reference/prepare_data.html">prepare_data()</a></code>. Lower values mean lower viability,
+i.e. higher drug sensitivity.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">clone_pred</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/predict_drugs.html">predict_drugs</a></span><span class="op">(</span><span class="va">models</span>, <span class="va">prepared</span><span class="op">$</span><span class="va">clone_expression_rnorm</span><span class="op">)</span></span></code></pre></div>
+<p>The result is a matrix with clones as rows and drugs as columns.</p>
+</div>
+<div class="section level4">
+<h4 id="patient-level-aggregation">2.4.2 Patient-level aggregation<a class="anchor" aria-label="anchor" href="#patient-level-aggregation"></a>
+</h4>
+<p><code><a href="../reference/predict_patients.html">predict_patients()</a></code> collapses clone scores to patients
+using the clone proportions carried in the <code><a href="../reference/prepare_data.html">prepare_data()</a></code>
+output:</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">patient_pred</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/predict_patients.html">predict_patients</a></span><span class="op">(</span><span class="va">clone_pred</span>, <span class="va">prepared</span><span class="op">)</span></span></code></pre></div>
+<p>The default <code>mode = "weighted_max"</code> weights each clone by
+its proportion and takes the most resistant clone as the patient’s
+score. Other aggregation modes are documented in section 3.2.3.</p>
+<hr>
+</div>
+</div>
+<div class="section level3">
+<h3 id="visualize">2.5 Visualize<a class="anchor" aria-label="anchor" href="#visualize"></a>
+</h3>
+<p>Each plotting function takes the corresponding prediction output and
+returns a <code>ggplot</code>. This example overlays predicted viability
+on a t-SNE embedding:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_tsne_response.html">plot_tsne_response</a></span><span class="op">(</span></span>
+<span>  tsne_data <span class="op">=</span> <span class="va">tsne_data</span>,</span>
+<span>  color_var <span class="op">=</span> <span class="st">"viability_scaled"</span>,</span>
+<span>  title     <span class="op">=</span> <span class="st">"Drug Response"</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>The full set of plot functions — clone distribution, lollipop, ROC,
+boxplot, UMAP overlays, and a composite panel — is listed in section
+3.4.</p>
+<hr>
 </div>
 </div>
 <div class="section level2">
-<h2 id="train-models">3. Train Models<a class="anchor" aria-label="anchor" href="#train-models"></a>
+<h2 id="advanced-topics">3. Advanced Topics<a class="anchor" aria-label="anchor" href="#advanced-topics"></a>
 </h2>
+<p>Everything in this section is optional. Read the parts you need; the
+minimal workflow in section 2 does not depend on any of it.</p>
+<hr>
 <div class="section level3">
-<h3 id="feature-selection">3.1 Feature Selection<a class="anchor" aria-label="anchor" href="#feature-selection"></a>
+<h3 id="train-your-own-models">3.1 Train your own models<a class="anchor" aria-label="anchor" href="#train-your-own-models"></a>
 </h3>
-<p>Before training, identify genes available across both bulk and
-single-cell expression datasets:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">available_genes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sets.html" class="external-link">intersect</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">DepMap</span><span class="op">$</span><span class="va">expression_20Q4</span><span class="op">)</span>,</span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">DepMap</span><span class="op">$</span><span class="va">scRNA_complete</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Sample genes of interest</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span>
-<span><span class="va">GOI_100</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="va">available_genes</span>, <span class="fl">100</span><span class="op">)</span></span></code></pre></div>
-<p>Setting <code>GOI = NULL</code> uses all available genes (slower but
-more thorough).</p>
-</div>
-<div class="section level3">
-<h3 id="training">3.2 Training<a class="anchor" aria-label="anchor" href="#training"></a>
-</h3>
-<p>The <code><a href="../reference/train_models.html">train_models()</a></code> function performs feature ranking,
-model building, and hyperparameter tuning in a single call:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">models</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/train_models.html">train_models</a></span><span class="op">(</span></span>
-<span>  drug_list         <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"erlotinib"</span>, <span class="st">"gefitinib"</span><span class="op">)</span>,</span>
-<span>  cancer_type       <span class="op">=</span> <span class="st">"PanCan"</span>,</span>
-<span>  exclude_cancer    <span class="op">=</span> <span class="st">"PanCan"</span>,</span>
-<span>  GOI               <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  model_type        <span class="op">=</span> <span class="st">"glmnet"</span>,</span>
-<span>  k_features_values <span class="op">=</span> <span class="cn">NULL</span>,  <span class="co"># auto-compute</span></span>
-<span>  ncores            <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  output_dir        <span class="op">=</span> <span class="cn">NULL</span>   <span class="co"># don't save to disk</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-<p><strong>Key parameters:</strong></p>
+<p>Training is only needed when you want drugs or settings not covered
+by the 44 pre-trained models. <code><a href="../reference/train_models.html">train_models()</a></code> presets every
+argument except the drug list, so the whole call is one line:</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">models</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/train_models.html">train_models</a></span><span class="op">(</span>drug_list <span class="op">=</span> <span class="st">"erlotinib"</span><span class="op">)</span></span></code></pre></div>
+<p>That is all it takes — cancer type (PanCan), model type (glmnet),
+cross-validation, and feature ranking are handled with sensible
+defaults. The knobs you might actually touch:</p>
 <table class="table">
+<colgroup>
+<col width="30%">
+<col width="42%">
+<col width="27%">
+</colgroup>
 <thead><tr class="header">
-<th>Parameter</th>
-<th>Description</th>
+<th>Argument</th>
+<th>What it does</th>
+<th>Default</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td><code>drug_list</code></td>
-<td>Drug name(s) to train models for</td>
-</tr>
-<tr class="even">
-<td><code>cancer_type</code></td>
-<td>Cancer type for training cell lines</td>
-</tr>
-<tr class="odd">
-<td><code>exclude_cancer</code></td>
-<td>Cancer type to exclude (leave-one-out validation)</td>
-</tr>
-<tr class="even">
 <td><code>GOI</code></td>
-<td>Genes of interest (NULL = use all)</td>
+<td>Restrict features to a curated gene set</td>
+<td>all shared genes</td>
+</tr>
+<tr class="even">
+<td>
+<code>cancer_type</code> / <code>exclude_cancer</code>
+</td>
+<td>Cancer types to include / leave out (self-validation)</td>
+<td><code>"PanCan"</code></td>
 </tr>
 <tr class="odd">
 <td><code>model_type</code></td>
 <td>
 <code>"glmnet"</code> (elastic net) or <code>"rf"</code> (random
 forest)</td>
+<td><code>"glmnet"</code></td>
 </tr>
 <tr class="even">
 <td><code>ncores</code></td>
-<td>Number of CPU cores for parallel training</td>
+<td>Parallel cores</td>
+<td><code>4</code></td>
+</tr>
+<tr class="odd">
+<td><code>output_dir</code></td>
+<td>Where fitted models are saved</td>
+<td><code>"./models"</code></td>
+</tr>
+</tbody>
+</table>
+<p>One thing worth knowing: <code>output_dir</code> defaults to
+<code>"./models"</code>, meaning models are written to disk. Set
+<code>output_dir = NULL</code> to keep them in memory only.</p>
+<p>The returned <code>models</code> object plugs straight into
+<code><a href="../reference/predict_drugs.html">predict_drugs()</a></code> (section 2.4), and can be saved or
+re-loaded later:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS</a></span><span class="op">(</span><span class="va">models</span>, <span class="st">"my_models.RDS"</span><span class="op">)</span></span>
+<span><span class="va">models</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="st">"my_models.RDS"</span><span class="op">)</span></span></code></pre></div>
+<hr>
+</div>
+<div class="section level3">
+<h3 id="evaluate-model-performance">3.2 Evaluate model performance<a class="anchor" aria-label="anchor" href="#evaluate-model-performance"></a>
+</h3>
+<p>Two helpers answer how well the trained models stratify responders
+from non-responders:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">perf</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compare_performance.html">compare_performance</a></span><span class="op">(</span><span class="va">models</span>, threshold <span class="op">=</span> <span class="fl">0.3</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/plot_model_performance.html">plot_model_performance</a></span><span class="op">(</span><span class="va">models</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">sig_models</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_significant_models.html">get_significant_models</a></span><span class="op">(</span></span>
+<span>  <span class="va">models</span>,</span>
+<span>  min_correlation <span class="op">=</span> <span class="fl">0.3</span>,</span>
+<span>  max_pvalue <span class="op">=</span> <span class="fl">0.05</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<div class="section level4">
+<h4 id="aggregation-modes">3.2.1 Aggregation modes<a class="anchor" aria-label="anchor" href="#aggregation-modes"></a>
+</h4>
+<p><code><a href="../reference/predict_patients.html">predict_patients()</a></code> offers the five clone-to-patient
+strategies tested in the paper (Fig. 2c):</p>
+<table class="table">
+<colgroup>
+<col width="31%">
+<col width="68%">
+</colgroup>
+<thead><tr class="header">
+<th>Mode</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>weighted_max</code></td>
+<td>Most resistant clone, weighted by its abundance (default; the
+paper’s best strategy, AUC = 0.83)</td>
+</tr>
+<tr class="even">
+<td><code>weighted_average</code></td>
+<td>All clones weighted by their proportions</td>
+</tr>
+<tr class="odd">
+<td><code>average</code></td>
+<td>Unweighted mean across clones</td>
+</tr>
+<tr class="even">
+<td><code>min</code></td>
+<td>Most sensitive clone (lowest viability)</td>
+</tr>
+<tr class="odd">
+<td><code>max</code></td>
+<td>Most resistant clone, unweighted</td>
 </tr>
 </tbody>
 </table>
 </div>
+<div class="section level4">
+<h4 id="pseudo-bulk-expression">3.2.2 Pseudo-bulk expression<a class="anchor" aria-label="anchor" href="#pseudo-bulk-expression"></a>
+</h4>
+<p>For bulk-level analyses, aggregate single-cell expression per
+patient:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">pseudo_bulk</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/each_patient_pseudo_bulk.html">each_patient_pseudo_bulk</a></span><span class="op">(</span></span>
+<span>  sc_expression <span class="op">=</span> <span class="va">sc_expression_rnorm</span>,</span>
+<span>  patient_clone_map <span class="op">=</span> <span class="va">clone_mapping</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<hr>
 </div>
-<div class="section level2">
-<h2 id="predict-drug-response">4. Predict Drug Response<a class="anchor" aria-label="anchor" href="#predict-drug-response"></a>
-</h2>
-<blockquote>
-<p><strong>Important: Rank Normalization</strong></p>
-<p>PERCEPTIONx models are trained on <strong>rank-normalized</strong>
-expression data. If you provide your own expression data (e.g., from
-scRNA-seq), you <strong>must</strong> normalize it first using
-<code><a href="../reference/rank_normalization_mat.html">rank_normalization_mat()</a></code>, or predictions will be
-unreliable.</p>
-<p><strong>How rank normalization works</strong>: For each cell
-(column), every gene’s expression value is replaced by its rank within
-that column, divided by the total number of genes:
-<code>x_norm = rank(x) / n</code>. This transforms each column into a
-uniform distribution over (0, 1], making the data robust to batch
-effects, library size differences, and outliers. Since the model
-coefficients capture the relationship between <strong>relative gene
-expression ranks</strong> and drug response (not absolute values), the
-same normalization must be applied to any new data.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># If your data is NOT already rank-normalized:</span></span>
-<span><span class="va">my_expr_norm</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/rank_normalization_mat.html">rank_normalization_mat</a></span><span class="op">(</span><span class="va">my_raw_expr</span><span class="op">)</span></span>
-<span><span class="co"># Then use my_expr_norm in predict_drugs()</span></span></code></pre></div>
-</blockquote>
+</div>
 <div class="section level3">
-<h3 id="clone-level-prediction">4.1 Clone-Level Prediction<a class="anchor" aria-label="anchor" href="#clone-level-prediction"></a>
+<h3 id="validate-predictions-on-depmap-cell-lines">3.3 Validate predictions on DepMap cell lines<a class="anchor" aria-label="anchor" href="#validate-predictions-on-depmap-cell-lines"></a>
 </h3>
-<p><code><a href="../reference/predict_drugs.html">predict_drugs()</a></code> scores each cell/clone’s drug
-sensitivity from a rank-normalized expression matrix:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Get test cell line expression</span></span>
-<span><span class="va">cellLines_test</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_cellLine_list.html">get_cellLine_list</a></span><span class="op">(</span></span>
+<p>This is a verification exercise, not part of the prediction path: it
+predicts viability for held-out DepMap cell lines and checks the scores
+against known drug response. It is the pattern used to produce the
+validation figures in the paper.</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">cellLines_test</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_cellLine_list.html">get_cellLine_list</a></span><span class="op">(</span></span>
 <span>  infunc_cancerType <span class="op">=</span> <span class="st">"PanCan"</span>,</span>
 <span>  infunc_drugName   <span class="op">=</span> <span class="st">"erlotinib"</span>,</span>
 <span>  exclude_cancer    <span class="op">=</span> <span class="st">"PanCan"</span>,</span>
@@ -244,320 +356,133 @@ sensitivity from a rank-normalized expression matrix:</p>
 <span>  <span class="va">DepMap</span><span class="op">$</span><span class="va">metadata_CPM_scRNA</span><span class="op">$</span><span class="va">DepMap_ID</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">cellLines_test</span><span class="op">]</span></span>
 <span><span class="va">expr_test</span> <span class="op">&lt;-</span> <span class="va">DepMap</span><span class="op">$</span><span class="va">CPM_scRNA_CCLE_rnorm</span><span class="op">[</span>, <span class="va">test_cells</span>, drop <span class="op">=</span> <span class="cn">FALSE</span><span class="op">]</span></span>
 <span></span>
-<span><span class="co"># Predict</span></span>
 <span><span class="va">cell_pred</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/predict_drugs.html">predict_drugs</a></span><span class="op">(</span><span class="va">models</span>, <span class="va">expr_test</span><span class="op">)</span></span></code></pre></div>
-<p>The result is a matrix with cells as rows and drugs as columns, where
-lower values (lower viability) indicate higher drug sensitivity.</p>
+<p>For your own patient data, skip this block entirely and go straight
+to <code><a href="../reference/predict_drugs.html">predict_drugs()</a></code> as in section 2.4.</p>
+<hr>
 </div>
 <div class="section level3">
-<h3 id="patient-level-aggregation">4.2 Patient-Level Aggregation<a class="anchor" aria-label="anchor" href="#patient-level-aggregation"></a>
+<h3 id="the-plotting-suite">3.4 The plotting suite<a class="anchor" aria-label="anchor" href="#the-plotting-suite"></a>
 </h3>
-<p><code><a href="../reference/predict_patients.html">predict_patients()</a></code> aggregates clone-level scores into
-patient-level predictions using clone proportions:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Build clone_viability_df with patient and clone_id columns</span></span>
-<span><span class="va">clone_viability_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  patient  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span><span class="st">"_.*"</span>, <span class="st">""</span>, <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">clone_viability</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  clone_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">clone_viability</span><span class="op">)</span>,</span>
-<span>  <span class="va">clone_viability</span>,</span>
-<span>  check.names <span class="op">=</span> <span class="cn">FALSE</span></span>
+<p>Every plot function accepts <code>tooltip = TRUE</code> (default):
+when the <code>ggiraph</code> package is installed, points and bars get
+hover tooltips (clone id, viability score, proportion, FPR/TPR). Set
+<code>tooltip = FALSE</code> for a plain static <code>ggplot</code> with
+the identical layout. Tooltip text is auto-built from the plot data;
+override it with the <code>tooltip_col</code> argument when a custom
+text column already exists.</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># t-SNE / UMAP with drug response overlay</span></span>
+<span><span class="fu"><a href="../reference/plot_tsne_response.html">plot_tsne_response</a></span><span class="op">(</span><span class="va">tsne_data</span>, color_var <span class="op">=</span> <span class="st">"viability_scaled"</span>, title <span class="op">=</span> <span class="st">"Drug Response"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Biomarker vs. viability side-by-side</span></span>
+<span><span class="fu"><a href="../reference/plot_tsne_biomarker_viability.html">plot_tsne_biomarker_viability</a></span><span class="op">(</span></span>
+<span>  <span class="va">tsne_data</span>, biomarker_var <span class="op">=</span> <span class="st">"biomarker_scaled"</span>, viability_var <span class="op">=</span> <span class="st">"viability_scaled"</span>,</span>
+<span>  biomarker_label <span class="op">=</span> <span class="st">"Biomarker Expression"</span>, viability_label <span class="op">=</span> <span class="st">"Drug Viability"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Patient-level prediction</span></span>
-<span><span class="va">patient_pred</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/predict_patients.html">predict_patients</a></span><span class="op">(</span></span>
-<span>  clone_viability_matrix <span class="op">=</span> <span class="va">clone_viability_df</span>,</span>
-<span>  clone_counts <span class="op">=</span> <span class="va">clone_counts</span>,</span>
-<span>  mode <span class="op">=</span> <span class="st">"weighted_average"</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-<p><strong>Aggregation modes:</strong></p>
-<table class="table">
-<thead><tr class="header">
-<th>Mode</th>
-<th>Description</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td><code>weighted_average</code></td>
-<td>Weighted mean of clone scores by proportion</td>
-</tr>
-<tr class="even">
-<td><code>min</code></td>
-<td>Most sensitive clone (lowest viability)</td>
-</tr>
-<tr class="odd">
-<td><code>max</code></td>
-<td>Least sensitive clone (highest viability)</td>
-</tr>
-<tr class="even">
-<td><code>weighted_max</code></td>
-<td>Weighted maximum across clones</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<div class="section level2">
-<h2 id="evaluate-models">5. Evaluate Models<a class="anchor" aria-label="anchor" href="#evaluate-models"></a>
-</h2>
-<div class="section level3">
-<h3 id="performance-comparison">5.1 Performance Comparison<a class="anchor" aria-label="anchor" href="#performance-comparison"></a>
-</h3>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Compare performance across thresholds</span></span>
-<span><span class="va">perf</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compare_performance.html">compare_performance</a></span><span class="op">(</span><span class="va">models</span>, threshold <span class="op">=</span> <span class="fl">0.3</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co"># Clone abundance stacked bar chart</span></span>
+<span><span class="fu"><a href="../reference/plot_clone_distribution.html">plot_clone_distribution</a></span><span class="op">(</span>clone_distribution <span class="op">=</span> <span class="va">clone_dist_df</span>, response_var <span class="op">=</span> <span class="st">"response"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Plot model performance</span></span>
-<span><span class="fu"><a href="../reference/plot_model_performance.html">plot_model_performance</a></span><span class="op">(</span><span class="va">models</span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="significant-models">5.2 Significant Models<a class="anchor" aria-label="anchor" href="#significant-models"></a>
-</h3>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Filter models with significant stratification</span></span>
-<span><span class="va">sig_models</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_significant_models.html">get_significant_models</a></span><span class="op">(</span></span>
-<span>  <span class="va">models</span>,</span>
-<span>  min_correlation <span class="op">=</span> <span class="fl">0.3</span>,</span>
-<span>  max_pvalue <span class="op">=</span> <span class="fl">0.05</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="pseudo-bulk-expression">5.3 Pseudo-Bulk Expression<a class="anchor" aria-label="anchor" href="#pseudo-bulk-expression"></a>
-</h3>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Compute pseudo-bulk for each patient</span></span>
-<span><span class="va">pseudo_bulk</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/each_patient_pseudo_bulk.html">each_patient_pseudo_bulk</a></span><span class="op">(</span></span>
-<span>  sc_expression <span class="op">=</span> <span class="va">sc_expression_rnorm</span>,</span>
-<span>  patient_clone_map <span class="op">=</span> <span class="va">clone_mapping</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-</div>
-</div>
-<div class="section level2">
-<h2 id="visualize-results">6. Visualize Results<a class="anchor" aria-label="anchor" href="#visualize-results"></a>
-</h2>
-<p>PERCEPTIONx provides a comprehensive suite of plotting functions:</p>
-<div class="section level3">
-<h3 id="t-sne-umap-with-drug-response">6.1 t-SNE / UMAP with Drug Response<a class="anchor" aria-label="anchor" href="#t-sne-umap-with-drug-response"></a>
-</h3>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_tsne_response.html">plot_tsne_response</a></span><span class="op">(</span></span>
-<span>  tsne_data  <span class="op">=</span> <span class="va">tsne_data</span>,</span>
-<span>  color_var  <span class="op">=</span> <span class="st">"viability_scaled"</span>,</span>
-<span>  title      <span class="op">=</span> <span class="st">"Drug Response"</span>,</span>
-<span>  point_size <span class="op">=</span> <span class="fl">0.5</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="biomarker-vs--viability-side-by-side">6.2 Biomarker vs. Viability Side-by-Side<a class="anchor" aria-label="anchor" href="#biomarker-vs--viability-side-by-side"></a>
-</h3>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_tsne_biomarker_viability.html">plot_tsne_biomarker_viability</a></span><span class="op">(</span></span>
-<span>  tsne_data       <span class="op">=</span> <span class="va">tsne_data</span>,</span>
-<span>  biomarker_var   <span class="op">=</span> <span class="st">"biomarker_scaled"</span>,</span>
-<span>  viability_var     <span class="op">=</span> <span class="st">"viability_scaled"</span>,</span>
-<span>  biomarker_label <span class="op">=</span> <span class="st">"Biomarker Expression"</span>,</span>
-<span>  viability_label   <span class="op">=</span> <span class="st">"Drug Viability"</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="clone-distribution">6.3 Clone Distribution<a class="anchor" aria-label="anchor" href="#clone-distribution"></a>
-</h3>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_clone_distribution.html">plot_clone_distribution</a></span><span class="op">(</span></span>
-<span>  clone_distribution <span class="op">=</span> <span class="va">clone_dist_df</span>,</span>
-<span>  response_var       <span class="op">=</span> <span class="st">"response"</span>  <span class="co"># optional facet</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="clone-viability-lollipop-plot">6.4 Clone Viability Lollipop Plot<a class="anchor" aria-label="anchor" href="#clone-viability-lollipop-plot"></a>
-</h3>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_clone_viability.html">plot_clone_viability</a></span><span class="op">(</span></span>
+<span><span class="co"># Clone-level viability lollipop</span></span>
+<span><span class="fu"><a href="../reference/plot_clone_viability.html">plot_clone_viability</a></span><span class="op">(</span></span>
 <span>  clone_viability <span class="op">=</span> <span class="va">clone_viability_df</span>,</span>
-<span>  viability_var   <span class="op">=</span> <span class="st">"comb_viability"</span>,</span>
-<span>  weights_var   <span class="op">=</span> <span class="st">"weights"</span>  <span class="co"># optional: point size by clone proportion</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="response-boxplot">6.5 Response Boxplot<a class="anchor" aria-label="anchor" href="#response-boxplot"></a>
-</h3>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_response_boxplot.html">plot_response_boxplot</a></span><span class="op">(</span></span>
-<span>  exp_vs_pred   <span class="op">=</span> <span class="va">exp_vs_pred</span>,</span>
-<span>  response_var  <span class="op">=</span> <span class="st">"response"</span>,</span>
+<span>  viability_var <span class="op">=</span> <span class="st">"comb_viability"</span>,</span>
+<span>  weights_var <span class="op">=</span> <span class="st">"weights"</span>          <span class="co"># optional: point size by clone proportion</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Responder vs. non-responder boxplot</span></span>
+<span><span class="fu"><a href="../reference/plot_response_boxplot.html">plot_response_boxplot</a></span><span class="op">(</span></span>
+<span>  exp_vs_pred <span class="op">=</span> <span class="va">exp_vs_pred</span>,</span>
+<span>  response_var <span class="op">=</span> <span class="st">"response"</span>,</span>
 <span>  predicted_var <span class="op">=</span> <span class="st">"predicted_viability"</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="roc-curve">6.6 ROC Curve<a class="anchor" aria-label="anchor" href="#roc-curve"></a>
-</h3>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_roc_curve.html">plot_roc_curve</a></span><span class="op">(</span></span>
-<span>  response     <span class="op">=</span> <span class="va">response</span>,</span>
-<span>  predictor    <span class="op">=</span> <span class="va">predictor</span>,</span>
-<span>  smooth_curve <span class="op">=</span> <span class="cn">TRUE</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="seurat-clustering">6.7 Seurat Clustering<a class="anchor" aria-label="anchor" href="#seurat-clustering"></a>
-</h3>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plot_seurat_clustering.html">plot_seurat_clustering</a></span><span class="op">(</span><span class="va">expr_matrix</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">umap_plot</span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="composite-patient-response-panel">6.8 Composite Patient Response Panel<a class="anchor" aria-label="anchor" href="#composite-patient-response-panel"></a>
-</h3>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_patient_response_panel.html">plot_patient_response_panel</a></span><span class="op">(</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># ROC curve with AUC</span></span>
+<span><span class="fu"><a href="../reference/plot_roc_curve.html">plot_roc_curve</a></span><span class="op">(</span>response <span class="op">=</span> <span class="va">response</span>, predictor <span class="op">=</span> <span class="va">predictor</span>, smooth_curve <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Seurat clustering and UMAP</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plot_seurat_clustering.html">plot_seurat_clustering</a></span><span class="op">(</span><span class="va">expr_matrix</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">umap_plot</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Composite patient response panel</span></span>
+<span><span class="fu"><a href="../reference/plot_patient_response_panel.html">plot_patient_response_panel</a></span><span class="op">(</span></span>
 <span>  clone_distribution <span class="op">=</span> <span class="va">clone_dist_df</span>,</span>
-<span>  clone_viability      <span class="op">=</span> <span class="va">clone_viability_df</span>,</span>
-<span>  exp_vs_pred        <span class="op">=</span> <span class="va">exp_vs_pred</span>,</span>
-<span>  viability_col        <span class="op">=</span> <span class="st">"comb_viability"</span></span>
+<span>  clone_viability <span class="op">=</span> <span class="va">clone_viability_df</span>,</span>
+<span>  exp_vs_pred <span class="op">=</span> <span class="va">exp_vs_pred</span>,</span>
+<span>  viability_col <span class="op">=</span> <span class="st">"comb_viability"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="interactive-hover-tooltips">6.9 Interactive Hover Tooltips<a class="anchor" aria-label="anchor" href="#interactive-hover-tooltips"></a>
-</h3>
-<p>Every plotting function accepts <code>tooltip = TRUE</code>
-(default). When the <a href="https://cran.r-project.org/package=ggiraph" class="external-link"><code>ggiraph</code></a>
-package is installed, the plot is built with interactive layers so that
-hovering a point or bar shows a rich tooltip (clone id, viability score,
-proportion, FPR/TPR, …):</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<p>Interactive example:</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_clone_viability.html">plot_clone_viability</a></span><span class="op">(</span></span>
 <span>  clone_viability <span class="op">=</span> <span class="va">clone_viability_df</span>,</span>
-<span>  viability_var   <span class="op">=</span> <span class="st">"comb_viability"</span>,</span>
-<span>  weights_var   <span class="op">=</span> <span class="st">"weights"</span>,</span>
-<span>  tooltip       <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  viability_var <span class="op">=</span> <span class="st">"comb_viability"</span>,</span>
+<span>  weights_var <span class="op">=</span> <span class="st">"weights"</span>,</span>
+<span>  tooltip <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>Set <code>tooltip = FALSE</code> to obtain a plain static
-<code>ggplot</code> with the identical layout — useful when the object
-is passed to packages that only accept standard <code>ggplot</code>
-objects. Tooltip text is auto-built from the plot data; override it with
-the <code>tooltip_col</code> argument when a custom text column already
-exists.</p>
+<hr>
 </div>
-</div>
-<div class="section level2">
-<h2 id="shiny-web-application">7. Shiny Web Application<a class="anchor" aria-label="anchor" href="#shiny-web-application"></a>
-</h2>
-<p>PERCEPTION-shiny is the interactive web dashboard (built with Shiny)
-that wraps the whole pipeline — data loading, model training,
-prediction, and visualization — in a point-and-click interface.</p>
-<p>Heavy computation (training, clustering, prediction, plotting) runs
-in background worker processes, so the UI never blocks other users; the
-main process keeps only lightweight DepMap metadata. See
-<code>vignettes/shiny_app.Rmd</code> for the async architecture and the
-<code>PERCEPTION_WORKERS</code> /
-<code>PERCEPTION_WORKER_IDLE_MINUTES</code> deployment options.</p>
 <div class="section level3">
-<h3 id="launch">7.1 Launch<a class="anchor" aria-label="anchor" href="#launch"></a>
+<h3 id="prepare_data-and-seurat-clustering">3.5 <code>prepare_data()</code> and Seurat clustering<a class="anchor" aria-label="anchor" href="#prepare_data-and-seurat-clustering"></a>
 </h3>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<p>The <code><a href="../reference/prepare_data.html">prepare_data()</a></code> function turns a raw expression
+matrix into the clone-level inputs used by prediction and visualization:
+it clusters cells with Seurat (UMAP or t-SNE), assigns clones, merges
+each clone’s expression, and rank-normalizes it (internally calling
+<code><a href="../reference/rank_normalization_mat.html">rank_normalization_mat()</a></code>), returning a list with
+<code>clone_expression_rnorm</code> and <code>clone_counts</code>.</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">prepared</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/prepare_data.html">prepare_data</a></span><span class="op">(</span><span class="va">expr_matrix</span>, method <span class="op">=</span> <span class="st">"umap"</span>, resolution <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
+<span><span class="va">clone_pred</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/predict_drugs.html">predict_drugs</a></span><span class="op">(</span><span class="va">models</span>, <span class="va">prepared</span><span class="op">$</span><span class="va">clone_expression_rnorm</span><span class="op">)</span></span>
+<span><span class="va">patient_pred</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/predict_patients.html">predict_patients</a></span><span class="op">(</span><span class="va">clone_pred</span>, <span class="va">prepared</span><span class="op">)</span></span></code></pre></div>
+<p>Useful options: <code>resolution</code> (Seurat clustering
+resolution), <code>genes_to_use</code> (restrict the gene space before
+clustering), and <code>skip_clustering = TRUE</code> — if your data is
+already clone-level (one column per clone), <code><a href="../reference/prepare_data.html">prepare_data()</a></code>
+skips clustering and only builds the normalized clone matrix and
+counts.</p>
+<p>Clone identity is carried in the row names as
+<code>Patient@@Clone</code>; <code><a href="../reference/parse_clone_keys.html">parse_clone_keys()</a></code> splits
+them, and <code><a href="../reference/clone_mean_expression.html">clone_mean_expression()</a></code> /
+<code><a href="../reference/build_clone_counts.html">build_clone_counts()</a></code> work on the cloned data for downstream
+analyses.</p>
+<hr>
+</div>
+<div class="section level3">
+<h3 id="the-shiny-web-application">3.6 The Shiny web application<a class="anchor" aria-label="anchor" href="#the-shiny-web-application"></a>
+</h3>
+<p>PERCEPTION-shiny wraps the whole pipeline in a point-and-click
+dashboard. Heavy computation (training, Seurat clustering, prediction,
+plotting) runs in background worker processes, so the interface stays
+responsive even while a large job runs. See the Shiny App Guide for a
+full walkthrough.</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://wanglabcsu.github.io/PERCEPTIONx">PERCEPTIONx</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/run_perception_app.html">run_perception_app</a></span><span class="op">(</span><span class="op">)</span>          <span class="co"># starts the app in your browser</span></span></code></pre></div>
 <p>or directly from the source tree:</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">shiny</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/shiny/man/runApp.html" class="external-link">runApp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"shiny"</span>, <span class="st">"app"</span>, package <span class="op">=</span> <span class="st">"PERCEPTIONx"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>The app has five tabs — Data, Train, Predict, Visualize, and Help —
+and ships with a Load Demo button that generates a small synthetic
+dataset (49 genes x 400 cells x 20 patients) to smoke-test the whole
+flow. Figures in the app are interactive SVG (ggiraph-based), with
+static downloads available as 600 dpi PNG or vector PDF/SVG.</p>
+<hr>
 </div>
 <div class="section level3">
-<h3 id="tabs">7.2 Tabs<a class="anchor" aria-label="anchor" href="#tabs"></a>
+<h3 id="end-to-end-pipeline-script">3.7 End-to-end pipeline script<a class="anchor" aria-label="anchor" href="#end-to-end-pipeline-script"></a>
 </h3>
-<table class="table">
-<colgroup>
-<col width="22%">
-<col width="77%">
-</colgroup>
-<thead><tr class="header">
-<th>Tab</th>
-<th>What you can do</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td><strong>Data</strong></td>
-<td>Load the synthetic demo data (smoke-test), load the full DepMap
-reference (~567 MB), or upload your own rank-normalized single-cell
-matrix + clinical responses</td>
-</tr>
-<tr class="even">
-<td><strong>Train</strong></td>
-<td>Train drug-response models (<code>glmnet</code> / random forest)
-with tunable parameters</td>
-</tr>
-<tr class="odd">
-<td><strong>Predict</strong></td>
-<td>Score clone-level and patient-level drug sensitivity for any loaded
-model</td>
-</tr>
-<tr class="even">
-<td><strong>Visualize</strong></td>
-<td>Clone distribution, clone-viability lollipop, ROC curve, response
-boxplot, model performance, and UMAP/t-SNE overlays</td>
-</tr>
-<tr class="odd">
-<td><strong>Help</strong></td>
-<td>In-app documentation</td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="section level3">
-<h3 id="interactive-plots">7.3 Interactive plots<a class="anchor" aria-label="anchor" href="#interactive-plots"></a>
-</h3>
-<p>All figures are rendered as <strong>interactive SVG</strong> (via
-<code>ggiraph</code>): hover any point or bar to see a tooltip (clone
-id, viability score, proportion, FPR/TPR, …). Because the original
-<code>ggplot</code> object is rendered directly — never converted to
-<code>plotly</code> — facet layouts and legends stay exactly as
-designed: no re-flow, no overlapping labels. Static downloads are
-publication-quality:</p>
-<table class="table">
-<colgroup>
-<col width="40%">
-<col width="60%">
-</colgroup>
-<thead><tr class="header">
-<th>Format</th>
-<th>Resolution</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td>PNG</td>
-<td>600 dpi, Cairo anti-aliased (6000 × 4200 px at default size)</td>
-</tr>
-<tr class="even">
-<td>PDF / SVG</td>
-<td>Vector — infinitely zoomable, recommended for papers</td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="section level3">
-<h3 id="caching-cleanup">7.4 Caching &amp; cleanup<a class="anchor" aria-label="anchor" href="#caching-cleanup"></a>
-</h3>
-<ul>
-<li>Downloaded DepMap data and pre-trained models are written to the R
-session’s <code><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir()</a></code>, so caches are <strong>released
-automatically when the app closes</strong> — nothing persists on disk
-between sessions.</li>
-<li>The app cache-busts its own stylesheet on every start, so you always
-see the newest UI without manually clearing the browser cache.</li>
-</ul>
-</div>
-</div>
-<div class="section level2">
-<h2 id="complete-pipeline-script">8. Complete Pipeline Script<a class="anchor" aria-label="anchor" href="#complete-pipeline-script"></a>
-</h2>
-<p>A ready-to-run end-to-end pipeline script lives in the source
-repository under <code>tools/</code> (it is not shipped with the
-installed package). After cloning the repo, run:</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<p>A ready-to-run script that executes the full workflow (train -&gt;
+predict -&gt; plot) and saves all output figures lives in the source
+repository under <code>tools/</code> (not shipped with the installed
+package). After cloning the repo:</p>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/source.html" class="external-link">source</a></span><span class="op">(</span><span class="st">"tools/test_pipeline.R"</span><span class="op">)</span></span></code></pre></div>
-<p>This script executes the full workflow (train -&gt; predict -&gt;
-plot) and saves all output figures to a local directory.</p>
+<hr>
+</div>
 </div>
 <div class="section level2">
-<h2 id="citation">9. Citation<a class="anchor" aria-label="anchor" href="#citation"></a>
+<h2 id="citation">4. Citation<a class="anchor" aria-label="anchor" href="#citation"></a>
 </h2>
 <p>If you use this package, please cite:</p>
 <p>Sinha, S., Vegesna, R., Mukherjee, S. <em>et al.</em> PERCEPTION
