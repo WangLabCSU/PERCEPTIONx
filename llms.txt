@@ -1,7 +1,5 @@
 # PERCEPTIONx
 
-![PERCEPTIONx hex sticker](reference/figures/logo.png)
-
 **Predicting Personalized Drug Response and Resistance from Single-Cell
 Tumor Transcriptomics.**
 

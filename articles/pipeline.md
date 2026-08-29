@@ -388,8 +388,9 @@ work on the cloned data for downstream analyses.
 PERCEPTION-shiny wraps the whole pipeline in a point-and-click
 dashboard. Heavy computation (training, Seurat clustering, prediction,
 plotting) runs in background worker processes, so the interface stays
-responsive even while a large job runs. See the Shiny App Guide for a
-full walkthrough.
+responsive even while a large job runs. See the [Shiny App
+Guide](https://wanglabcsu.github.io/PERCEPTIONx/articles/shiny_app.html)
+for a full walkthrough.
 
 ``` r
 
