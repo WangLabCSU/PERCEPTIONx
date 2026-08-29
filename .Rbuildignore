@@ -9,7 +9,6 @@
 ^\.Rhistory$
 ^\.github$
 ^Running_PERCEPTION_for_new_dataset\.Rmd$
-^inst/shiny/app/FALSE$
 ^dev$
 ^tools$
 ^tests/testthat/models$
