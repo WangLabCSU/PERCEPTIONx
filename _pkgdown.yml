@@ -2,24 +2,29 @@ url: https://wanglabcsu.github.io/PERCEPTIONx/
 
 template:
   bootstrap: 5
-  bootswatch: flatly
   bslib:
     base_font: {google: "Inter"}
-    heading_font: {google: "Inter"}
+    heading_font: {google: "Lora"}
     primary: "#165c91"
-    navbar_bg: "#165c91"
   includes:
     in_header: |
       <meta name="description" content="PERCEPTIONx — predict patient drug response and resistance from single-cell tumor transcriptomics.">
 
 navbar:
   structure:
-    left: [home, reference, articles, news]
+    left: [home, tutorial, reference, news]
     right: [github]
   components:
     home:
       text: Home
       href: index.html
+    tutorial:
+      text: Tutorial
+      menu:
+      - text: Shiny App Guide
+        href: articles/shiny_app.html
+      - text: R Package Tutorial
+        href: articles/pipeline.html
     github:
       icon: fa-github
       href: https://github.com/WangLabCSU/PERCEPTIONx
@@ -93,19 +98,18 @@ reference:
 
 articles:
   - title: Tutorials
-    desc: Step-by-step guides.
+    desc: Step-by-step guides for R package.
     contents:
       - pipeline
   - title: Shiny App Guide
     desc: Full walkthrough of the interactive web dashboard.
     contents:
       - shiny_app
+  # Chinese mirror of the Shiny guide: kept in the repo but NOT listed on
+  # the site (pkgdown "internal" sections are excluded from the index).
+  - title: internal
+    contents:
       - shiny_app_cn
-
-news:
-  releases:
-  - text: "Changelog"
-    href: news/index.html
 
 footer:
   structure:

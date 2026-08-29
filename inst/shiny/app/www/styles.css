@@ -1041,9 +1041,20 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
   width: 100%;
+  margin: 0 auto;
+  text-align: center;
   text-decoration: none !important;
   color: inherit;
+}
+/* Force every child to the horizontal centre — robust even if a framework
+   rule overrides align-items on the <a> itself (Shiny .action-button). */
+.wf-step-link > .wf-node,
+.wf-step-link > .wf-step-title,
+.wf-step-link > .wf-step-status {
+  margin-left: auto;
+  margin-right: auto;
 }
 .wf-step-link:hover .wf-node {
   box-shadow: 0 6px 18px rgba(22, 92, 145, 0.28);
@@ -1060,10 +1071,19 @@ body {
   justify-content: center;
   font-weight: 700;
   font-size: 1rem;
+  line-height: 1;
   background: #fff;
   border: 2px solid #c6cfdc;
   color: #8a97ad;
   transition: all 0.25s ease;
+}
+/* Glyph centring: icons / digits render more predictably as block flex
+   items with a tight line-height (no stray descender space shifting the
+   visual centre). */
+.wf-node > i,
+.wf-node > span {
+  display: block;
+  line-height: 1;
 }
 .wf-step.done .wf-node {
   background: #27ae60;
