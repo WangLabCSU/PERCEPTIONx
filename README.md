@@ -5,9 +5,12 @@
 [![R >= 4.1.0](https://img.shields.io/badge/R-%3E%3D%204.1.0-276DC3.svg)](https://www.r-project.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/license/mit)
 [![Lifecycle: experimental](https://img.shields.io/badge/Lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html)
+[![R-CMD-check](https://github.com/WangLabCSU/PERCEPTIONx/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/WangLabCSU/PERCEPTIONx/actions/workflows/R-CMD-check.yaml)
+[![codecov](https://codecov.io/gh/WangLabCSU/PERCEPTIONx/branch/main/graph/badge.svg)](https://app.codecov.io/gh/WangLabCSU/PERCEPTIONx?branch=main)
 [![pkgdown](https://github.com/WangLabCSU/PERCEPTIONx/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/WangLabCSU/PERCEPTIONx/actions/workflows/pkgdown.yaml)
 [![Last commit](https://img.shields.io/github/last-commit/WangLabCSU/PERCEPTIONx)](https://github.com/WangLabCSU/PERCEPTIONx)
-[![DOI](https://img.shields.io/badge/DOI-10.1038/s43018--024--00756--7-informational)](https://doi.org/10.1038/s43018-024-00756-7)
+[![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
+[![DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/WangLabCSU/PERCEPTIONx)
 
 <!-- badges: end -->
 
