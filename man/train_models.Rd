@@ -55,6 +55,10 @@ If NULL, automatically calculated from expression_rnorm dimensions.}
 \item{lambda_range}{Numeric vector of length 2. Min and max lambda for tuning grid. Default = c(0.0001, 1).}
 
 \item{cv_method}{Character. Cross-validation method. Default = "cv".}
+
+\item{progress_cb}{Function. Optional progress callback called as
+\code{progress_cb(phase, i, n, drug)} where phase is "rank", "train",
+or "done". Useful for progress bars in interactive sessions.}
 }
 \value{
 A named list of trained model objects, one per drug. Also saved as a single RDS file.

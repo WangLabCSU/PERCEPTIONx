@@ -463,6 +463,9 @@ build_on_BULK_v2 <- function(infunc_drugName,
 #' @param lambda_gradient Integer. Number of lambda values in glmnet tuning grid. Default = 20.
 #' @param lambda_range Numeric vector of length 2. Min and max lambda for tuning grid. Default = c(0.0001, 1).
 #' @param cv_method Character. Cross-validation method. Default = "cv".
+#' @param progress_cb Function. Optional progress callback called as
+#'        \code{progress_cb(phase, i, n, drug)} where phase is "rank", "train",
+#'        or "done". Useful for progress bars in interactive sessions.
 #'
 #' @return A named list of trained model objects, one per drug. Also saved as a single RDS file.
 #'

@@ -8,6 +8,7 @@
 ^DepMap\.RDS$
 ^\.Rhistory$
 ^\.github$
+^_pkgdown\.yml$
 ^Running_PERCEPTION_for_new_dataset\.Rmd$
 ^dev$
 ^tools$

@@ -1,7 +1,13 @@
+# encoding: UTF-8
+
 #' PERCEPTIONx Patient Data Annotation Functions
 #'
 #' Functions for annotating single-cell data with clone and patient information,
 #' and preparing patient data for the prediction pipeline.
+#'
+#' @name annotate_perception
+#' @keywords internal
+NULL
 
 
 # Internal: shared Seurat clustering + 2D embedding pipeline.
@@ -25,7 +31,7 @@ run_seurat_pipeline <- function(expression_matrix, method,
                                      nfeatures = nfeatures)
   so <- Seurat::ScaleData(so, features = Seurat::VariableFeatures(object = so))
 
-  # PCA requires npcs < min(nrow, ncol) of the scaled matrix — cap dims to the
+  # PCA requires npcs < min(nrow, ncol) of the scaled matrix -- cap dims to the
   # number actually available so small datasets do not error out.
   max_pcs <- min(ncol(so), length(Seurat::VariableFeatures(object = so))) - 1
   actual_dims <- min(dims, max_pcs)
@@ -45,7 +51,7 @@ run_seurat_pipeline <- function(expression_matrix, method,
 
   if (method == "umap") {
     # RunUMAP's uwot call is single-threaded and uses heavy defaults
-    # (n_neighbors = 30, n_epochs = 500, n_trees = 50) — on small datasets
+    # (n_neighbors = 30, n_epochs = 500, n_trees = 50) -- on small datasets
     # the Annoy index build + calibration alone cost ~1-5 s of fixed
     # overhead (measured: 5.0 s on 1500 cells, ~1.2 s on 400). The UMAP here
     # is ONLY the 2D layout for the spatial plots; clone detection comes from
@@ -359,7 +365,7 @@ prepare_data <- function(method = c("umap", "tsne"),
 
   # --- Step 1: Define clones (Seurat clustering OR clone-level input) ---
   if (isTRUE(skip_clustering)) {
-    message("[1/5] Skipping Seurat clustering — each column is treated as one clone...")
+    message("[1/5] Skipping Seurat clustering -- each column is treated as one clone...")
     cn <- colnames(expression_matrix)
     if (is.null(cn)) {
       stop("expression_matrix must have column names when skip_clustering = TRUE ",

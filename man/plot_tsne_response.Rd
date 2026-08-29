@@ -43,7 +43,7 @@ for the sequential palette. Default = NULL (uses built-in viridis).}
 
 \item{limits}{Numeric vector of length 2. Optional fixed scale limits
 (e.g. \code{c(0, 1)} for 0-1 expression) to pin the color at each
-end. Default = NULL (data-driven limits — recommended, so extreme
+end. Default = NULL (data-driven limits -- recommended, so extreme
 values always keep a real color instead of clipping to grey/NA).}
 
 \item{base_size}{Numeric. Base font size for theme. Default = 11.}

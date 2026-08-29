@@ -1,3 +1,5 @@
+# encoding: UTF-8
+
 #' PERCEPTIONx Visualization Functions
 #'
 #' This module provides visualization functions for PERCEPTIONx model results,
@@ -7,10 +9,11 @@
 #'
 #' @name plot_perception
 #' @keywords internal
-#' @importFrom ggplot2 ggplot aes geom_point geom_segment geom_boxplot geom_violin geom_bar geom_hline geom_line geom_vline geom_jitter geom_text geom_rect coord_cartesian coord_equal theme theme_bw theme_void labs element_text element_rect element_line element_blank facet_grid facet_wrap vars scale_colour_gradientn scale_colour_gradient2 scale_fill_manual scale_color_manual scale_colour_manual scale_x_discrete scale_size margin unit guide_colourbar guides guide_legend ggtitle annotate rel
+#' @importFrom ggplot2 ggplot aes geom_point geom_segment geom_boxplot geom_violin geom_bar geom_hline geom_line geom_vline geom_jitter geom_text geom_rect geom_abline coord_cartesian coord_equal theme theme_bw theme_void labs element_text element_rect element_line element_blank facet_grid facet_wrap vars scale_colour_gradientn scale_colour_gradient2 scale_fill_manual scale_color_manual scale_colour_manual scale_x_discrete scale_size margin unit guide_colourbar guides guide_legend ggtitle annotate rel
 #' @importFrom rlang .data
 #' @importFrom pROC ggroc roc auc smooth
 #' @importFrom stats t.test wilcox.test
+#' @importFrom utils combn
 NULL
 
 # Column names used in aes() - declare as global variables to suppress R CMD check notes
@@ -18,7 +21,9 @@ utils::globalVariables(c("X", "Y", "clones", "weights", "patients",
                          "clone_id", "Predictability", "drugsCount", "dataused",
                          "pred_viab", "expression",
                          "tooltip_text", "data_id", "fpr", "tpr",
-                         "x", "y", "label", "yintercept"))
+                         "x", "y", "label", "yintercept",
+                         "size_val", "drugProp", "Dataset", "y_mid",
+                         "Label", "AUC"))
 
 # ---------------------------------------------------------------------------
 # Design system
@@ -74,7 +79,7 @@ clone_palette <- function(n) {
 
 # Diverging scale for z-score / 0-1 style values: the two ends are pinned to
 # the app's THEME colors (--primary #165C91 = low, --accent #c13232 = high),
-# white at the midpoint — red/blue is more intuitive than viridis.
+# white at the midpoint -- red/blue is more intuitive than viridis.
 diverging_colors <- c("#165C91", "#F7F7F7", "#c13232")
 # Sequential scale for percentile/rank values (viridis family)
 sequential_colors <- c("#440154", "#3B528B", "#21908C", "#5DC863", "#FDE725")
@@ -119,7 +124,7 @@ natural_levels <- function(x) {
 #' @param midpoint Numeric. Center value for diverging palette. Default = 0.
 #' @param limits Numeric vector of length 2. Optional fixed scale limits
 #'        (e.g. \code{c(0, 1)} for 0-1 expression) to pin the color at each
-#'        end. Default = NULL (data-driven limits — recommended, so extreme
+#'        end. Default = NULL (data-driven limits -- recommended, so extreme
 #'        values always keep a real color instead of clipping to grey/NA).
 #' @param base_size Numeric. Base font size for theme. Default = 11.
 #' @param tooltip Logical. If TRUE (default) and \pkg{ggiraph} is installed,
@@ -235,7 +240,7 @@ plot_tsne_response <- function(tsne_data,
 
 #' Plot UMAP colored by clone identity
 #'
-#' Single cells in the 2D embedding colored by clone identity — the spatial
+#' Single cells in the 2D embedding colored by clone identity -- the spatial
 #' analogue of the paper's Extended Data Fig. 8a, showing at a glance which
 #' transcriptional subclones sit where.
 #'
@@ -442,7 +447,7 @@ plot_clone_distribution <- function(clone_distribution,
                                     size = rel(0.8))) +
     labs(y = "Clone Proportion", x = "Patients", fill = "Clone")
 
-  # Facet by response group (R/NR) — Y axis kept fixed (0-1) so proportions
+  # Facet by response group (R/NR) -- Y axis kept fixed (0-1) so proportions
   # are directly comparable across facets; only X is free.
   if (!is.null(response_var) && response_var %in% colnames(clone_distribution)) {
     p <- p +
@@ -505,7 +510,7 @@ resp_short_tag <- function(rv) {
 #'        (dark = low/sensitive, yellow = high/resistant). If FALSE (default),
 #'        uses the diverging red-blue scale (blue = low/sensitive, white =
 #'        neutral, red = high/resistant) with data-driven limits, so every
-#'        value keeps a real color — nothing clips to grey/NA outside a
+#'        value keeps a real color -- nothing clips to grey/NA outside a
 #'        fixed window.
 #' @param tooltip Logical. If TRUE (default) and \pkg{ggiraph} is installed,
 #'        points get hover tooltips (clone + viability + proportion).
@@ -585,7 +590,7 @@ plot_clone_viability <- function(clone_viability,
   }
 
   # Build aes mapping. NOTE: `size` (clone proportion) is mapped ONLY on
-  # geom_point — a global size mapping would be inherited by the line layers
+  # geom_point -- a global size mapping would be inherited by the line layers
   # (geom_segment/geom_hline), which triggers the ggplot2 "size for lines is
   # deprecated" warning.
   has_weights <- !is.null(weights_var) && weights_var %in% colnames(clone_viability)
@@ -650,7 +655,7 @@ plot_clone_viability <- function(clone_viability,
     labs(x = "Clones", y = "Predicted Viability (z-score)",
          color = "Predicted Viability",
          size = if (has_weights) "Proportion in Tumor" else NULL,
-         caption = "Higher = more resistant · lower = more sensitive (stronger drug killing). Z-scores are standardized across all patients, so clones are comparable across patients.") +
+         caption = "Higher = more resistant - lower = more sensitive (stronger drug killing). Z-scores are standardized across all patients, so clones are comparable across patients.") +
     theme(legend.position = "top",
           legend.box = "horizontal",
           legend.box.spacing = unit(8, "pt"),
@@ -760,7 +765,7 @@ plot_roc_curve <- function(response,
     stop("Package 'pROC' is required for ROC curve plotting. Install with: install.packages('pROC')")
   }
 
-  # Single-class response cannot build a ROC curve — return an informative placeholder
+  # Single-class response cannot build a ROC curve -- return an informative placeholder
   if (length(unique(response[!is.na(response)])) < 2) {
     stop("ROC curve requires at least two response classes (e.g. both R and NR).")
   }
@@ -874,7 +879,7 @@ plot_response_boxplot <- function(exp_vs_pred,
 
   # Ensure response is a factor preserving R/NR order (R first, as passed in).
   # The one-sided test below (alternative = "less") asks whether R viability is
-  # significantly LOWER than NR — i.e. responders are more sensitive.
+  # significantly LOWER than NR -- i.e. responders are more sensitive.
   resp_vec <- exp_vs_pred[[response_var]]
   if (is.factor(resp_vec)) {
     resp_vec <- factor(resp_vec)  # drop unused levels, keep order
@@ -934,7 +939,7 @@ plot_response_boxplot <- function(exp_vs_pred,
   # Wilcoxon tests on every combination with BH (FDR) multiple-testing
   # correction; for 5+ groups a single Kruskal-Wallis omnibus test (too many
   # brackets to read). A global Kruskal-Wallis only says "at least one group
-  # differs" — it cannot say WHICH pairs differ, so pairwise is used instead.
+  # differs" -- it cannot say WHICH pairs differ, so pairwise is used instead.
   n_lv <- length(levels(exp_vs_pred[[response_var]]))
   if (n_lv == 2) {
     lvls <- levels(exp_vs_pred[[response_var]])
@@ -1010,7 +1015,7 @@ plot_response_boxplot <- function(exp_vs_pred,
           }
         }
       } else {
-        # Many groups — a single global omnibus test (too many brackets to read).
+        # Many groups -- a single global omnibus test (too many brackets to read).
         kw <- tryCatch(stats::kruskal.test(test_data[[predicted_var]], test_data[[response_var]]),
                        error = function(e) NULL)
         if (!is.null(kw) && !is.na(kw$p.value)) {
@@ -1073,7 +1078,7 @@ plot_model_performance <- function(performance_list,
       el <- x[[what]]
       if (is.null(el)) return(NULL)
       # Training output is a named vector (unlist(cor.test(...))), while the
-      # built-in demo models use a one-row data.frame — support both.
+      # built-in demo models use a one-row data.frame -- support both.
       if (is.data.frame(el)) {
         if (!(col %in% colnames(el))) return(NULL)
         el[[col]][1]
@@ -1102,7 +1107,7 @@ plot_model_performance <- function(performance_list,
   }
 
   # Report the PROPORTION of models passing each threshold (not the raw count),
-  # so the three datasets are directly comparable on the same 0–1 scale.
+  # so the three datasets are directly comparable on the same 0-1 scale.
   n_models <- length(performance_list)
 
   df2plot <- rbind(
@@ -1161,7 +1166,7 @@ plot_model_performance <- function(performance_list,
 #'
 #' For each model and each validation dataset (bulk, pseudo-bulk, single-cell),
 #' the observed response is stratified into the top vs bottom 50\% by rank
-#' (resistant vs sensitive — the PERCEPTION paper's convention, Extended Data
+#' (resistant vs sensitive -- the PERCEPTION paper's convention, Extended Data
 #' Fig. 4C) and a ROC curve of the predicted
 #' viability is drawn, one curve per dataset, with the AUC annotated in the
 #' legend. Higher AUC = the model stratifies better. This is the most
@@ -1227,7 +1232,7 @@ plot_model_roc <- function(performance_list, base_size = 13) {
       # Top vs bottom 50% BY RANK (the paper's convention, Extended Data
       # Fig. 4C). ties.method="first" breaks ties by position: a value-based
       # split `obs <= median(obs)` (or average-tie ranks) collapses heavy
-      # ties — e.g. many cell lines capped at AUC = 1 for a targeted drug —
+      # ties -- e.g. many cell lines capped at AUC = 1 for a targeted drug --
       # into a single class and makes the ROC impossible. First-tie ranks are
       # always 1..n, so the median split always yields two balanced classes.
       if (length(unique(obs[keep])) < 2) {
@@ -1262,7 +1267,7 @@ plot_model_roc <- function(performance_list, base_size = 13) {
     ok_rows
   })
   names(curve_rows) <- names(performance_list)
-  # Drugs that produced no ROC data at all — record them so the app can tell
+  # Drugs that produced no ROC data at all -- record them so the app can tell
   # the user instead of silently showing fewer panels.
   dropped_drugs <- names(curve_rows)[vapply(curve_rows, is.null, logical(1))]
   curve_rows <- curve_rows[!vapply(curve_rows, is.null, logical(1))]
@@ -1284,7 +1289,7 @@ plot_model_roc <- function(performance_list, base_size = 13) {
   ds_levels  <- c("bulk", "pseudo-bulk", "single-cell")
 
   # 2-column layout (5+ drugs) gives narrow panels: the full dataset names
-  # collide with the AUC values there. Use compact but still readable labels —
+  # collide with the AUC values there. Use compact but still readable labels --
   # the top legend spells the full names out.
   n_drugs_total <- length(unique(df$Drug))
   short_mode <- n_drugs_total > 4
@@ -1330,7 +1335,7 @@ plot_model_roc <- function(performance_list, base_size = 13) {
     geom_abline(slope = 1, intercept = 0, linetype = "dashed",
                 color = "grey55", linewidth = 0.35) +
     geom_line(linewidth = 0.9) +
-    # shadow layer — constants passed directly (not aes()) so ggplot2 does not
+    # shadow layer -- constants passed directly (not aes()) so ggplot2 does not
     # warn about recycling scalar aesthetics across the per-drug rows.
     geom_rect(data = box_bg,
               xmin = box_x0 + 0.006, xmax = box_x1 + 0.006,
@@ -1377,7 +1382,7 @@ plot_model_roc <- function(performance_list, base_size = 13) {
           legend.box.spacing = unit(8, "pt"))
 
   # Multiple drugs: stack one panel per drug (full width) instead of squeezing
-  # them into a single row — narrow panels overlap the AUC box, strip labels
+  # them into a single row -- narrow panels overlap the AUC box, strip labels
   # and legend. With 5+ drugs a 2-column grid keeps the total height bounded
   # while each panel stays wide enough. The UI grows the plot height to match
   # (see mod_train.R).
@@ -1518,7 +1523,7 @@ plot_patient_response_panel <- function(clone_distribution,
   p3 <- plot_response_boxplot(exp_vs_pred, response_var = response_col,
                               predicted_var = predicted_col)
 
-  # Panel 4: ROC curve — auto-disable smoothing for small samples + safety net
+  # Panel 4: ROC curve -- auto-disable smoothing for small samples + safety net
   n_pts <- sum(!is.na(exp_vs_pred[[response_col]]) & !is.na(exp_vs_pred[[predicted_col]]))
   p4 <- tryCatch({
     plot_roc_curve(response = exp_vs_pred[[response_col]],
