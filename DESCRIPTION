@@ -27,8 +27,7 @@ Imports:
     uwot,
     shiny,
     ggiraph,
-    parallel,
-    callr
+    parallel
 URL: https://wanglabcsu.github.io/PERCEPTIONx, https://github.com/WangLabCSU/PERCEPTIONx
 BugReports: https://github.com/WangLabCSU/PERCEPTIONx/issues
 Suggests:
@@ -41,5 +40,6 @@ Suggests:
     plotly,
     waiter,
     thematic,
-    readxl
+    readxl,
+    callr
 Config/testthat/edition: 3

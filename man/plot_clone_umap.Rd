@@ -40,7 +40,7 @@ text. Default = NULL (auto-builds from the clone id).}
 A ggplot object.
 }
 \description{
-Single cells in the 2D embedding colored by clone identity — the spatial
+Single cells in the 2D embedding colored by clone identity -- the spatial
 analogue of the paper's Extended Data Fig. 8a, showing at a glance which
 transcriptional subclones sit where.
 }

@@ -24,7 +24,7 @@ run_perception_app <- function() {
   # The dashboard hard-depends on these packages. They are in Suggests (not
   # Imports) to keep the core pipeline lean, so check them here and fail fast
   # with an actionable message instead of a cryptic library() error.
-  app_deps <- c("bslib", "DT", "plotly", "waiter", "thematic")
+  app_deps <- c("bslib", "DT", "plotly", "waiter", "thematic", "callr")
   missing <- app_deps[!vapply(app_deps, requireNamespace, logical(1), quietly = TRUE)]
   if (length(missing) > 0) {
     stop("The PERCEPTIONx dashboard requires these packages, which are not installed: ",
