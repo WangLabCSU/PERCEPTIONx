@@ -267,19 +267,21 @@ mod_help_ui <- function(id) {
             div(class = "help-section-icon", icon("book-open")),
             div(
               h5("Citation"),
-              p(class = "help-subtitle", "If you use PERCEPTIONx, please cite")
+              p(class = "help-subtitle", "If you use this package, please cite both the package and the original PERCEPTION study:")
             )
           ),
           div(class = "citation-box",
-            "Sinha, S., Vegesna, R., Mukherjee, S. et al. PERCEPTION predicts patient response and resistance to treatment using single-cell transcriptomics of their tumors. ",
+            strong("Jia Ding."),
+            " PERCEPTIONx: Personalized Drug Response Prediction from Single-Cell Transcriptomics. R package version 0.1.0. ",
+            a("https://github.com/WangLabCSU/PERCEPTIONx",
+              href = "https://github.com/WangLabCSU/PERCEPTIONx",
+              target = "_blank"),
+            br(), br(),
+            strong("Sinha, S., Vegesna, R., Mukherjee, S."),
+            " et al. PERCEPTION predicts patient response and resistance to treatment using single-cell transcriptomics of their tumors. ",
             em("Nat Cancer"), " 5, 938-952 (2024). ",
             a("DOI: 10.1038/s43018-024-00756-7",
               href = "https://doi.org/10.1038/s43018-024-00756-7",
-              target = "_blank"),
-            br(), br(),
-            icon("github"),
-            a(" github.com/WangLabCSU/PERCEPTIONx",
-              href = "https://github.com/WangLabCSU/PERCEPTIONx",
               target = "_blank")
           )
         )
