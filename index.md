@@ -13,10 +13,6 @@ wrapping the whole pipeline. The method is the
 [PERCEPTION](https://doi.org/10.1038/s43018-024-00756-7) approach (Sinha
 et al., *Nat Cancer* 5, 938–952, 2024).
 
-  
-
-------------------------------------------------------------------------
-
 ## 1. Installation
 
 Install the development version from GitHub:
@@ -26,8 +22,6 @@ Install the development version from GitHub:
 # install.packages("devtools")
 devtools::install_github("WangLabCSU/PERCEPTIONx")
 ```
-
-------------------------------------------------------------------------
 
 ## 2. Quick Start
 
@@ -94,8 +88,6 @@ Tutorial](https://wanglabcsu.github.io/PERCEPTIONx/articles/pipeline.html)
 for the full workflow, including training, model evaluation, and the
 complete plotting suite.
 
-------------------------------------------------------------------------
-
 ## 3. Shiny Web Application
 
 PERCEPTION-shiny wraps the whole pipeline in an interactive web
@@ -115,8 +107,6 @@ a Load Demo button that generates a small synthetic dataset (49 genes x
 App
 Guide](https://wanglabcsu.github.io/PERCEPTIONx/articles/shiny_app.html)
 for a full walkthrough.
-
-------------------------------------------------------------------------
 
 ## 4. Function Reference
 
@@ -176,8 +166,6 @@ for a full walkthrough.
 | [`plot_seurat_clustering()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_seurat_clustering.md) | Seurat clustering and UMAP visualization |
 | [`plot_patient_response_panel()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_patient_response_panel.md) | Composite patient response panel |
 
-------------------------------------------------------------------------
-
 ## 5. Workflow
 
     DepMap Data ──► Model Training ──► Clone Prediction ──► Patient Aggregation
@@ -188,8 +176,6 @@ for a full walkthrough.
     Patient scRNA ──► prepare_data()                Visualization & Evaluation
                        (clustering +                     │
                         rank normalization)        plot_*() / compare_performance()
-
-------------------------------------------------------------------------
 
 ## 6. Data Requirements
 
@@ -203,8 +189,6 @@ for a full walkthrough.
   handles clustering and rank normalization.
 - **Clinical responses (optional)**: patient-level response labels, used
   for validation (ROC, responder vs. non-responder boxplots).
-
-------------------------------------------------------------------------
 
 ## 7. Citation
 
@@ -220,8 +204,6 @@ PERCEPTION study:
   <https://doi.org/10.1038/s43018-024-00756-7>
 
 Feedback: <jiading682@qq.com>
-
-------------------------------------------------------------------------
 
 ## 8. License
 

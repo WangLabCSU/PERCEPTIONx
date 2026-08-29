@@ -72,8 +72,6 @@
 <!-- badges: end -->
 <p><strong>Predicting Personalized Drug Response and Resistance from Single-Cell Tumor Transcriptomics.</strong></p>
 <p>PERCEPTIONx trains drug-response models on DepMap cell-line screens and applies them to a patient’s single-cell expression profile. It scores sensitivity at the clone and patient level, then turns the results into publication-ready figures — with a point-and-click Shiny web application wrapping the whole pipeline. The method is the <a href="https://doi.org/10.1038/s43018-024-00756-7" class="external-link">PERCEPTION</a> approach (Sinha et al., <em>Nat Cancer</em> 5, 938–952, 2024).</p>
-<p><br clear="all"></p>
-<hr>
 <div class="section level2">
 <h2 id="id_1-installation">1. Installation<a class="anchor" aria-label="anchor" href="#id_1-installation"></a>
 </h2>
@@ -81,7 +79,6 @@
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("devtools")</span></span>
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"WangLabCSU/PERCEPTIONx"</span><span class="op">)</span></span></code></pre></div>
-<hr>
 </div>
 <div class="section level2">
 <h2 id="id_2-quick-start">2. Quick Start<a class="anchor" aria-label="anchor" href="#id_2-quick-start"></a>
@@ -123,7 +120,6 @@
 <span><span class="fu"><a href="reference/plot_roc_curve.html">plot_roc_curve</a></span><span class="op">(</span>response <span class="op">=</span> <span class="va">response</span>, predictor <span class="op">=</span> <span class="va">predictor</span>, smooth_curve <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/plot_response_boxplot.html">plot_response_boxplot</a></span><span class="op">(</span>exp_vs_pred <span class="op">=</span> <span class="va">exp_vs_pred</span>, response_var <span class="op">=</span> <span class="st">"response"</span><span class="op">)</span></span></code></pre></div>
 <p>Every plot accepts <code>tooltip = TRUE</code> (default): with the <code>ggiraph</code> package installed, points and bars get hover tooltips (clone id, viability score, proportion, FPR/TPR). See the <a href="https://wanglabcsu.github.io/PERCEPTIONx/articles/pipeline.html">R Package Tutorial</a> for the full workflow, including training, model evaluation, and the complete plotting suite.</p>
-<hr>
 </div>
 </div>
 <div class="section level2">
@@ -134,7 +130,6 @@
 <code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">load_all</span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/run_perception_app.html">run_perception_app</a></span><span class="op">(</span><span class="op">)</span>          <span class="co"># starts the app in your browser</span></span></code></pre></div>
 <p>The app has five tabs — Data, Train, Predict, Visualize, and Help — with a Load Demo button that generates a small synthetic dataset (49 genes x 400 cells x 20 patients) to smoke-test the whole flow. See the <a href="https://wanglabcsu.github.io/PERCEPTIONx/articles/shiny_app.html">Shiny App Guide</a> for a full walkthrough.</p>
-<hr>
 </div>
 <div class="section level2">
 <h2 id="id_4-function-reference">4. Function Reference<a class="anchor" aria-label="anchor" href="#id_4-function-reference"></a>
@@ -340,7 +335,6 @@
 </tr>
 </tbody>
 </table>
-<hr>
 </div>
 </div>
 <div class="section level2">
@@ -354,7 +348,6 @@
 Patient scRNA ──► prepare_data()                Visualization &amp; Evaluation
                    (clustering +                     │
                     rank normalization)        plot_*() / compare_performance()</code></pre>
-<hr>
 </div>
 <div class="section level2">
 <h2 id="id_6-data-requirements">6. Data Requirements<a class="anchor" aria-label="anchor" href="#id_6-data-requirements"></a>
@@ -367,7 +360,6 @@ Patient scRNA ──► prepare_data()                Visualization &amp; Evalua
 <li>
 <strong>Clinical responses (optional)</strong>: patient-level response labels, used for validation (ROC, responder vs. non-responder boxplots).</li>
 </ul>
-<hr>
 </div>
 <div class="section level2">
 <h2 id="id_7-citation">7. Citation<a class="anchor" aria-label="anchor" href="#id_7-citation"></a>
@@ -381,7 +373,6 @@ Patient scRNA ──► prepare_data()                Visualization &amp; Evalua
 </li>
 </ul>
 <p>Feedback: <a href="mailto:jiading682@qq.com" class="email">jiading682@qq.com</a></p>
-<hr>
 </div>
 <div class="section level2">
 <h2 id="id_8-license">8. License<a class="anchor" aria-label="anchor" href="#id_8-license"></a>
