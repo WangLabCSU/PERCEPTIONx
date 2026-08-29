@@ -43,6 +43,12 @@ main#main img.logo {
   height: 160px;
 }
 
+/* Hide the README top image on the website home page — the hero logo next
+   to the title already shows it (the image stays visible on GitHub). */
+main#main img.home-logo {
+  display: none;
+}
+
 /* ---------- Paragraph & list breathing room ---------- */
 main#main p {
   margin-bottom: 1rem;
