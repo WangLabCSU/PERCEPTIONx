@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="man/figures/logo.png" class="home-logo" width="220" alt="PERCEPTIONx hex sticker">
-</p>
+<img src="man/figures/logo.png" class="home-logo" align="right" width="160" alt="PERCEPTIONx hex sticker">
 
 # PERCEPTIONx
 
