@@ -1,5 +1,5 @@
 # Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
-# Runs R CMD check on push/PR and uploads coverage to codecov.
+# Runs R CMD check on push/PR.
 on:
   push:
     branches: [main, master]
@@ -25,14 +25,9 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck, any::covr
+          extra-packages: any::rcmdcheck
           needs: check
 
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true
-
-      - name: Test coverage
-        run: |
-          covr::codecov(quiet = FALSE, clean = FALSE, token = "${{ secrets.CODECOV_TOKEN }}")
-        shell: Rscript {0}
