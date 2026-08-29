@@ -1,0 +1,135 @@
+/* ============================================================
+   PERCEPTIONx — pkgdown custom styles
+   pkgdown >= 2.2 layout: <main id="main" class="col-md-9"> +
+   <aside class="col-md-3"> (sidebar). Body has NO page class.
+   Sidebar policy: never occupies layout space. It is hidden by
+   default and, on demand, pops out as a floating right panel
+   (toggled by the button created in extra.js).
+   ============================================================ */
+
+/* ---------- Typography ---------- */
+p, li {
+  line-height: 1.7;
+}
+h1, h2, h3, h4 {
+  letter-spacing: -0.01em;
+}
+
+/* Navbar (tabs + package name) in the serif heading face */
+.navbar {
+  font-family: "Lora", Georgia, serif;
+}
+.navbar-brand {
+  font-weight: 700;
+}
+
+/* ---------- Layout: content full width and centred ---------- */
+main#main {
+  padding-top: 28px;
+}
+@media (min-width: 992px) {
+  main#main {
+    flex: 0 0 100%;
+    width: 100% !important;
+    max-width: 980px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* ---------- Home hero logo (next to the title) ---------- */
+main#main img.logo {
+  width: 160px;
+  height: 160px;
+}
+
+/* ---------- Paragraph & list breathing room ---------- */
+main#main p {
+  margin-bottom: 1rem;
+}
+main#main li {
+  margin-bottom: 0.6rem;
+}
+main#main ul,
+main#main ol {
+  margin-bottom: 1rem;
+}
+
+/* Hide the auto-generated image captions (pkgdown repeats the alt text
+   under every figure; the real description already follows the image). */
+main#main .figcaption {
+  display: none;
+}
+
+/* ---------- Sidebar: hidden by default, floating panel on demand ---------- */
+@media (min-width: 992px) {
+  aside.col-md-3 {
+    display: none;
+  }
+  aside.col-md-3.toc-visible {
+    display: block;
+    position: fixed;
+    top: 76px;
+    right: 14px;
+    z-index: 999;
+    width: 264px;
+    max-height: calc(100vh - 110px);
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #e4e9f0;
+    border-radius: 10px;
+    box-shadow: 0 10px 32px rgba(11, 51, 82, 0.16);
+    padding: 1rem 1.25rem 1.1rem;
+  }
+  /* Panel headings: small uppercase */
+  aside.col-md-3.toc-visible h2,
+  aside.col-md-3.toc-visible nav h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #94a0b5;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* ---------- Floating sidebar toggle button (extra.js) ---------- */
+@media (min-width: 992px) {
+  #toc-toggle-btn {
+    display: flex;
+    position: fixed;
+    top: 76px;
+    right: 14px;
+    z-index: 1000;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid #dbe2ea;
+    background: #fff;
+    color: #165c91;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 10px rgba(11, 51, 82, 0.12);
+    transition: background 0.15s ease;
+  }
+  #toc-toggle-btn:hover {
+    background: #f0f4f8;
+  }
+  #toc-toggle-btn.active {
+    background: #165c91;
+    color: #fff;
+  }
+}
+
+/* ---------- Reference index: breathing room ---------- */
+main#main table td {
+  padding-top: 0.8rem;
+  padding-bottom: 0.8rem;
+}
+
+/* ---------- Code: quiet rounding ---------- */
+pre, code {
+  border-radius: 6px;
+}

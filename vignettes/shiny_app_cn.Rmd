@@ -19,23 +19,36 @@ vignette: >
 ## 目录
 
 - [0. 环境要求与启动](#0-环境要求与启动)
+
 - [1. 界面总览](#1-界面总览)
+
 - [2. Data 页：加载数据](#2-data-页加载数据)
+
 - [3. Train 页：训练模型（可选）](#3-train-页训练模型可选)
+
 - [4. Predict 页：预测杀伤值](#4-predict-页预测杀伤值)
+
 - [5. Visualize 页：可视化](#5-visualize-页可视化)
+
 - [6. Help 页](#6-help-页)
+
 - [7. 常见问题（FAQ）](#7-常见问题faq)
+
 - [8. 引用与联系](#8-引用与联系)
 
 ---
 
 ## 0. 环境要求与启动
 
+---
+
 ### 0.1 环境要求
 
 - **R** ≥ 4.1.0
+
 - 主要依赖包：`devtools`、`shiny`、`bslib`、`Seurat`、`ggplot2`、`ggiraph`、`glmnet`、`caret`、`DT`、`plotly`、`waiter`、`thematic`、`callr`、`readxl`（缺失时应用会在相应功能处提示安装）
+
+---
 
 ### 0.2 启动方式
 
@@ -51,6 +64,8 @@ run_perception_app()          # 启动应用（自动打开浏览器）
 ```{r, eval = FALSE}
 shiny::runApp("inst/shiny/app")
 ```
+
+---
 
 ### 0.3 整体流程
 
@@ -68,7 +83,9 @@ DepMap 参考数据 ──► 模型训练 ──► 克隆/患者预测 ──�
 > **异步架构（多用户友好）**：训练、聚类（prepare_data）、预测、绘图等**耗时计算全部在后台独立进程（worker）中执行**，界面进程只负责显示和收发文件，因此一个用户运行大任务时，其他用户的操作完全不受影响。
 >
 > - **训练**：标准 DepMap 走**共享 master**（全局一个后台进程，加载一份 DepMap，Linux 上并行任务共享同一份内存，空闲 12 小时自动退出释放内存）；用户上传的 DepMap 走**专属隔离 worker**，互不污染。
+>
 > - **聚类 / 预测 / 绘图 / Load Demo**：每个会话一个轻量 worker 处理，计算结果写回文件后界面自动刷新。
+>
 > - **环境变量**（部署时可选）：`PERCEPTION_WORKERS`（共享池并行任务数，默认 16）、`PERCEPTION_WORKER_IDLE_MINUTES`（master 空闲退出分钟数，默认 720）。
 
 ---
@@ -91,42 +108,65 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 >
 > 点击 **Load Demo** 一键生成合成演示数据：**49 个基因 × 400 个细胞 × 20 例患者**，并自动完成 Seurat 聚类、秩归一化，随后训练演示模型。用于快速测试整个流程，感受各功能页的交互方式。
 
+---
+
 ### 2.1 加载 DepMap 参考数据（训练必需）
 
 两种方式：
 
 1. **Download & Load**：点击按钮自动从官方镜像下载 DepMap 参考集（约 567 MB，1.5 万+ 基因 × 1,000+ 细胞系），下载完成后自动加载。这是标准训练/参考输入，也是内存和磁盘占用最大的步骤。
+
 2. **本地上传 .RDS**：如果本地已有 DepMap 文件（`DepMap.RDS` 格式），直接 Browse 选中即自动加载。
 
 > **关于内存（重要）**：界面进程只读取 DepMap 的**元数据**（基因名、药物列表、各组件维度，几百 KB）；完整的多 GB 对象由后台 worker 在**独立进程**中加载，专供模型训练使用。因此多个用户同时使用也不会每个会话各占一份 8 GB 内存（参考架构说明见 0.3 节）。
+
+---
 
 ### 2.2 加载模型
 
 两种方式：
 
 1. **Download & Load**：一键下载 44 种 FDA 批准药物的预训练模型（如 `abemaciclib`、`erlotinib`、`osimertinib`），多选时每项右侧有 × 可单独删除
+
 2. **本地上传 .RDS**：选择训练好的模型文件（`train_models()` 或 Train 页导出的 RDS），选中即自动加载
+
+---
 
 ### 2.3 上传表达矩阵（患者 scRNA-seq）
 
 - **支持的格式**：CSV / TSV / TXT / Excel（.xlsx/.xls）/ RDS
+
 - **支持的 R 对象**（RDS）：需为数值矩阵或 data.frame（基因 × 细胞）；不支持直接传入 Seurat 对象，请先导出为矩阵
+
 - **矩阵方向**：基因 × 细胞（行为基因、列为细胞）；若第一列是基因名字符列（Excel/csv 导出常见），会自动转为行名
+
 - **关于归一化**：表达数据需要是**秩归一化**（rank-normalized）后使用。若上传的是原始计数，勾选后由应用在聚类流程中自动归一化。
+
+---
 
 ### 2.4 上传细胞-患者映射（Mapping）
 
 - **支持的格式**：CSV / TSV / TXT / Excel / RDS
+
 - **必须包含两列**：`cell_id`（细胞名，与表达矩阵列名一致）和 `patient_id`（细胞所属患者）。列名大小写均可（`Patient`、`PATIENT` 都能识别）
+
 - **RDS 命名列表**：若 RDS 是"患者 → 细胞名向量"的命名列表（如论文 demo 的 `PRJNA591860_sample_cell_names.RDS`），会自动转换为长格式；无细胞的空样本自动丢弃
+
+---
 
 ### 2.5 上传临床响应（Response，可选但推荐）
 
 - **支持的格式**：CSV / TSV / TXT / Excel / RDS
+
 - **必须包含两列**：`patient`（与 Mapping 的 `patient_id` 完全一致）和 `response`（患者对药物的真实临床结局）
+
 - **响应值自动归一化**：`responder` / `responsive` / `r` / `sensitive` → **Responder**；`non-responder` / `nr` / `resistant` → **Non-responder**
+
 - 上传时会自动检查 patient 是否与 Mapping 对齐；若完全不重叠会发出警告
+
 - **为什么需要**：只有知道真实结局，才能验证预测准不准（画 ROC、响应者/非响应者箱线图）。只想看预测分数可以不传
+
+---
 
 ### 2.6 聚类分群（Seurat）
 
@@ -152,6 +192,8 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 > 如果只是想用现有模型预测，**完全可以不训练**——直接用 Data 页加载的 44 个预训练模型即可。Train 页适合：换药物、换癌症类型、自定义基因集、想查看模型在三种数据验证集上的表现。
 
+---
+
 ### 3.1 参数说明
 
 | 参数 | 说明 |
@@ -164,11 +206,16 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 | **Algorithm** | 弹性网络 `glmnet`（推荐）或随机森林 `rf` |
 | **CPU Cores** | 并行核数 |
 
+---
+
 ### 3.2 结果解读
 
 - **Model Summary**：每个药物的模型类型与超参数（glmnet 的 alpha/lambda，或 rf 的 ntree/RMSE）
+
 - **Performance Plot**：模型性能曲线（阈值-相关关系）
+
 - **Performance Metrics**：模型在 **Bulk / Pseudo-bulk / Single-cell** 三个层面上的预测-真实相关系数与 p 值。相关系数越高、p 值越小 = 模型越好
+
 - **Download Model (.RDS)**：导出训练好的模型，可日后在 Data 页直接上传复用
 
 ![模型 Validation ROC 曲线（Train 页）](../man/figures/shiny-validation-roc.png)
@@ -182,6 +229,7 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 选择已加载的模型（Data 页加载的预训练模型或 Train 页训练出的模型），点击预测：
 
 1. **Clone-level（克隆级）**：每个克隆 × 每个药物的活力分数。分数语义：模型输出的是 **viability（存活度）**，**值越高 = 越耐药、越低 = 越敏感**；预测热图展示的是模型原始预测值（未归一化）；棒棒糖图和 UMAP Drug Viability 使用 z-score（以 0 为中心，可负）
+
 2. **Patient-level（患者级）**：按克隆占比把克隆分数聚合到患者（默认 `weighted_max`），得到每例患者的药物敏感性分层
 
 输出包括交互式热图（克隆 × 药物，plotly）与可下载的预测表格。
@@ -196,6 +244,8 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 所有图表均为**交互式 SVG**（基于 ggiraph）：鼠标悬停任意点/条即可看到详细信息（克隆 ID、杀伤分数、占比、FPR/TPR 等）。图内工具栏禁用了缩放；导出为 PNG/PDF 使用页面顶部的下载按钮。
 
+---
+
 ### 5.1 Clone Distribution（stackplot）
 
 ![克隆分布堆叠条形图](../man/figures/shiny-clone-distribution.png)
@@ -204,17 +254,25 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 > 注意：克隆身份取决于数据来源——全局聚类路径下，同一克隆（同色）确实跨患者共享；克隆级输入（如按患者编号的 c1/c2/c3）时，**跨患者颜色相同不代表同一克隆来源**，它只是共享的类别标签。
 
+---
+
 ### 5.2 Clone Viability（lolliplot）
 
 ![克隆活力棒棒糖图](../man/figures/shiny-lollipop.png)
 
 - **展示规则**：全样本、全克隆展示，一例患者一个分面，一根棒 = 一个克隆
+
 - **颜色**：蓝-白-红发散——蓝 = 预测敏感（低活力），红 = 预测耐药（高活力）。色标范围随数据自适应，极端 z-score 仍有真实颜色（不会变灰/无色）
+
 - **点大小**：克隆占比（占比大的克隆点大）
+
 - **排序**：患者内按占比降序；有响应数据时 Responder 排在前面
+
 - **y 轴**：Predicted Viability（z-score），0 线为中位参考
 
 > **Combination（联合）模式**：Drug Name 下拉框默认选中 **Combination**，用于多药联合（如论文的 DARA–KRD 骨髓瘤队列）。合成规则与论文 Fig. 2 完全一致——克隆级：先把每个药的克隆级 viability 跨全部克隆做全局 z-score，再逐克隆取 `min`（IDA 原则：联合疗效由组合中**最有效**的那一药决定，对应论文 `pmin(z_carfilzomib, z_lenalidomide)`）；患者级：取**最耐药克隆 × 其丰度占比**的加权最大值（`weighted_max`，论文 5 种策略中 AUC 最高的第 5 种）。棒棒糖图中每根棒 = 一个克隆的**联合** z-viability。
+
+---
 
 ### 5.3 ROC Curve
 
@@ -222,11 +280,15 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 使用真实临床响应（Data 页上传的 Response）与患者级预测分数绘制 ROC 曲线，AUC 越接近 1 说明预测分层能力越强。Drug Name 选 **Combination**（默认）时使用患者级**联合分数**（`weighted_max`，对应论文 Fig. 2e）；选单个药物时查看该药的 ROC（对应各单药视图）。
 
+---
+
 ### 5.4 Response Boxplot（R vs NR）
 
 ![响应箱线图（R vs NR）](../man/figures/shiny-boxplot.png)
 
 分组展示 Responder 与 Non-responder 的预测分数分布，附带显著性检验结果。同样地，选 **Combination**（默认）即展示联合分数的 R/NR 分布（对应论文 Fig. 2d）。
+
+---
 
 ### 5.5 Model Performance
 
@@ -234,28 +296,25 @@ Data 页是分析的起点，负责加载四种数据：**演示数据 / DepMap 
 
 该图位于 **Train 页**（对应 3.2 节 Performance Plot），不属于 Visualize 页。展示训练模型的验证性能曲线（需 Train 页训练的模型；预训练模型不适用，页面会提示）。
 
+---
+
 ### 5.6 空间图（UMAP / t-SNE）
 
-![UMAP 基因表达（SLC2A1）](../man/figures/shiny-gene-expression.png)
+![UMAP 基因表达](../man/figures/shiny-gene-expression.png)
 
-![UMAP 药物活力（erlotinib）](../man/figures/shiny-drug-viability.png)
+基因表达视图按每个细胞的单基因表达量着色。数值经 5th–95th 百分位压缩到 [0, 1]，再以灰→红渐变显示：灰色表示无或低表达，红色表示高表达。用来查看基因在哪些细胞群中高表达。
+
+![UMAP 药物活力](../man/figures/shiny-drug-viability.png)
+
+药物活力视图按每个细胞所属克隆的预测活力分数着色，形成拼接色块：红色块为预测耐药（高活力），蓝色块为预测敏感（低活力）。它显示耐药与敏感亚克隆在嵌入空间中的位置。
 
 ![UMAP 克隆身份（全局聚类）](../man/figures/shiny-clone-identity.png)
 
-选择降维方法和着色变量：
+克隆身份视图按克隆（聚类）着色，展示分群结构。它是连接前两张图的参照：当某个克隆区域在活力图中呈红色、在基因表达图中也呈红色时，该基因与该耐药在空间上对应。
 
-- **Gene Expression**：每个细胞的单基因真实表达量，值经 5th–95th 百分位压缩到 [0, 1]（range01 归一化），灰→红连续色标（灰 = 无/低表达，红 = 高表达）——看基因在哪群细胞高表达
-- **Drug Viability**：每个细胞回填所属克隆的预测活力分数，呈"拼接色块"——看哪些克隆被预测耐药（亮）或敏感（暗）
-- **Clone / Cluster**：按克隆（聚类）着色——看分群结构
+三张图对照读法：若某群细胞基因表达高、在活力图中也呈暖色（高活力），说明该基因高表达与预测耐药正相关；反之则与敏感相关。注意两张图色标刻度不同，只比较空间分布模式，不要比较绝对值。
 
-> 对照读法：Gene Expression 高表达的细胞群，如果在 Drug Viability 图中也是暖色（高活力），说明该基因高表达与预测耐药正相关；反之（暗色/低活力）则与敏感相关。注意两图色标刻度不同，只看空间分布模式。
->
-> 例如，根据上方的基因表达 / 药物活力示例图能得出初步的有效信息：
->
-> 1. 耐药标志物线索：最右下角的克隆中，SLC2A1 的高表达区与厄洛替尼预测高活力区在空间上存在重叠，提示 SLC2A1 高表达可能是该耐药克隆的标志物。
-> 2. 敏感主群体：位于正上方的几个主要细胞群，SLC2A1 表达接近于零，却恰好是预测药物活力最低的区域。
->
-> 因此，在PRJNA591860数据集中，SLC2A1 的局部异常高表达显著指向厄洛替尼耐药；而绝大多数不表达 SLC2A1 的细胞，对药物高度敏感。这为“SLC2A1 可能是耐药靶点”提供了初步的单细胞层面证据。
+---
 
 ### 5.7 高清下载
 

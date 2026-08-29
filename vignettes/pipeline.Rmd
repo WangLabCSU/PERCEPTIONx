@@ -29,16 +29,24 @@ knitr::opts_chunk$set(
 PERCEPTIONx implements the PERCEPTION approach (PERsonalized single-Cell Expression-based Planning for Treatments In ONcology), which predicts how individual patients respond to drug treatments by leveraging both bulk and single-cell RNA sequencing data. This vignette walks through the complete pipeline:
 
 1. **Load Data** — Download DepMap reference data and pre-trained models
+
 2. **Train Models** — Build drug response models from cell line data
+
 3. **Predict** — Score drug sensitivity at clone and patient levels
+
 4. **Evaluate** — Assess model performance and significance
+
 5. **Visualize** — Generate publication-quality figures
 
 ```r
 library(PERCEPTIONx)
 ```
 
+---
+
 # 2. Load Data
+
+---
 
 ## 2.1 DepMap Reference Data
 
@@ -55,6 +63,8 @@ The `mirror = TRUE` argument attempts GitHub mirrors for faster downloads in reg
 add_mirrors("https://my-mirror.example.com/PERCEPTIONx")
 ```
 
+---
+
 ## 2.2 Pre-trained Models
 
 For quick exploration, you can load pre-trained models without training from scratch:
@@ -67,7 +77,11 @@ models <- load_model("abemaciclib", read = TRUE)
 models <- load_model(c("abemaciclib", "erlotinib"), read = TRUE)
 ```
 
+---
+
 # 3. Train Models
+
+---
 
 ## 3.1 Feature Selection
 
@@ -85,6 +99,8 @@ GOI_100 <- sample(available_genes, 100)
 ```
 
 Setting `GOI = NULL` uses all available genes (slower but more thorough).
+
+---
 
 ## 3.2 Training
 
@@ -114,6 +130,8 @@ models <- train_models(
 | `model_type` | `"glmnet"` (elastic net) or `"rf"` (random forest) |
 | `ncores` | Number of CPU cores for parallel training |
 
+---
+
 # 4. Predict Drug Response
 
 > **Important: Rank Normalization**
@@ -138,6 +156,8 @@ models <- train_models(
 > # Then use my_expr_norm in predict_drugs()
 > ```
 
+---
+
 ## 4.1 Clone-Level Prediction
 
 `predict_drugs()` scores each cell/clone's drug sensitivity from a rank-normalized expression matrix:
@@ -160,6 +180,8 @@ cell_pred <- predict_drugs(models, expr_test)
 ```
 
 The result is a matrix with cells as rows and drugs as columns, where lower values (lower viability) indicate higher drug sensitivity.
+
+---
 
 ## 4.2 Patient-Level Aggregation
 
@@ -191,7 +213,11 @@ patient_pred <- predict_patients(
 | `max` | Least sensitive clone (highest viability) |
 | `weighted_max` | Weighted maximum across clones |
 
+---
+
 # 5. Evaluate Models
+
+---
 
 ## 5.1 Performance Comparison
 
@@ -202,6 +228,8 @@ perf <- compare_performance(models, threshold = 0.3, verbose = TRUE)
 # Plot model performance
 plot_model_performance(models)
 ```
+
+---
 
 ## 5.2 Significant Models
 
@@ -214,6 +242,8 @@ sig_models <- get_significant_models(
 )
 ```
 
+---
+
 ## 5.3 Pseudo-Bulk Expression
 
 ```r
@@ -224,9 +254,13 @@ pseudo_bulk <- each_patient_pseudo_bulk(
 )
 ```
 
+---
+
 # 6. Visualize Results
 
 PERCEPTIONx provides a comprehensive suite of plotting functions:
+
+---
 
 ## 6.1 t-SNE / UMAP with Drug Response
 
@@ -238,6 +272,8 @@ plot_tsne_response(
   point_size = 0.5
 )
 ```
+
+---
 
 ## 6.2 Biomarker vs. Viability Side-by-Side
 
@@ -251,6 +287,8 @@ plot_tsne_biomarker_viability(
 )
 ```
 
+---
+
 ## 6.3 Clone Distribution
 
 ```r
@@ -259,6 +297,8 @@ plot_clone_distribution(
   response_var       = "response"  # optional facet
 )
 ```
+
+---
 
 ## 6.4 Clone Viability Lollipop Plot
 
@@ -270,6 +310,8 @@ plot_clone_viability(
 )
 ```
 
+---
+
 ## 6.5 Response Boxplot
 
 ```r
@@ -279,6 +321,8 @@ plot_response_boxplot(
   predicted_var = "predicted_viability"
 )
 ```
+
+---
 
 ## 6.6 ROC Curve
 
@@ -290,12 +334,16 @@ plot_roc_curve(
 )
 ```
 
+---
+
 ## 6.7 Seurat Clustering
 
 ```r
 result <- plot_seurat_clustering(expr_matrix)
 print(result$umap_plot)
 ```
+
+---
 
 ## 6.8 Composite Patient Response Panel
 
@@ -307,6 +355,8 @@ plot_patient_response_panel(
   viability_col        = "comb_viability"
 )
 ```
+
+---
 
 ## 6.9 Interactive Hover Tooltips
 
@@ -329,6 +379,8 @@ layout — useful when the object is passed to packages that only accept standar
 `ggplot` objects. Tooltip text is auto-built from the plot data; override it
 with the `tooltip_col` argument when a custom text column already exists.
 
+---
+
 # 7. Shiny Web Application
 
 PERCEPTION-shiny is the interactive web dashboard (built with Shiny) that
@@ -340,6 +392,8 @@ background worker processes, so the UI never blocks other users; the main
 process keeps only lightweight DepMap metadata. See `vignettes/shiny_app.Rmd`
 for the async architecture and the `PERCEPTION_WORKERS` /
 `PERCEPTION_WORKER_IDLE_MINUTES` deployment options.
+
+---
 
 ## 7.1 Launch
 
@@ -354,6 +408,8 @@ or directly from the source tree:
 shiny::runApp(system.file("shiny", "app", package = "PERCEPTIONx"))
 ```
 
+---
+
 ## 7.2 Tabs
 
 | Tab | What you can do |
@@ -363,6 +419,8 @@ shiny::runApp(system.file("shiny", "app", package = "PERCEPTIONx"))
 | **Predict** | Score clone-level and patient-level drug sensitivity for any loaded model |
 | **Visualize** | Clone distribution, clone-viability lollipop, ROC curve, response boxplot, model performance, and UMAP/t-SNE overlays |
 | **Help** | In-app documentation |
+
+---
 
 ## 7.3 Interactive plots
 
@@ -377,13 +435,18 @@ overlapping labels. Static downloads are publication-quality:
 | PNG    | 600 dpi, Cairo anti-aliased (6000 × 4200 px at default size) |
 | PDF / SVG | Vector — infinitely zoomable, recommended for papers |
 
+---
+
 ## 7.4 Caching & cleanup
 
 - Downloaded DepMap data and pre-trained models are written to the R session's
   `tempdir()`, so caches are **released automatically when the app closes** —
   nothing persists on disk between sessions.
+
 - The app cache-busts its own stylesheet on every start, so you always see the
   newest UI without manually clearing the browser cache.
+
+---
 
 # 8. Complete Pipeline Script
 
@@ -395,6 +458,8 @@ source("tools/test_pipeline.R")
 ```
 
 This script executes the full workflow (train -> predict -> plot) and saves all output figures to a local directory.
+
+---
 
 # 9. Citation
 

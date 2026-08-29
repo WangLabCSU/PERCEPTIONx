@@ -9,23 +9,23 @@
 
 <!-- badges: end -->
 
-<p align="center">
-  <img src="man/figures/shiny-home.png" width="80%" alt="PERCEPTIONx dashboard">
-</p>
+**Predicting Personalized Drug Response and Resistance from Single-Cell Tumor Transcriptomics.**
 
-**Predicting personalized drug response and resistance from single-cell tumor transcriptomics.**
+PERCEPTIONx is an R package that predicts how individual patients will respond to cancer
+treatment by combining bulk cell-line screens (DepMap) with patient single-cell expression
+profiles. It trains drug-response models on 44 FDA-approved drugs, scores sensitivity at the
+clone and patient level, and ships an interactive visualization suite plus a point-and-click
+Shiny web application — from raw scRNA-seq to clinical stratification in one pipeline.
 
-PERCEPTIONx is an R package that predicts how **individual patients** will respond to cancer
-treatment by combining **bulk cell-line screens** (DepMap) with **patient single-cell expression
-profiles**. It trains drug-response models on 44 FDA-approved drugs, scores sensitivity at the
-**clone** and **patient** level, and ships an interactive visualization suite plus a point-and-click
-**Shiny web application** — from raw scRNA-seq to clinical stratification in one pipeline.
+---
 
 ## 1. Overview
 
 PERCEPTIONx implements the PERCEPTION approach (PERsonalized single-Cell Expression-based Planning for Treatments In ONcology), a computational framework that predicts how individual patients respond to drug treatments by leveraging both bulk and single-cell RNA sequencing data. It trains models on DepMap cell line data and applies them to patient single-cell expression profiles, enabling clone-level drug sensitivity prediction and patient-level response stratification, together with an interactive visualization suite and a Shiny web application.
 
 > **Reference**: Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts patient response and resistance to treatment using single-cell transcriptomics of their tumors. *Nat Cancer* 5, 938–952 (2024). [https://doi.org/10.1038/s43018-024-00756-7](https://doi.org/10.1038/s43018-024-00756-7)
+
+---
 
 ## 2. Installation
 
@@ -36,7 +36,11 @@ Install the development version from GitHub using devtools.
 devtools::install_github("WangLabCSU/PERCEPTIONx")
 ```
 
+---
+
 ## 3. Quick Start
+
+---
 
 ### 3.1 💾 Load Data
 
@@ -52,6 +56,8 @@ models <- load_model("abemaciclib", read = TRUE)
 # Load DepMap reference data
 load_depmap(read = TRUE)
 ```
+
+---
 
 ### 3.2 🧠 Train Models
 
@@ -75,6 +81,8 @@ models <- train_models(
   ncores = 1
 )
 ```
+
+---
 
 ### 3.3 🎯 Predict Drug Response
 
@@ -118,6 +126,8 @@ patient_pred <- predict_patients(
 # Recommended workflow instead: pass the prepare_data() result directly
 # patient_pred <- predict_patients(clone_pred, prepared)
 ```
+
+---
 
 ### 3.4 🎨 Visualize Results
 
@@ -163,7 +173,11 @@ plot_response_boxplot(
 > proportion, FPR/TPR, ...). Set `tooltip = FALSE` for a plain static `ggplot`
 > with the identical layout. See the package vignette §6.9 for details.
 
+---
+
 ## 4. Function Reference
+
+---
 
 ### 4.1 Data Loading
 
@@ -176,12 +190,16 @@ plot_response_boxplot(
 | `list_mirrors()` | List current mirrors |
 | `reset_mirrors()` | Reset to default mirrors |
 
+---
+
 ### 4.2 Preprocessing
 
 | Function | Description |
 |----------|-------------|
 | `rank_normalization_mat()` | Rank-normalize an expression matrix |
 | `range01()` | Scale a numeric vector to the 0-1 range |
+
+---
 
 ### 4.3 Model Training
 
@@ -194,12 +212,16 @@ plot_response_boxplot(
 | `run_parallel_feature_ranking_bulk()` | Feature ranking for multiple drugs (vectorized; serial is faster than the old Windows cluster) |
 | `build_on_BULK_v2()` | Build a single-drug model (glmnet or random forest) |
 
+---
+
 ### 4.4 Prediction
 
 | Function | Description |
 |----------|-------------|
 | `predict_drugs()` | Predict drug sensitivity at clone/cell level |
 | `predict_patients()` | Aggregate clone-level predictions to patient level |
+
+---
 
 ### 4.5 Evaluation
 
@@ -209,6 +231,8 @@ plot_response_boxplot(
 | `get_significant_models()` | Filter models with significant stratification |
 | `get_performance()` | Load pre-computed performance metrics |
 | `each_patient_pseudo_bulk()` | Compute patient pseudo-bulk expression |
+
+---
 
 ### 4.6 Visualization
 
@@ -224,6 +248,8 @@ plot_response_boxplot(
 | `plot_seurat_clustering()` | Seurat clustering and UMAP visualization |
 | `plot_patient_response_panel()` | Composite patient response panel |
 
+---
+
 ### 4.7 Utilities
 
 | Function | Description |
@@ -232,6 +258,8 @@ plot_response_boxplot(
 | `stripall2match()` | Normalize strings for fuzzy matching |
 | `hypergeometric_test_for_twolists()` | Hypergeometric enrichment test |
 | `fdrcorr()` | FDR multiple testing correction |
+
+---
 
 ## 5. Workflow
 
@@ -250,11 +278,17 @@ Patient scRNA ──► Preprocessing ──► Clone Prediction ──► Patie
                                               compare_performance() / get_significant_models()
 ```
 
+---
+
 ## 6. Data Requirements
 
 - **DepMap reference data**: Automatically downloaded via `load_depmap()`, including bulk expression, single-cell expression, drug response (AUC), and cell line annotations.
+
 - **Patient data**: Single-cell RNA expression matrix (genes as rows, cells as columns), rank-normalized via `rank_normalization_mat()`.
+
 - **Clone annotations**: Mapping from cells to clones/patients, with clone proportions per patient.
+
+---
 
 ### 6.1 Testing with real (large-scale) data
 
@@ -266,6 +300,7 @@ For a meaningful large-scale test, use:
    `load_depmap()`), which downloads the full reference set (~567 MB, 15k+ genes
    x 1,000+ cell lines). This is the standard training/reference input and the
    most demanding step for memory and disk.
+
 2. **Real patient scRNA-seq** — upload a gene x cell expression matrix. Accepted
    formats: CSV / TSV / TXT / Excel / RDS (a numeric matrix or data.frame;
    Seurat objects are not accepted — export the matrix first).
@@ -279,12 +314,15 @@ For a meaningful large-scale test, use:
    (breast cancer scRNA-seq, 44 patients, Wu et al. 2021). Any dataset with
    10,000+ cells and multiple patients will exercise the Seurat clustering,
    prediction, and visualization steps at realistic scale.
+
 3. **Pre-trained models** — `load_model("abemaciclib")` (or any of the 44 FDA
    drugs) avoids the cost of training and lets you go straight to prediction.
 
 Expected runtime: with DepMap + a 44-patient scRNA cohort, Seurat clustering and
 clone-level prediction take several minutes and several GB of RAM. The demo data
 can be used first to verify the whole pipeline works end-to-end.
+
+---
 
 ## 7. Shiny Web Application
 
@@ -293,10 +331,12 @@ the whole pipeline — data loading, model training, prediction, and
 visualization — in a point-and-click interface.
 
 Heavy computation (training, Seurat clustering, prediction, plot math) runs in
-**background worker processes**, so the interface stays responsive even while a
+background worker processes, so the interface stays responsive even while a
 large job runs; the main process only keeps lightweight DepMap metadata. See
 `vignettes/shiny_app.Rmd` for the async architecture and the
 `PERCEPTION_WORKERS` / `PERCEPTION_WORKER_IDLE_MINUTES` deployment options.
+
+---
 
 ### 7.1 Launch
 
@@ -312,6 +352,8 @@ or directly from the source tree:
 shiny::runApp(system.file("shiny", "app", package = "PERCEPTIONx"))
 ```
 
+---
+
 ### 7.2 Tabs
 
 | Tab | What you can do |
@@ -321,6 +363,8 @@ shiny::runApp(system.file("shiny", "app", package = "PERCEPTIONx"))
 | **Predict** | Score clone-level and patient-level drug sensitivity for any loaded model |
 | **Visualize** | Clone distribution, clone-viability lollipop, ROC curve, response boxplot, and UMAP/t-SNE overlays (model performance lives on the Train tab) |
 | **Help** | In-app documentation |
+
+---
 
 ### 7.3 Interactive plots
 
@@ -334,6 +378,8 @@ are publication-quality:
 | PNG    | 600 dpi, Cairo anti-aliased (6000 × 4200 px at default size) |
 | PDF / SVG | Vector — infinitely zoomable, recommended for papers |
 
+---
+
 ### 7.4 Caching & cleanup
 
 - DepMap data is cached in a persistent directory (Windows: the user data
@@ -341,14 +387,19 @@ are publication-quality:
   variable), with a 12-hour unused-expiry (TTL) mechanism. Cached files stay
   on disk after the app closes; if unused for more than 12 hours, the next
   click deletes and re-downloads them.
+
 - The app cache-busts its own stylesheet on every start, so you always see the
   newest UI without manually clearing the browser cache.
+
+---
 
 ## 8. Citation
 
 If you use this package, please cite the original PERCEPTION study:
 
 Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts patient response and resistance to treatment using single-cell transcriptomics of their tumors. *Nat Cancer* 5, 938–952 (2024). https://doi.org/10.1038/s43018-024-00756-7
+
+---
 
 ## 9. License
 
