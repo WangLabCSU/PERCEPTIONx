@@ -95,6 +95,12 @@ train_models(
 
   Character. Cross-validation method. Default = "cv".
 
+- progress_cb:
+
+  Function. Optional progress callback called as
+  `progress_cb(phase, i, n, drug)` where phase is "rank", "train", or
+  "done". Useful for progress bars in interactive sessions.
+
 ## Value
 
 A named list of trained model objects, one per drug. Also saved as a

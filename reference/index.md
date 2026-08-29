@@ -65,8 +65,6 @@ Download and load DepMap reference data and pre-trained models.
 
 ## Clone & Seurat Pipeline
 
-- [`run_seurat_pipeline()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/run_seurat_pipeline.md)
-  : PERCEPTIONx Patient Data Annotation Functions
 - [`annotate_clones()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/annotate_clones.md)
   : Annotate cells with clone IDs via Seurat clustering
 - [`build_clone_counts()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/build_clone_counts.md)

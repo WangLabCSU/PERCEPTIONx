@@ -61,7 +61,7 @@ plot_clone_viability(
   low/sensitive, yellow = high/resistant). If FALSE (default), uses the
   diverging red-blue scale (blue = low/sensitive, white = neutral, red =
   high/resistant) with data-driven limits, so every value keeps a real
-  color — nothing clips to grey/NA outside a fixed window.
+  color – nothing clips to grey/NA outside a fixed window.
 
 - tooltip:
 

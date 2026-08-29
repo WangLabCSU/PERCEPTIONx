@@ -2,7 +2,7 @@
 
 For each model and each validation dataset (bulk, pseudo-bulk,
 single-cell), the observed response is stratified into the top vs bottom
-50\\ (resistant vs sensitive — the PERCEPTION paper's convention,
+50\\ (resistant vs sensitive – the PERCEPTION paper's convention,
 Extended Data Fig. 4C) and a ROC curve of the predicted viability is
 drawn, one curve per dataset, with the AUC annotated in the legend.
 Higher AUC = the model stratifies better. This is the most informative

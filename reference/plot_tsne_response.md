@@ -65,7 +65,7 @@ plot_tsne_response(
 
   Numeric vector of length 2. Optional fixed scale limits (e.g.
   `c(0, 1)` for 0-1 expression) to pin the color at each end. Default =
-  NULL (data-driven limits — recommended, so extreme values always keep
+  NULL (data-driven limits – recommended, so extreme values always keep
   a real color instead of clipping to grey/NA).
 
 - base_size:

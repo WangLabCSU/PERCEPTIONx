@@ -11,6 +11,7 @@
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/news/index.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/add_mirrors.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/annotate_clones.html</loc></url>
+<url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/annotate_perception.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/build_clone_counts.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/build_clone_key.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/build_on_BULK_v2.html</loc></url>
@@ -56,7 +57,6 @@
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/reset_mirrors.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/run_parallel_feature_ranking_bulk.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/run_perception_app.html</loc></url>
-<url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/run_seurat_pipeline.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/stats_perception.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/train_models.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/train_perception.html</loc></url>
