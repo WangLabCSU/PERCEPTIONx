@@ -17,7 +17,7 @@
 
 PERCEPTIONx trains drug-response models on DepMap cell-line screens and applies them to a patient's single-cell expression profile. It scores sensitivity at the clone and patient level, then turns the results into publication-ready figures — with a point-and-click Shiny web application wrapping the whole pipeline. The method is the [PERCEPTION](https://doi.org/10.1038/s43018-024-00756-7) approach (Sinha et al., *Nat Cancer* 5, 938–952, 2024).
 
-<br clear="right">
+<br clear="all">
 
 ---
 
@@ -177,9 +177,12 @@ Patient scRNA ──► prepare_data()                Visualization & Evaluation
 
 ## 7. Citation
 
-If you use this package, please cite the original PERCEPTION study:
+If you use this package, please cite both the package and the original PERCEPTION study:
 
-Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts patient response and resistance to treatment using single-cell transcriptomics of their tumors. *Nat Cancer* 5, 938–952 (2024). https://doi.org/10.1038/s43018-024-00756-7
+- **Jia Ding**. PERCEPTIONx: Personalized Drug Response Prediction from Single-Cell Transcriptomics. R package version 0.1.0. <https://github.com/WangLabCSU/PERCEPTIONx>
+- Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts patient response and resistance to treatment using single-cell transcriptomics of their tumors. *Nat Cancer* 5, 938–952 (2024). https://doi.org/10.1038/s43018-024-00756-7
+
+Feedback: jiading682@qq.com
 
 ---
 

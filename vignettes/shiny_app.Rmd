@@ -359,9 +359,10 @@ All heavy computation runs in background worker processes; the interface only po
 
 ## 8. Citation & Contact
 
-If you use this app or package, please cite the original methodology paper:
+If you use this app or package, please cite both the package and the original methodology paper:
 
-> Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts patient response and resistance to treatment using single-cell transcriptomics of their tumors. *Nature Cancer* 5, 938–952 (2024). DOI: [10.1038/s43018-024-00756-7](https://doi.org/10.1038/s43018-024-00756-7)
+- **Jia Ding**. PERCEPTIONx: Personalized Drug Response Prediction from Single-Cell Transcriptomics. R package version 0.1.0. <https://github.com/WangLabCSU/PERCEPTIONx>
+- **Sinha, S., Vegesna, R., Mukherjee, S.** *et al.* PERCEPTION predicts patient response and resistance to treatment using single-cell transcriptomics of their tumors. *Nature Cancer* 5, 938–952 (2024). DOI: [10.1038/s43018-024-00756-7](https://doi.org/10.1038/s43018-024-00756-7)
 
 Repository: [github.com/WangLabCSU/PERCEPTIONx](https://github.com/WangLabCSU/PERCEPTIONx)
 
