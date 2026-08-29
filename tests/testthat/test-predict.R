@@ -6,14 +6,17 @@ library(testthat)
 
 test_that("predict_drugs returns matrix with correct dimensions", {
   skip_if_not_installed("glmnet")
-  skip_if_not(exists("DepMap"), "DepMap data not loaded")
+  assign("DepMap", mock_depmap(), envir = .GlobalEnv)
+  on.exit(rm("DepMap", envir = .GlobalEnv), add = TRUE)
 
   models <- train_models(
     drug_list = c("erlotinib", "gefitinib"),
     cancer_type = "PanCan",
     exclude_cancer = "PanCan",
-    GOI = NULL,
-    ncores = 1
+    GOI = head(rownames(DepMap$expression_rnorm), 20),
+    k_features_values = c(5, 10),
+    ncores = 1,
+    output_dir = tempdir()
   )
 
   # Get test expression

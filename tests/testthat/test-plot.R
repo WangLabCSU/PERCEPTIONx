@@ -71,14 +71,18 @@ test_that("plot_roc_curve returns ggplot object", {
 })
 
 test_that("plot_model_performance returns ggplot object", {
-  skip_if_not(exists("DepMap"), "DepMap data not loaded")
+  skip_if_not_installed("glmnet")
+  assign("DepMap", mock_depmap(), envir = .GlobalEnv)
+  on.exit(rm("DepMap", envir = .GlobalEnv), add = TRUE)
 
   models <- train_models(
     drug_list = "erlotinib",
     cancer_type = "PanCan",
     exclude_cancer = "PanCan",
-    GOI = NULL,
-    ncores = 1
+    GOI = head(rownames(DepMap$expression_rnorm), 20),
+    k_features_values = c(5, 10),
+    ncores = 1,
+    output_dir = tempdir()
   )
   p <- plot_model_performance(models)
   expect_s3_class(p, "ggplot")
