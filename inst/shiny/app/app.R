@@ -170,7 +170,7 @@ ui <- page_navbar(
   )),
   nav_item(tagList(
     tags$a(
-      href = "https://github.com/WangLabCSU/PERCEPTIONx/blob/main/vignettes/shiny_app.Rmd",
+      href = "https://wanglabcsu.github.io/PERCEPTIONx/articles/shiny_app.html",
       target = "_blank",
       icon("book-open", class = "nav-icon"),
       title = "Tutorial"
