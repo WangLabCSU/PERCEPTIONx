@@ -6,13 +6,15 @@ library(testthat)
 
 test_that("train_models returns a list with expected structure", {
   skip_if_not_installed("glmnet")
-  skip_if_not(exists("DepMap"), "DepMap data not loaded")
+  assign("DepMap", mock_depmap(), envir = .GlobalEnv)
+  on.exit(rm("DepMap", envir = .GlobalEnv), add = TRUE)
 
   models <- train_models(
     drug_list = "erlotinib",
     cancer_type = "PanCan",
     exclude_cancer = "PanCan",
-    GOI = NULL,
+    GOI = head(rownames(DepMap$expression_rnorm), 20),
+    k_features_values = c(5, 10),   # small: default would give k = 0 on 60 genes
     ncores = 1,
     output_dir = tempdir()   # do not leave large model RDS in tests/testthat
   )
@@ -23,14 +25,16 @@ test_that("train_models returns a list with expected structure", {
 
 test_that("train_models handles invalid drug gracefully", {
   skip_if_not_installed("glmnet")
-  skip_if_not(exists("DepMap"), "DepMap data not loaded")
+  assign("DepMap", mock_depmap(), envir = .GlobalEnv)
+  on.exit(rm("DepMap", envir = .GlobalEnv), add = TRUE)
 
   models <- train_models(
     drug_list = "nonexistent_drug_xyz",
     cancer_type = "PanCan",
     exclude_cancer = "PanCan",
-    GOI = NULL,
-    ncores = 1
+    GOI = head(rownames(DepMap$expression_rnorm), 20),
+    ncores = 1,
+    output_dir = tempdir()
   )
 
   expect_type(models, "list")
@@ -39,7 +43,8 @@ test_that("train_models handles invalid drug gracefully", {
 })
 
 test_that("feature_ranking_bulk returns ranked features", {
-  skip_if_not(exists("DepMap"), "DepMap data not loaded")
+  assign("DepMap", mock_depmap(), envir = .GlobalEnv)
+  on.exit(rm("DepMap", envir = .GlobalEnv), add = TRUE)
 
   result <- feature_ranking_bulk(
     infunc_drugName = "erlotinib",
@@ -53,7 +58,8 @@ test_that("feature_ranking_bulk returns ranked features", {
 })
 
 test_that("get_response_matrix returns drug response data", {
-  skip_if_not(exists("DepMap"), "DepMap data not loaded")
+  assign("DepMap", mock_depmap(), envir = .GlobalEnv)
+  on.exit(rm("DepMap", envir = .GlobalEnv), add = TRUE)
 
   resp <- get_response_matrix("erlotinib")
   expect_type(resp, "double")
@@ -61,7 +67,8 @@ test_that("get_response_matrix returns drug response data", {
 })
 
 test_that("get_cellLine_list returns train/test split", {
-  skip_if_not(exists("DepMap"), "DepMap data not loaded")
+  assign("DepMap", mock_depmap(), envir = .GlobalEnv)
+  on.exit(rm("DepMap", envir = .GlobalEnv), add = TRUE)
 
   result <- get_cellLine_list(
     infunc_cancerType = "PanCan",

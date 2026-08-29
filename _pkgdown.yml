@@ -67,7 +67,6 @@ reference:
       - each_patient_pseudo_bulk
   - title: Clone & Seurat Pipeline
     contents:
-      - run_seurat_pipeline
       - annotate_clones
       - build_clone_counts
       - build_clone_key
