@@ -10,7 +10,8 @@ load_depmap(
   mirror = FALSE,
   mirror_url = NULL,
   timeout_seconds = 300,
-  retries = 1
+  retries = 1,
+  force = FALSE
 )
 }
 \arguments{
@@ -30,6 +31,10 @@ If TRUE, use mirror sites from \code{get_mirrors()}.}
 \item{timeout_seconds}{Numeric, timeout for each download attempt in seconds. Default = 300.}
 
 \item{retries}{Integer, number of retries for each mirror. Default = 1.}
+
+\item{force}{Logical. If TRUE, delete an existing cached file before
+downloading again (use after an interrupted/failed download left a
+corrupt file behind). Default = FALSE (keep and reuse the cache).}
 }
 \value{
 Invisibly returns the DepMap object if read = TRUE, otherwise NULL.
@@ -47,6 +52,9 @@ load_depmap(read = TRUE)
 
 # Use mirror sites
 load_depmap(read = TRUE, mirror = TRUE)
+
+# Force a fresh download (removes any cached copy first)
+load_depmap(read = TRUE, mirror = TRUE, force = TRUE)
 
 # Use a specific mirror
 load_depmap(read = TRUE, mirror_url = "https://gh-proxy.com/https://github.com")

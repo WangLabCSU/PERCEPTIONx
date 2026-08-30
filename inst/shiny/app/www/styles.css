@@ -787,7 +787,7 @@ body {
   border-bottom: 1px solid var(--border-light);
 }
 
-/* Blurred icon as ambient background — sourced from the actual favicon.svg */
+/* Blurred icon as ambient background — inlined as a data URI at runtime */
 .hero::before {
   content: '';
   position: absolute;

@@ -20,6 +20,26 @@ options(shiny.maxRequestSize = 1 * 1024^3)  # 1 GB (DepMap.RDS is ~567 MB)
 # are lost, leaving spinners stuck on screen. Raise it so sessions survive.
 options(shiny.heartbeat.timeout = 1800)  # 30 minutes, then consider dead
 
+# ---------------------------------------------------------------------------
+# Static assets are INLINED into the HTML (no external file requests).
+#
+# The app can run two ways: locally via runApp() on the package's
+# inst/shiny/app, or as a single-file launcher (apps/<name>/app.R) under
+# Shiny Server. In the Shiny Server case the app directory has no www/ subdir,
+# so asset URLs like "styles.css" 404 (the real files live in the installed
+# package). Inlining every asset removes the www/ dependency entirely: the
+# stylesheets and the tour script are embedded, and the favicon is embedded as
+# a data URI (both in <link rel="icon"> and inside styles.css backgrounds).
+# ---------------------------------------------------------------------------
+perception_www_dir <- file.path(system.file("shiny", "app", package = "PERCEPTIONx"), "www")
+perception_asset <- function(name) {
+  paste(readLines(file.path(perception_www_dir, name), warn = FALSE), collapse = "\n")
+}
+perception_favicon_uri <- function() {
+  svg <- perception_asset("favicon.svg")
+  paste0("data:image/svg+xml;charset=utf-8,", utils::URLencode(svg, reserved = TRUE))
+}
+
 # Auto-detect package root robustly, regardless of how the app is launched
 # (cd inst/shiny/app && Rscript app.R, shiny::runApp("inst/shiny/app") from the
 # repo root, RStudio "Run App", etc.). A candidate only counts as the LIVE repo
@@ -62,15 +82,20 @@ if (!is.null(pkg_root)) {
 # it is so async_jobs.R can hand the path to the worker process.
 options(perception.pkg_root = pkg_root)
 
-# Source modules
-source("R/shiny_helpers.R")
-source("R/async_jobs.R")
-source("R/mod_home.R")
-source("R/mod_data.R")
-source("R/mod_train.R")
-source("R/mod_predict.R")
-source("R/mod_visualize.R")
-source("R/mod_help.R")
+# Source modules into the CURRENT environment (local = TRUE). Under a local
+# runApp() the app file executes in the global env, so this is a no-op change;
+# but the Shiny Server path (.perception_app_object()) evaluates app.R in a
+# private environment, and modules must live in that SAME environment — with
+# the default source(local = FALSE) they would land in the global env and lose
+# access to app.R-top-level helpers (e.g. perception_favicon_uri()).
+source("R/shiny_helpers.R", local = TRUE)
+source("R/async_jobs.R", local = TRUE)
+source("R/mod_home.R", local = TRUE)
+source("R/mod_data.R", local = TRUE)
+source("R/mod_train.R", local = TRUE)
+source("R/mod_predict.R", local = TRUE)
+source("R/mod_visualize.R", local = TRUE)
+source("R/mod_help.R", local = TRUE)
 
 # Theme
 perception_theme <- bs_theme(
@@ -91,7 +116,7 @@ ui <- page_navbar(
   theme = perception_theme,
   title = tagList(
     tags$span(class = "brand-icon",
-      tags$img(src = "favicon.svg", height = "28", alt = "PERCEPTION-shiny",
+      tags$img(src = perception_favicon_uri(), height = "28", alt = "PERCEPTION-shiny",
                style = "vertical-align: middle; margin-right: 0.3rem;")
     ),
     tags$span(class = "brand-text", "PERCEPTION-shiny")
@@ -109,14 +134,16 @@ ui <- page_navbar(
       div(class = "spinner-ring"),
       h4("Preparing demo data..."),
       p(class = "text-muted", "Running Seurat clustering")),
-    # Cache-busting: version the CSS with the app start time so browsers
-    # always fetch the newest stylesheet after a restart (no stale cache).
-    tags$head(tags$link(rel = "stylesheet",
-                        href = paste0("styles.css?v=", format(Sys.time(), "%Y%m%d%H%M%S")))),
-    tags$head(tags$link(rel = "stylesheet",
-                        href = paste0("tour.css?v=", format(Sys.time(), "%Y%m%d%H%M%S")))),
-    tags$head(tags$script(src = paste0("tour.js?v=", format(Sys.time(), "%Y%m%d%H%M%S")))),
-    tags$head(tags$link(rel = "icon", href = "favicon.svg", type = "image/svg+xml")),
+    # Assets are inlined (see the perception_asset block above) — no external
+    # file requests, so no www/ directory is needed on the server. The
+    # favicon.svg references inside styles.css are swapped for the data URI.
+    tags$head(tags$style(HTML(
+      gsub("url('favicon.svg')", paste0("url(\"", perception_favicon_uri(), "\")"),
+           perception_asset("styles.css"), fixed = TRUE)))),
+    tags$head(tags$style(HTML(perception_asset("tour.css")))),
+    tags$head(tags$script(HTML(perception_asset("tour.js")))),
+    tags$head(tags$link(rel = "icon", href = perception_favicon_uri(),
+                        type = "image/svg+xml")),
     tags$head(tags$script(HTML("
       Shiny.addCustomMessageHandler('scroll-to', function(id) {
         var el = document.getElementById(id);
