@@ -260,7 +260,7 @@ reset_mirrors <- function() {
 #' models <- load_model("erlotinib", read = TRUE,
 #'                      mirror_url = "https://gh-proxy.com/https://github.com")
 #' }
-load_model <- function(..., dest = "./models", read = FALSE, mirror = FALSE,
+load_model <- function(..., dest = perception_default_model_dir(), read = FALSE, mirror = FALSE,
                        mirror_url = NULL, timeout_seconds = 30, retries = 0) {
   drugs <- tolower(c(...))
   if (length(drugs) == 0) stop("Drug list is empty.")
@@ -320,7 +320,9 @@ load_model <- function(..., dest = "./models", read = FALSE, mirror = FALSE,
 #' and cell line metadata required for PERCEPTIONx model training.
 #' Supports automatic mirror fallback for users in different regions.
 #'
-#' @param dest Directory to save the downloaded file. Default = ".".
+#' @param dest Directory to save the downloaded file. Default: a cache-root
+#'        derived path (see \code{options(PERCEPTIONx.cache_root)}), or "." when
+#'        no cache root is set.
 #' @param read Whether to read the data and assign to global environment as "DepMap".
 #'        Default = FALSE.
 #' @param mirror Logical. If FALSE (default), download from GitHub directly.
@@ -344,7 +346,7 @@ load_model <- function(..., dest = "./models", read = FALSE, mirror = FALSE,
 #' # Use a specific mirror
 #' load_depmap(read = TRUE, mirror_url = "https://gh-proxy.com/https://github.com")
 #' }
-load_depmap <- function(dest = ".", read = FALSE, mirror = FALSE, mirror_url = NULL,
+load_depmap <- function(dest = perception_default_depmap_dir(), read = FALSE, mirror = FALSE, mirror_url = NULL,
                         timeout_seconds = 300, retries = 1) {
   if (!dir.exists(dest)) {
     dir.create(dest, recursive = TRUE)

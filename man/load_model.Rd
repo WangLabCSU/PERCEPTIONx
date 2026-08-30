@@ -6,7 +6,7 @@
 \usage{
 load_model(
   ...,
-  dest = "./models",
+  dest = perception_default_model_dir(),
   read = FALSE,
   mirror = FALSE,
   mirror_url = NULL,

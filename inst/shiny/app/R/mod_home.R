@@ -167,7 +167,7 @@ mod_home_ui <- function(id) {
                   href = "https://github.com/WangLabCSU/PERCEPTIONx",
                   target = "_blank"),
                 br(),
-                tags$small("Install with: ", code("devtools::install_github('WangLabCSU/PERCEPTIONx')"),
+                tags$small("Install with: ", code("remotes::install_github('WangLabCSU/PERCEPTIONx')"),
                            class = "text-muted")
               )
             )

@@ -22,8 +22,8 @@ PERCEPTIONx trains drug-response models on DepMap cell-line screens and applies 
 Install the development version from GitHub:
 
 ```r
-# install.packages("devtools")
-devtools::install_github("WangLabCSU/PERCEPTIONx")
+# install.packages("remotes")
+remotes::install_github("WangLabCSU/PERCEPTIONx")
 ```
 
 ## 2. Quick Start

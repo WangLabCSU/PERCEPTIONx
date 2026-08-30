@@ -46,7 +46,7 @@ The methodology is PERCEPTION (PERsonalized single-Cell Expression-based Plannin
 
 - R ≥ 4.1.0.
 
-- Main dependencies: `devtools`, `shiny`, `bslib`, `Seurat`, `ggplot2`, `ggiraph`, `glmnet`, `caret`, `DT`, `plotly`, `waiter`, `thematic`, `callr`, `readxl`. The app prompts you to install anything that is missing when a feature needs it.
+- Main dependencies: `remotes`, `shiny`, `bslib`, `Seurat`, `ggplot2`, `ggiraph`, `glmnet`, `caret`, `DT`, `plotly`, `waiter`, `thematic`, `callr`, `readxl`. The app prompts you to install anything that is missing when a feature needs it.
 
 ---
 
