@@ -52,7 +52,9 @@ Supports automatic mirror fallback for users in different regions.</p>
 <span>  mirror <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  mirror_url <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  timeout_seconds <span class="op">=</span> <span class="fl">30</span>,</span>
-<span>  retries <span class="op">=</span> <span class="fl">0</span></span>
+<span>  retries <span class="op">=</span> <span class="fl">0</span>,</span>
+<span>  force <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  all <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -65,7 +67,9 @@ Supports automatic mirror fallback for users in different regions.</p>
 
 
 <dt id="arg-dest">dest<a class="anchor" aria-label="anchor" href="#arg-dest"></a></dt>
-<dd><p>Directory to save downloaded models. Default = "./models".</p></dd>
+<dd><p>Directory to save downloaded models. Default: a cache-root
+derived path (see <code>options(PERCEPTIONx.cache_root)</code>), or
+"./models" when no cache root is set.</p></dd>
 
 
 <dt id="arg-read">read<a class="anchor" aria-label="anchor" href="#arg-read"></a></dt>
@@ -89,6 +93,18 @@ If TRUE, use mirror sites from <code><a href="get_mirrors.html">get_mirrors()</a
 
 <dt id="arg-retries">retries<a class="anchor" aria-label="anchor" href="#arg-retries"></a></dt>
 <dd><p>Integer, number of retries for each mirror. Default = 0.</p></dd>
+
+
+<dt id="arg-force">force<a class="anchor" aria-label="anchor" href="#arg-force"></a></dt>
+<dd><p>Logical. If TRUE, delete an existing cached model file before
+downloading it again (use after an interrupted/failed download left a
+corrupt file behind). Default = FALSE (keep and reuse the cache).</p></dd>
+
+
+<dt id="arg-all">all<a class="anchor" aria-label="anchor" href="#arg-all"></a></dt>
+<dd><p>Logical. If TRUE, download all 44 pre-trained models (useful to
+pre-cache the full model set on a deployment server). Overrides any
+drug names given in <code>...</code>. Default = FALSE.</p></dd>
 
 </dl></div>
     <div class="section level2">

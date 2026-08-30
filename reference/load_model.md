@@ -13,7 +13,9 @@ load_model(
   mirror = FALSE,
   mirror_url = NULL,
   timeout_seconds = 30,
-  retries = 0
+  retries = 0,
+  force = FALSE,
+  all = FALSE
 )
 ```
 
@@ -25,7 +27,9 @@ load_model(
 
 - dest:
 
-  Directory to save downloaded models. Default = "./models".
+  Directory to save downloaded models. Default: a cache-root derived
+  path (see `options(PERCEPTIONx.cache_root)`), or "./models" when no
+  cache root is set.
 
 - read:
 
@@ -50,6 +54,18 @@ load_model(
 - retries:
 
   Integer, number of retries for each mirror. Default = 0.
+
+- force:
+
+  Logical. If TRUE, delete an existing cached model file before
+  downloading it again (use after an interrupted/failed download left a
+  corrupt file behind). Default = FALSE (keep and reuse the cache).
+
+- all:
+
+  Logical. If TRUE, download all 44 pre-trained models (useful to
+  pre-cache the full model set on a deployment server). Overrides any
+  drug names given in `...`. Default = FALSE.
 
 ## Value
 

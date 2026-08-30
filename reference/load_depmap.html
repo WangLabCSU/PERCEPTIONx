@@ -57,7 +57,8 @@ Supports automatic mirror fallback for users in different regions.</p>
 <span>  mirror <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  mirror_url <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  timeout_seconds <span class="op">=</span> <span class="fl">300</span>,</span>
-<span>  retries <span class="op">=</span> <span class="fl">1</span></span>
+<span>  retries <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  force <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -93,6 +94,12 @@ If TRUE, use mirror sites from <code><a href="get_mirrors.html">get_mirrors()</a
 <dt id="arg-retries">retries<a class="anchor" aria-label="anchor" href="#arg-retries"></a></dt>
 <dd><p>Integer, number of retries for each mirror. Default = 1.</p></dd>
 
+
+<dt id="arg-force">force<a class="anchor" aria-label="anchor" href="#arg-force"></a></dt>
+<dd><p>Logical. If TRUE, delete an existing cached file before
+downloading again (use after an interrupted/failed download left a
+corrupt file behind). Default = FALSE (keep and reuse the cache).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -107,6 +114,9 @@ If TRUE, use mirror sites from <code><a href="get_mirrors.html">get_mirrors()</a
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Use mirror sites</span></span></span>
 <span class="r-in"><span><span class="fu">load_depmap</span><span class="op">(</span>read <span class="op">=</span> <span class="cn">TRUE</span>, mirror <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Force a fresh download (removes any cached copy first)</span></span></span>
+<span class="r-in"><span><span class="fu">load_depmap</span><span class="op">(</span>read <span class="op">=</span> <span class="cn">TRUE</span>, mirror <span class="op">=</span> <span class="cn">TRUE</span>, force <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Use a specific mirror</span></span></span>
 <span class="r-in"><span><span class="fu">load_depmap</span><span class="op">(</span>read <span class="op">=</span> <span class="cn">TRUE</span>, mirror_url <span class="op">=</span> <span class="st">"https://gh-proxy.com/https://github.com"</span><span class="op">)</span></span></span>
