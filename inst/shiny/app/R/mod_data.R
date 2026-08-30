@@ -667,15 +667,11 @@ mod_data_server <- function(id, shared) {
         return()
       }
       use_mirror <- isTRUE(input$depmap_mirror)
-      cache_dir <- getOption(
-        "PERCEPTIONx.depmap_cache_dir",
-        # Accept both spellings of the env var (docs use PERCEPTIONX...,
-        # early deployments set PERCEPTIONx...); Sys.getenv is case-sensitive
-        # on Linux, so probe both, uppercase first.
-        Sys.getenv("PERCEPTIONX_DEPMAP_CACHE_DIR",
-                   Sys.getenv("PERCEPTIONx_DEPMAP_CACHE_DIR",
-                              tools::R_user_dir("PERCEPTIONx", "data")))
-      )
+      # Unified cache dir: options(PERCEPTIONx.depmap_cache_dir) / env var win;
+      # otherwise derived from options(PERCEPTIONx.cache_root) (or its env var);
+      # otherwise the R user data dir. Resolution lives in R/paths.R so the
+      # package functions and the Shiny app share one rule.
+      cache_dir <- PERCEPTIONx:::perception_depmap_cache_dir()
       dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
       destfile <- file.path(cache_dir, "DepMap.RDS")
 
@@ -986,11 +982,17 @@ mod_data_server <- function(id, shared) {
       w$show()
       tryCatch({
         if (is.null(shared$models)) shared$models <- list()
+        # Pre-trained models live in a persistent cache dir when
+        # options(PERCEPTIONx.cache_root) is set; otherwise tempdir() keeps the
+        # historical behaviour. load_model() skips drugs already on disk, so a
+        # cached model is not downloaded again on the next app session.
+        model_dir <- PERCEPTIONx:::perception_model_dir()
+        if (is.null(model_dir)) model_dir <- tempdir()
         loaded_count <- 0
         failed_drugs <- c()
         for (drug in drug_list) {
           tryCatch({
-            new_model <- PERCEPTIONx::load_model(drug, dest = tempdir(), read = TRUE, mirror = use_mirror,
+            new_model <- PERCEPTIONx::load_model(drug, dest = model_dir, read = TRUE, mirror = use_mirror,
                                                  timeout_seconds = 120, retries = 2)
             shared$models[[drug]] <- new_model[[drug]]
             shared$model_cache[[drug]] <- new_model[[drug]]

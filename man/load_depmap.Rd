@@ -5,7 +5,7 @@
 \title{Download filtered DepMap data}
 \usage{
 load_depmap(
-  dest = ".",
+  dest = perception_default_depmap_dir(),
   read = FALSE,
   mirror = FALSE,
   mirror_url = NULL,
@@ -14,7 +14,9 @@ load_depmap(
 )
 }
 \arguments{
-\item{dest}{Directory to save the downloaded file. Default = ".".}
+\item{dest}{Directory to save the downloaded file. Default: a cache-root
+derived path (see \code{options(PERCEPTIONx.cache_root)}), or "." when
+no cache root is set.}
 
 \item{read}{Whether to read the data and assign to global environment as "DepMap".
 Default = FALSE.}

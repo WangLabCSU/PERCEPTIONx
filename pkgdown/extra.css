@@ -15,9 +15,11 @@ h1, h2, h3, h4 {
   letter-spacing: -0.01em;
 }
 
-/* Navbar (tabs + package name) in the serif heading face */
+/* Navbar (tabs + package name) in the serif heading face.
+   Lora was dropped in favour of the system serif stack (Georgia) so the site
+   renders without any Google Fonts request. */
 .navbar {
-  font-family: "Lora", Georgia, serif;
+  font-family: Georgia, "Times New Roman", serif;
 }
 .navbar-brand {
   font-weight: 700;

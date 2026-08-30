@@ -44,7 +44,7 @@ make_job_id <- function(user_key = "") {
 train_master_main <- function(pkg_root, jobs_dir, max_parallel, idle_minutes) {
   # Loading strategy: dev mode (repo on disk) -> load_all; otherwise the
   # package is expected to be INSTALLED (e.g. via
-  # devtools::install_github("WangLabCSU/PERCEPTIONx")). load_all() would fail
+  # remotes::install_github("WangLabCSU/PERCEPTIONx")). load_all() would fail
   # on a deployed machine because there is no source tree (no DESCRIPTION);
   # library() is the correct path once the package is installed into .libPaths().
   # A dir counts as the source tree ONLY with DESCRIPTION + R/*.R — an installed
@@ -58,7 +58,7 @@ train_master_main <- function(pkg_root, jobs_dir, max_parallel, idle_minutes) {
     library(PERCEPTIONx)
   } else {
     stop("Package 'PERCEPTIONx' is not installed. Install it with ",
-         "devtools::install_github(\"WangLabCSU/PERCEPTIONx\"), then restart the app.")
+         "remotes::install_github(\"WangLabCSU/PERCEPTIONx\"), then restart the app.")
   }
 
   # --- helpers (local to this process) ---
@@ -224,7 +224,7 @@ train_custom_main <- function(pkg_root, depmap_path, jobs_dir, poll_secs = 1L) {
     library(PERCEPTIONx)
   } else {
     stop("Package 'PERCEPTIONx' is not installed. Install it with ",
-         "devtools::install_github(\"WangLabCSU/PERCEPTIONx\"), then restart the app.")
+         "remotes::install_github(\"WangLabCSU/PERCEPTIONx\"), then restart the app.")
   }
 
   write_progress <- function(progress_file, phase, i, n, drug) {
@@ -321,7 +321,9 @@ ensure_master <- function() {
   if (!is.null(m) && inherits(m, "r_process") && m$is_alive()) {
     return(invisible(TRUE))
   }
-  jobs_dir <- file.path(tempdir(), "perception_jobs")
+  # Shared master jobs dir: under options(PERCEPTIONx.cache_root)/jobs when a
+  # cache root is set (deployment-friendly), else tempdir()/perception_jobs.
+  jobs_dir <- PERCEPTIONx:::perception_jobs_dir()
   dir.create(jobs_dir, recursive = TRUE, showWarnings = FALSE)
   options(perception.jobs_dir = jobs_dir)
   max_par <- suppressWarnings(as.integer(Sys.getenv("PERCEPTION_WORKERS", "16")))
@@ -486,7 +488,7 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
     library(PERCEPTIONx)
   } else {
     stop("Package 'PERCEPTIONx' is not installed. Install it with ",
-         "devtools::install_github(\"WangLabCSU/PERCEPTIONx\"), then restart the app.")
+         "remotes::install_github(\"WangLabCSU/PERCEPTIONx\"), then restart the app.")
   }
 
   run_prepare <- function(a) {

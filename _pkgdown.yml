@@ -3,8 +3,10 @@ url: https://wanglabcsu.github.io/PERCEPTIONx/
 template:
   bootstrap: 5
   bslib:
-    base_font: {google: "Inter"}
-    heading_font: {google: "Lora"}
+    # System font stack: no Google Fonts network request, so the page paints
+    # immediately. Heading face stays serif (Georgia ships with macOS/Windows;
+    # other OSes fall back to a generic serif).
+    heading_font: "'Georgia', 'Times New Roman', serif"
     primary: "#165c91"
   includes:
     in_header: |
