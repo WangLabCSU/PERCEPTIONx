@@ -50,8 +50,9 @@ for (cand in candidates) {
 if (!is.null(pkg_root)) {
   suppressMessages(devtools::load_all(pkg_root, quiet = TRUE))
 } else if (requireNamespace("PERCEPTIONx", quietly = TRUE)) {
-  warning("Repo root not detected (launched from an unusual directory); ",
-          "falling back to the INSTALLED PERCEPTIONx package.")
+  # Deployed mode (installed package, Shiny Server): no source tree is
+  # available — silently use the installed package. No warning here; this is
+  # the normal, expected path for deployments.
   library(PERCEPTIONx)
 } else {
   stop("Neither devtools (with repo) nor PERCEPTIONx is available. Please install PERCEPTIONx.")
