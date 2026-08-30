@@ -53,8 +53,18 @@ prediction, and visualization.</p>
 
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A Shiny app object (invisibly). The function is called for its side effect
-of launching the app in the user's browser.</p>
+    <p>A Shiny app object. When run interactively (no <code>SHINY_PORT</code>
+environment variable set) the app is also launched in the user's browser.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>Under a Shiny Server deployment the server executes this function and
+expects a shiny app <em>object</em> back (a nested <code>runApp()</code> would
+fail), so the function detects Shiny Server via the <code>SHINY_PORT</code>
+environment variable it sets for every R worker (the same signal the shiny
+package itself uses internally) and returns the app object instead of
+starting its own server. This lets the same one-liner work both locally and
+inside <code>apps/&lt;name&gt;/app.R</code>.</p>
     </div>
 
     <div class="section level2">
