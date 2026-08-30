@@ -721,7 +721,7 @@ mod_visualize_server <- function(id, shared, main_session) {
       ),
       boxplot = list(
         title = "Response Boxplot",
-        desc = "Patient-level predicted viability (z-score) per clinical response group. Two groups (R/NR): p-value is a one-sided Wilcoxon test asking whether responders are predicted more sensitive (lower viability). Three or more groups (e.g. TN/RD/PD): pairwise two-sided Wilcoxon tests with BH (FDR) multiple-testing correction — the adj. p on each bracket tells you which specific pairs differ. Non-parametric tests keep the p-value valid even with the small patient sample sizes inherent to clinical response data.",
+        desc = "Patient-level predicted viability (z-score) per clinical response group. Two groups (R/NR): p-value is a one-sided Wilcoxon test asking whether responders are predicted more sensitive (lower viability). Three or four groups (e.g. TN/RD/PD): pairwise two-sided Wilcoxon tests with BH (FDR) multiple-testing correction — the adj. p on each bracket tells you which specific pairs differ. Five or more groups: a single Kruskal-Wallis omnibus test (too many pair brackets to read) — it says only whether at least one group differs, not which pairs. Non-parametric tests keep the p-value valid even with the small patient sample sizes inherent to clinical response data.",
         requires = "Patient-level Predictions + Clinical Response"
       ),
       umap_gene = list(

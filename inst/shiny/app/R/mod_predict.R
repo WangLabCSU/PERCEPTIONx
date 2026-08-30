@@ -94,7 +94,7 @@ mod_predict_ui <- function(id) {
                           ),
                           selected = "weighted_max"),
               div(class = "info-box", style = "margin-top: 0.5rem; font-size: 0.78rem;",
-                strong("weighted_max"), ": top N most resistant clones (recommended)",
+                strong("weighted_max"), ": maximum clone viability weighted by clone proportion (recommended)",
                 br(), strong("weighted_average"), ": weighted average across all clones",
                 br(), strong("min/max"), ": most sensitive/resistant clone"
               )

@@ -50,8 +50,8 @@ mod_help_ui <- function(id) {
             div(class = "help-data-card",
               div(class = "help-data-icon", style = "color: var(--primary);", icon("layer-group")),
               strong("DepMap Data"),
-              p("Automatically downloaded via ", code("load_depmap()"), ". Includes bulk expression, single-cell expression, and drug response (AUC) data from DepMap."),
-              tags$span(class = "status-badge loaded", "Auto-loaded")
+              p("Downloaded and loaded via the ", code("Download & Load"), " button on the Data tab (or a pre-downloaded .RDS upload). Includes bulk expression, single-cell expression, and drug response (AUC) data from DepMap."),
+              tags$span(class = "status-badge unloaded", "Manual load")
             ),
             div(class = "help-data-card",
               div(class = "help-data-icon", style = "color: var(--accent);", icon("table")),
@@ -106,7 +106,7 @@ mod_help_ui <- function(id) {
             ),
             div(class = "help-param-item",
               div(class = "help-param-name", icon("cog"), " Model Type"),
-              p(code("glmnet"), " (elastic net, recommended) with 5-fold CV, or ", code("rf"), " (random forest).")
+              p(code("glmnet"), " (elastic net, recommended) with 3-fold CV, or ", code("rf"), " (random forest).")
             )
           )
         ),
