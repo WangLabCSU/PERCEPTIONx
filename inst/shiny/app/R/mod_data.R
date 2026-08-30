@@ -679,7 +679,10 @@ mod_data_server <- function(id, shared) {
       # hit refreshes a dedicated last-used flag file) for more than N hours,
       # so a stale ~567 MB file does not linger forever. Overridable via
       # options(PERCEPTIONx.depmap_cache_ttl_hours) or the
-      # PERCEPTIONx_DEPMAP_CACHE_TTL_HOURS env var (default 12). If the file is
+      # PERCEPTIONx_DEPMAP_CACHE_TTL_HOURS env var (default 12). Set it to 0
+      # (or any value <= 0) to DISABLE expiry entirely — required when the
+      # DepMap is pre-cached on a deployment server, otherwise the pre-download
+      # would be deleted on the first click (age > 0 hours). If the file is
       # locked by a running worker, unlink() fails harmlessly and the next
       # click retries.
       #
@@ -693,7 +696,9 @@ mod_data_server <- function(id, shared) {
         "PERCEPTIONx.depmap_cache_ttl_hours",
         Sys.getenv("PERCEPTIONx_DEPMAP_CACHE_TTL_HOURS", "12")))
       ref_file <- if (file.exists(last_used)) last_used else destfile
-      if (file.exists(destfile) && !is.na(cache_ttl_h) && cache_ttl_h >= 0) {
+      # Only expire when a POSITIVE TTL is set; 0 / negative disables expiry
+      # (pre-cached deployment files must survive).
+      if (file.exists(destfile) && !is.na(cache_ttl_h) && cache_ttl_h > 0) {
         age_h <- as.numeric(difftime(Sys.time(), file.info(ref_file)$mtime, units = "hours"))
         if (is.finite(age_h) && age_h > cache_ttl_h) {
           unlink(destfile)
