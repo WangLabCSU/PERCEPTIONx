@@ -66,7 +66,7 @@
       <img src="../logo.png" class="logo" alt=""><h1>PERCEPTIONx: Complete Pipeline Tutorial</h1>
                         <h4 data-toc-skip class="author">Jia Ding</h4>
             
-            <h4 data-toc-skip class="date">2026-08-29</h4>
+            <h4 data-toc-skip class="date">2026-08-30</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/WangLabCSU/PERCEPTIONx/blob/main/vignettes/pipeline.Rmd" class="external-link"><code>vignettes/pipeline.Rmd</code></a></small>
       <div class="d-none name"><code>pipeline.Rmd</code></div>
@@ -81,7 +81,7 @@
 Models are trained on DepMap cell-line screens and applied to a
 patient’s single-cell expression profile, giving clone-level viability
 scores and patient-level response stratification.</p>
-<p>The core workflow is short — five function calls:</p>
+<p>The core workflow is short — five steps:</p>
 <ol style="list-style-type: decimal">
 <li>Load the DepMap reference data</li>
 <li>Load pre-trained models (no training needed)</li>
@@ -211,7 +211,8 @@ minimal workflow in section 2 does not depend on any of it.</p>
 </h3>
 <p>Training is only needed when you want drugs or settings not covered
 by the 44 pre-trained models. <code><a href="../reference/train_models.html">train_models()</a></code> presets every
-argument except the drug list, so the whole call is one line:</p>
+argument — even the drug list defaults to all 44 supported drugs — so
+the whole call can be one line:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">models</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/train_models.html">train_models</a></span><span class="op">(</span>drug_list <span class="op">=</span> <span class="st">"erlotinib"</span><span class="op">)</span></span></code></pre></div>
 <p>That is all it takes — cancer type (PanCan), model type (glmnet),
@@ -261,8 +262,9 @@ forest)</td>
 </tbody>
 </table>
 <p>One thing worth knowing: <code>output_dir</code> defaults to
-<code>"./models"</code>, meaning models are written to disk. Set
-<code>output_dir = NULL</code> to keep them in memory only.</p>
+<code>"./models"</code>, meaning every trained model is written to disk
+as a single timestamped RDS file there (and also returned in the
+<code>models</code> object).</p>
 <p>The returned <code>models</code> object plugs straight into
 <code><a href="../reference/predict_drugs.html">predict_drugs()</a></code> (section 2.4), and can be saved or
 re-loaded later:</p>
@@ -330,9 +332,17 @@ paper’s best strategy, AUC = 0.83)</td>
 <p>For bulk-level analyses, aggregate single-cell expression per
 patient:</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">pseudo_bulk</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/each_patient_pseudo_bulk.html">each_patient_pseudo_bulk</a></span><span class="op">(</span></span>
-<span>  sc_expression <span class="op">=</span> <span class="va">sc_expression_rnorm</span>,</span>
-<span>  patient_clone_map <span class="op">=</span> <span class="va">clone_mapping</span></span>
+<code class="sourceCode R"><span><span class="co"># One patient index at a time; returns the patient's pseudo-bulk vector.</span></span>
+<span><span class="co"># The clone-level expression matrix and the abundance table come straight</span></span>
+<span><span class="co"># out of prepare_data() (clone columns named "Patient@@Clone").</span></span>
+<span><span class="va">pseudo_bulk_list</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">prepared</span><span class="op">$</span><span class="va">clone_counts</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="../reference/each_patient_pseudo_bulk.html">each_patient_pseudo_bulk</a></span><span class="op">(</span></span>
+<span>    x <span class="op">=</span> <span class="va">x</span>,</span>
+<span>    comb_viability_df <span class="op">=</span> <span class="cn">NULL</span>,               <span class="co"># retained for compatibility, unused</span></span>
+<span>    Clone_Counts_per_patients <span class="op">=</span> <span class="va">prepared</span><span class="op">$</span><span class="va">clone_counts</span>,</span>
+<span>    clone_Level_z_expression_df <span class="op">=</span> <span class="va">prepared</span><span class="op">$</span><span class="va">clone_expression_rnorm</span></span>
+<span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <hr>
 </div>
@@ -364,13 +374,24 @@ to <code><a href="../reference/predict_drugs.html">predict_drugs()</a></code> as
 <div class="section level3">
 <h3 id="the-plotting-suite">3.4 The plotting suite<a class="anchor" aria-label="anchor" href="#the-plotting-suite"></a>
 </h3>
-<p>Every plot function accepts <code>tooltip = TRUE</code> (default):
-when the <code>ggiraph</code> package is installed, points and bars get
-hover tooltips (clone id, viability score, proportion, FPR/TPR). Set
-<code>tooltip = FALSE</code> for a plain static <code>ggplot</code> with
-the identical layout. Tooltip text is auto-built from the plot data;
-override it with the <code>tooltip_col</code> argument when a custom
-text column already exists.</p>
+<p>Several plotting functions accept <code>tooltip = TRUE</code>
+(default): when the <code>ggiraph</code> package is installed, points
+and bars get hover tooltips (clone id, viability score, proportion,
+FPR/TPR). This applies to <code><a href="../reference/plot_tsne_response.html">plot_tsne_response()</a></code>,
+<code><a href="../reference/plot_clone_umap.html">plot_clone_umap()</a></code>, <code><a href="../reference/plot_clone_distribution.html">plot_clone_distribution()</a></code>,
+<code><a href="../reference/plot_clone_viability.html">plot_clone_viability()</a></code>, <code><a href="../reference/plot_roc_curve.html">plot_roc_curve()</a></code>,
+<code><a href="../reference/plot_response_boxplot.html">plot_response_boxplot()</a></code>, and
+<code><a href="../reference/plot_model_performance.html">plot_model_performance()</a></code> — the remaining functions
+(<code><a href="../reference/plot_model_roc.html">plot_model_roc()</a></code>,
+<code><a href="../reference/plot_patient_response_panel.html">plot_patient_response_panel()</a></code>,
+<code><a href="../reference/plot_tsne_biomarker_viability.html">plot_tsne_biomarker_viability()</a></code>,
+<code><a href="../reference/plot_seurat_clustering.html">plot_seurat_clustering()</a></code>) do not take a
+<code>tooltip</code> argument. Set <code>tooltip = FALSE</code> for a
+plain static <code>ggplot</code> with the identical layout. Tooltip text
+is auto-built from the plot data; <code><a href="../reference/plot_tsne_response.html">plot_tsne_response()</a></code>,
+<code><a href="../reference/plot_clone_umap.html">plot_clone_umap()</a></code>, <code><a href="../reference/plot_clone_distribution.html">plot_clone_distribution()</a></code>,
+and <code><a href="../reference/plot_clone_viability.html">plot_clone_viability()</a></code> also accept a custom
+<code>tooltip_col</code> column.</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># t-SNE / UMAP with drug response overlay</span></span>
 <span><span class="fu"><a href="../reference/plot_tsne_response.html">plot_tsne_response</a></span><span class="op">(</span><span class="va">tsne_data</span>, color_var <span class="op">=</span> <span class="st">"viability_scaled"</span>, title <span class="op">=</span> <span class="st">"Drug Response"</span><span class="op">)</span></span>
@@ -432,10 +453,10 @@ each clone’s expression, and rank-normalizes it (internally calling
 <code><a href="../reference/rank_normalization_mat.html">rank_normalization_mat()</a></code>), returning a list with
 <code>clone_expression_rnorm</code> and <code>clone_counts</code>.</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">prepared</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/prepare_data.html">prepare_data</a></span><span class="op">(</span><span class="va">expr_matrix</span>, method <span class="op">=</span> <span class="st">"umap"</span>, resolution <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">prepared</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/prepare_data.html">prepare_data</a></span><span class="op">(</span><span class="va">expr_matrix</span>, method <span class="op">=</span> <span class="st">"umap"</span>, seurat_resolution <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
 <span><span class="va">clone_pred</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/predict_drugs.html">predict_drugs</a></span><span class="op">(</span><span class="va">models</span>, <span class="va">prepared</span><span class="op">$</span><span class="va">clone_expression_rnorm</span><span class="op">)</span></span>
 <span><span class="va">patient_pred</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/predict_patients.html">predict_patients</a></span><span class="op">(</span><span class="va">clone_pred</span>, <span class="va">prepared</span><span class="op">)</span></span></code></pre></div>
-<p>Useful options: <code>resolution</code> (Seurat clustering
+<p>Useful options: <code>seurat_resolution</code> (Seurat clustering
 resolution), <code>genes_to_use</code> (restrict the gene space before
 clustering), and <code>skip_clustering = TRUE</code> — if your data is
 already clone-level (one column per clone), <code><a href="../reference/prepare_data.html">prepare_data()</a></code>
@@ -462,10 +483,10 @@ App Guide</a> for a full walkthrough.</p>
 <p>or directly from the source tree:</p>
 <div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">shiny</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/shiny/man/runApp.html" class="external-link">runApp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"shiny"</span>, <span class="st">"app"</span>, package <span class="op">=</span> <span class="st">"PERCEPTIONx"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p>The app has five tabs — Data, Train, Predict, Visualize, and Help —
-and ships with a Load Demo button that generates a small synthetic
-dataset (49 genes x 400 cells x 20 patients) to smoke-test the whole
-flow. Figures in the app are interactive SVG (ggiraph-based), with
+<p>The app has six tabs — Home, Data, Train, Predict, Visualize, and
+Help — and ships with a Load Demo button that generates a small
+synthetic dataset (49 genes x 400 cells x 20 patients) to smoke-test the
+whole flow. Figures in the app are interactive SVG (ggiraph-based), with
 static downloads available as 600 dpi PNG or vector PDF/SVG.</p>
 <hr>
 </div>

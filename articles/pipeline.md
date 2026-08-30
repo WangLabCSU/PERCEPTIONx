@@ -7,7 +7,7 @@ Models are trained on DepMap cell-line screens and applied to a
 patient’s single-cell expression profile, giving clone-level viability
 scores and patient-level response stratification.
 
-The core workflow is short — five function calls:
+The core workflow is short — five steps:
 
 1.  Load the DepMap reference data
 2.  Load pre-trained models (no training needed)
@@ -171,8 +171,8 @@ minimal workflow in section 2 does not depend on any of it.
 Training is only needed when you want drugs or settings not covered by
 the 44 pre-trained models.
 [`train_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/train_models.md)
-presets every argument except the drug list, so the whole call is one
-line:
+presets every argument — even the drug list defaults to all 44 supported
+drugs — so the whole call can be one line:
 
 ``` r
 
@@ -192,8 +192,8 @@ defaults. The knobs you might actually touch:
 | `output_dir` | Where fitted models are saved | `"./models"` |
 
 One thing worth knowing: `output_dir` defaults to `"./models"`, meaning
-models are written to disk. Set `output_dir = NULL` to keep them in
-memory only.
+every trained model is written to disk as a single timestamped RDS file
+there (and also returned in the `models` object).
 
 The returned `models` object plugs straight into
 [`predict_drugs()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/predict_drugs.md)
@@ -244,9 +244,17 @@ For bulk-level analyses, aggregate single-cell expression per patient:
 
 ``` r
 
-pseudo_bulk <- each_patient_pseudo_bulk(
-  sc_expression = sc_expression_rnorm,
-  patient_clone_map = clone_mapping
+# One patient index at a time; returns the patient's pseudo-bulk vector.
+# The clone-level expression matrix and the abundance table come straight
+# out of prepare_data() (clone columns named "Patient@@Clone").
+pseudo_bulk_list <- lapply(
+  seq_len(nrow(prepared$clone_counts)),
+  function(x) each_patient_pseudo_bulk(
+    x = x,
+    comb_viability_df = NULL,               # retained for compatibility, unused
+    Clone_Counts_per_patients = prepared$clone_counts,
+    clone_Level_z_expression_df = prepared$clone_expression_rnorm
+  )
 )
 ```
 
@@ -283,12 +291,31 @@ as in section 2.4.
 
 ### 3.4 The plotting suite
 
-Every plot function accepts `tooltip = TRUE` (default): when the
+Several plotting functions accept `tooltip = TRUE` (default): when the
 `ggiraph` package is installed, points and bars get hover tooltips
-(clone id, viability score, proportion, FPR/TPR). Set `tooltip = FALSE`
-for a plain static `ggplot` with the identical layout. Tooltip text is
-auto-built from the plot data; override it with the `tooltip_col`
-argument when a custom text column already exists.
+(clone id, viability score, proportion, FPR/TPR). This applies to
+[`plot_tsne_response()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_tsne_response.md),
+[`plot_clone_umap()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_clone_umap.md),
+[`plot_clone_distribution()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_clone_distribution.md),
+[`plot_clone_viability()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_clone_viability.md),
+[`plot_roc_curve()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_roc_curve.md),
+[`plot_response_boxplot()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_response_boxplot.md),
+and
+[`plot_model_performance()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_model_performance.md)
+— the remaining functions
+([`plot_model_roc()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_model_roc.md),
+[`plot_patient_response_panel()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_patient_response_panel.md),
+[`plot_tsne_biomarker_viability()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_tsne_biomarker_viability.md),
+[`plot_seurat_clustering()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_seurat_clustering.md))
+do not take a `tooltip` argument. Set `tooltip = FALSE` for a plain
+static `ggplot` with the identical layout. Tooltip text is auto-built
+from the plot data;
+[`plot_tsne_response()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_tsne_response.md),
+[`plot_clone_umap()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_clone_umap.md),
+[`plot_clone_distribution()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_clone_distribution.md),
+and
+[`plot_clone_viability()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_clone_viability.md)
+also accept a custom `tooltip_col` column.
 
 ``` r
 
@@ -361,12 +388,12 @@ returning a list with `clone_expression_rnorm` and `clone_counts`.
 
 ``` r
 
-prepared <- prepare_data(expr_matrix, method = "umap", resolution = 0.5)
+prepared <- prepare_data(expr_matrix, method = "umap", seurat_resolution = 0.5)
 clone_pred <- predict_drugs(models, prepared$clone_expression_rnorm)
 patient_pred <- predict_patients(clone_pred, prepared)
 ```
 
-Useful options: `resolution` (Seurat clustering resolution),
+Useful options: `seurat_resolution` (Seurat clustering resolution),
 `genes_to_use` (restrict the gene space before clustering), and
 `skip_clustering = TRUE` — if your data is already clone-level (one
 column per clone),
@@ -405,11 +432,11 @@ or directly from the source tree:
 shiny::runApp(system.file("shiny", "app", package = "PERCEPTIONx"))
 ```
 
-The app has five tabs — Data, Train, Predict, Visualize, and Help — and
-ships with a Load Demo button that generates a small synthetic dataset
-(49 genes x 400 cells x 20 patients) to smoke-test the whole flow.
-Figures in the app are interactive SVG (ggiraph-based), with static
-downloads available as 600 dpi PNG or vector PDF/SVG.
+The app has six tabs — Home, Data, Train, Predict, Visualize, and Help —
+and ships with a Load Demo button that generates a small synthetic
+dataset (49 genes x 400 cells x 20 patients) to smoke-test the whole
+flow. Figures in the app are interactive SVG (ggiraph-based), with
+static downloads available as 600 dpi PNG or vector PDF/SVG.
 
 ------------------------------------------------------------------------
 

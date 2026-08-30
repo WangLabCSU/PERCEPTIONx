@@ -23,7 +23,7 @@ devtools::install_github("WangLabCSU/PERCEPTIONx")
 
 ## 2. Quick Start
 
-The core workflow is five function calls. Load the reference data, load
+The core workflow is five steps. Load the reference data, load
 pre-trained models (no training needed), prepare your expression matrix,
 predict, and plot.
 
@@ -99,10 +99,10 @@ devtools::load_all()
 run_perception_app()          # starts the app in your browser
 ```
 
-The app has five tabs — Data, Train, Predict, Visualize, and Help — with
-a Load Demo button that generates a small synthetic dataset (49 genes x
-400 cells x 20 patients) to smoke-test the whole flow. See the [Shiny
-App
+The app has six tabs — Home, Data, Train, Predict, Visualize, and Help —
+with a Load Demo button that generates a small synthetic dataset (49
+genes x 400 cells x 20 patients) to smoke-test the whole flow. See the
+[Shiny App
 Guide](https://wanglabcsu.github.io/PERCEPTIONx/articles/shiny_app.html)
 for a full walkthrough.
 
