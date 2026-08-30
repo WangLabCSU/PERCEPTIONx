@@ -465,7 +465,7 @@ Shiny.addCustomMessageHandler('expr-format-state-", ns("expr_format"), "', funct
           ),
           div(class = "card-body",
             p(class = "text-muted", style = "font-size: 0.86rem;",
-              "Load pre-trained drug response models from the PERCEPTIONx GitHub Release repository. 44 models are available, each trained on DepMap bulk expression with Elastic Net regression and 5-fold cross-validation. Models are cached locally after first download."),
+              "Load pre-trained drug response models from the PERCEPTIONx GitHub Release repository. 44 models are available, each trained on DepMap bulk expression with Elastic Net regression and 3-fold cross-validation. Models are cached locally after first download."),
             tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
               "To download manually, visit ",
               tags$a(href = "https://github.com/WangLabCSU/PERCEPTIONx/releases/tag/models-v1",

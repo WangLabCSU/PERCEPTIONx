@@ -11,7 +11,7 @@ mod_train_ui <- function(id) {
         div(class = "info-box",
           icon("info-circle"), " Train drug response models on DepMap bulk expression data. ",
           "Models are built using elastic net (glmnet) or random forest with cross-validated hyperparameter tuning. ",
-          "The trained model is then refined on single-cell expression profiles."
+          "Each candidate is validated on held-out bulk, pseudo-bulk, and single-cell expression; the best configuration is selected by single-cell validation performance."
         )
       )
     ),
@@ -395,7 +395,7 @@ mod_train_server <- function(id, shared, main_session) {
           n <- if (is.null(st$n) || !is.finite(st$n) || st$n <= 0) 1 else st$n
           i <- if (is.null(st$i) || is.na(st$i)) 0 else st$i
           set_train_overlay(sprintf("Training %d/%d: %s", i, n, st$drug),
-                            "Elastic net tuning + single-cell refinement",
+                            "Elastic net tuning + single-cell validation",
                             max(0.05, (i - 1) / n))
         }
       }
@@ -412,6 +412,9 @@ mod_train_server <- function(id, shared, main_session) {
       updateSelectizeInput(session, "cancer_type", selected = "PanCan")
       updateSelectizeInput(session, "exclude_cancer", selected = "PanCan")
       updateTextAreaInput(session, "goi", value = "")
+      updateNumericInput(session, "k_features", value = 100)
+      updateSelectInput(session, "model_type", selected = "glmnet")
+      updateSelectInput(session, "ncores", selected = 1)
     })
 
     # Progress UI
