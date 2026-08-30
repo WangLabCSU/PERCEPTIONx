@@ -226,13 +226,30 @@ reset_mirrors <- function() {
 
 
 
+# The 44 pre-trained model drugs shipped with the package (used by
+# load_model(all = TRUE) to pre-cache the full set on deployment servers).
+# Keep in sync with the drug list in inst/shiny/app/R/mod_data.R.
+perception_all_drugs <- c(
+  "abemaciclib", "afatinib", "axitinib", "azacitidine", "cladribine",
+  "clofarabine", "cobimetinib", "dabrafenib", "dasatinib", "daunorubicin",
+  "decitabine", "docetaxel", "doxorubicin", "epirubicin", "erlotinib",
+  "etoposide", "gefitinib", "gemcitabine", "homoharringtonine", "ibrutinib",
+  "icotinib", "ixabepilone", "lapatinib", "lenvatinib", "midostaurin",
+  "niraparib", "osimertinib", "paclitaxel", "palbociclib", "ponatinib",
+  "romidepsin", "sunitinib", "temsirolimus", "teniposide", "thioguanine",
+  "topotecan", "trametinib", "vandetanib", "vemurafenib", "vinblastine",
+  "vincristine", "vindesine", "vinflunine", "vinorelbine"
+)
+
 #' Load pre-built model of provided drugs
 #'
 #' Downloads model files from GitHub Release if not cached locally.
 #' Supports automatic mirror fallback for users in different regions.
 #'
 #' @param ... One or more drug names (e.g., "erlotinib", "gefitinib").
-#' @param dest Directory to save downloaded models. Default = "./models".
+#' @param dest Directory to save downloaded models. Default: a cache-root
+#'        derived path (see \code{options(PERCEPTIONx.cache_root)}), or
+#'        "./models" when no cache root is set.
 #' @param read Whether to read and return the downloaded model(s) as a named list.
 #'        Default = FALSE (download only).
 #' @param mirror Logical. If FALSE (default), download from GitHub directly.
@@ -241,6 +258,12 @@ reset_mirrors <- function() {
 #'        \code{"https://gh-proxy.com/https://github.com"}). Overrides \code{mirror}.
 #' @param timeout_seconds Numeric, timeout for each download attempt in seconds. Default = 30.
 #' @param retries Integer, number of retries for each mirror. Default = 0.
+#' @param force Logical. If TRUE, delete an existing cached model file before
+#'        downloading it again (use after an interrupted/failed download left a
+#'        corrupt file behind). Default = FALSE (keep and reuse the cache).
+#' @param all Logical. If TRUE, download all 44 pre-trained models (useful to
+#'        pre-cache the full model set on a deployment server). Overrides any
+#'        drug names given in \code{...}. Default = FALSE.
 #'
 #' @return If \code{read = TRUE}, a named list of model objects (names = drug names).
 #'         If \code{read = FALSE}, invisibly returns NULL (files are saved to disk only).
@@ -261,9 +284,20 @@ reset_mirrors <- function() {
 #'                      mirror_url = "https://gh-proxy.com/https://github.com")
 #' }
 load_model <- function(..., dest = perception_default_model_dir(), read = FALSE, mirror = FALSE,
-                       mirror_url = NULL, timeout_seconds = 30, retries = 0) {
+                       mirror_url = NULL, timeout_seconds = 30, retries = 0, force = FALSE,
+                       all = FALSE) {
   drugs <- tolower(c(...))
-  if (length(drugs) == 0) stop("Drug list is empty.")
+  if (all) {
+    if (length(drugs) > 0) {
+      warning("all = TRUE overrides the drug names given in ...; downloading all 44 models.",
+              call. = FALSE)
+    }
+    drugs <- perception_all_drugs
+  }
+  if (length(drugs) == 0) {
+    stop("Drug list is empty. Pass drug names or set all = TRUE to download all 44 pre-trained models.",
+         call. = FALSE)
+  }
 
   if (!dir.exists(dest)) {
     dir.create(dest, recursive = TRUE)
@@ -281,6 +315,12 @@ load_model <- function(..., dest = perception_default_model_dir(), read = FALSE,
 
   for (drug in drugs) {
     file_path <- file.path(dest, paste0(drug, ".RDS"))
+
+    # force: drop a stale/corrupt cached file so the download always restarts
+    if (force && file.exists(file_path)) {
+      file.remove(file_path)
+      message("force = TRUE: removed cached ", drug, ".RDS, re-downloading...")
+    }
 
     if (!file.exists(file_path)) {
       urls <- paste0(base_urls, "/WangLabCSU/PERCEPTIONx/releases/download/models-v1/", drug, ".RDS")
@@ -331,6 +371,9 @@ load_model <- function(..., dest = perception_default_model_dir(), read = FALSE,
 #'        \code{"https://gh-proxy.com/https://github.com"}). Overrides \code{mirror}.
 #' @param timeout_seconds Numeric, timeout for each download attempt in seconds. Default = 300.
 #' @param retries Integer, number of retries for each mirror. Default = 1.
+#' @param force Logical. If TRUE, delete an existing cached file before
+#'        downloading again (use after an interrupted/failed download left a
+#'        corrupt file behind). Default = FALSE (keep and reuse the cache).
 #'
 #' @return Invisibly returns the DepMap object if read = TRUE, otherwise NULL.
 #' @export
@@ -343,16 +386,25 @@ load_model <- function(..., dest = perception_default_model_dir(), read = FALSE,
 #' # Use mirror sites
 #' load_depmap(read = TRUE, mirror = TRUE)
 #'
+#' # Force a fresh download (removes any cached copy first)
+#' load_depmap(read = TRUE, mirror = TRUE, force = TRUE)
+#'
 #' # Use a specific mirror
 #' load_depmap(read = TRUE, mirror_url = "https://gh-proxy.com/https://github.com")
 #' }
 load_depmap <- function(dest = perception_default_depmap_dir(), read = FALSE, mirror = FALSE, mirror_url = NULL,
-                        timeout_seconds = 300, retries = 1) {
+                        timeout_seconds = 300, retries = 1, force = FALSE) {
   if (!dir.exists(dest)) {
     dir.create(dest, recursive = TRUE)
   }
 
   destfile <- file.path(dest, "DepMap.RDS")
+
+  # force: drop a stale/corrupt cached file so the download always restarts
+  if (force && file.exists(destfile)) {
+    file.remove(destfile)
+    message("force = TRUE: removed cached DepMap.RDS, re-downloading...")
+  }
 
   if (!file.exists(destfile)) {
     base_urls <- if (!is.null(mirror_url)) {

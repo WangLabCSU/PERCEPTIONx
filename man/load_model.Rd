@@ -11,13 +11,17 @@ load_model(
   mirror = FALSE,
   mirror_url = NULL,
   timeout_seconds = 30,
-  retries = 0
+  retries = 0,
+  force = FALSE,
+  all = FALSE
 )
 }
 \arguments{
 \item{...}{One or more drug names (e.g., "erlotinib", "gefitinib").}
 
-\item{dest}{Directory to save downloaded models. Default = "./models".}
+\item{dest}{Directory to save downloaded models. Default: a cache-root
+derived path (see \code{options(PERCEPTIONx.cache_root)}), or
+"./models" when no cache root is set.}
 
 \item{read}{Whether to read and return the downloaded model(s) as a named list.
 Default = FALSE (download only).}
@@ -31,6 +35,14 @@ If TRUE, use mirror sites from \code{get_mirrors()}.}
 \item{timeout_seconds}{Numeric, timeout for each download attempt in seconds. Default = 30.}
 
 \item{retries}{Integer, number of retries for each mirror. Default = 0.}
+
+\item{force}{Logical. If TRUE, delete an existing cached model file before
+downloading it again (use after an interrupted/failed download left a
+corrupt file behind). Default = FALSE (keep and reuse the cache).}
+
+\item{all}{Logical. If TRUE, download all 44 pre-trained models (useful to
+pre-cache the full model set on a deployment server). Overrides any
+drug names given in \code{...}. Default = FALSE.}
 }
 \value{
 If \code{read = TRUE}, a named list of model objects (names = drug names).

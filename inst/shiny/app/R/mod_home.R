@@ -34,7 +34,9 @@ mod_home_ui <- function(id) {
         ),
         div(class = "hero-brand",
           div(class = "hero-logo",
-            tags$img(src = "favicon.svg", alt = "PERCEPTION-shiny logo")
+            # Inlined data URI — see perception_favicon_uri() in app.R (no
+            # external asset requests, works under Shiny Server without www/).
+            tags$img(src = perception_favicon_uri(), alt = "PERCEPTION-shiny logo")
           )
         )
       )
