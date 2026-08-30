@@ -205,7 +205,12 @@ run_demo_pipeline <- function(shared, session, on_success = NULL, on_error = NUL
     submit_session_task(shared, "demo", list()),
     error = function(e) {
       hide_overlay()
-      showNotification(paste("Demo failed to start:", e$message), type = "error", duration = 10)
+      # CRITICAL: reset the busy flag here. spawn_r_bg_retry() already retried,
+      # and if it still failed the caller (mod_data / mod_home) would otherwise
+      # leave demo_busy = TRUE forever, making every later click report
+      # "Demo data is already being prepared..." without ever loading.
+      if (!is.null(on_error)) on_error()
+      showNotification(paste("Demo failed to start:", e$message), type = "error", duration = 12)
       NULL
     }
   )

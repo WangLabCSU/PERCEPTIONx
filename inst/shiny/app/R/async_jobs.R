@@ -38,6 +38,47 @@ make_job_id <- function(user_key = "") {
          substr(paste0(user_key, salt), 1, 12))
 }
 
+# Spawn a callr background worker with retries. processx_exec can transiently
+# fail under resource pressure (first spawn in a busy container, cgroup limits,
+# fork contention with other sessions) even though the R install itself is
+# fine — so we retry briefly before giving up. On final failure the error
+# message carries the diagnostics needed to debug a stubborn deployment
+# (Rscript path, PATH, cwd, tempdir) instead of a bare "processx_exec failed".
+spawn_r_bg_retry <- function(func, args, jobs_dir, retries = 2L, delay_ms = 500L) {
+  last_err <- NULL
+  for (attempt in seq_len(retries + 1L)) {
+    tryCatch(
+      return(callr::r_bg(
+        func = func,
+        args = args,
+        supervise = TRUE,
+        poll_connection = FALSE,
+        # stdout/stderr to files, NOT pipes — a worker writing enough to fill
+        # the OS pipe buffer (~64KB) would block forever inside write(). See
+        # ensure_master() for the full rationale.
+        stdout = FALSE,
+        stderr = file.path(jobs_dir, "worker.log")
+      )),
+      error = function(e) {
+        last_err <<- e
+        if (attempt <= retries) Sys.sleep(delay_ms / 1000)
+        NULL
+      }
+    )
+  }
+  stop(
+    "Failed to start the background worker after ", retries + 1L, " attempts. ",
+    "Last error: ", conditionMessage(last_err), ". ",
+    "Diagnostics: R.home(bin)=", R.home("bin"),
+    "; Rscript exists=", file.exists(file.path(R.home("bin"), "Rscript")),
+    "; Sys.which(Rscript)=", Sys.which("Rscript"),
+    "; PATH=", Sys.getenv("PATH"),
+    "; getwd()=", getwd(),
+    "; tempdir=", tempdir(),
+    call. = FALSE
+  )
+}
+
 # ---- Master worker: runs inside the shared background R process ------------
 # Fully self-contained (see note above).
 
@@ -330,25 +371,16 @@ ensure_master <- function() {
   if (is.na(max_par) || max_par < 1L) max_par <- 16L
   idle <- suppressWarnings(as.integer(Sys.getenv("PERCEPTION_WORKER_IDLE_MINUTES", "720")))
   if (is.na(idle) || idle < 1L) idle <- 720L
-  worker <- callr::r_bg(
-    func = train_master_main,
-    # NOTE: default must be NULL (not ".") — a NULL pkg_root makes the worker
+  worker <- spawn_r_bg_retry(
+    train_master_main,
+    # NOTE: pkg_root default must be NULL (not ".") — NULL makes the worker
     # fall back to library(PERCEPTIONx); "." would trigger devtools::load_all
     # on an unrelated working directory and crash the worker.
     args = list(pkg_root = getOption("perception.pkg_root", NULL),
                 jobs_dir = jobs_dir,
                 max_parallel = max_par,
                 idle_minutes = idle),
-    supervise = TRUE,
-    poll_connection = FALSE,
-    # CRITICAL: stdout/stderr must NOT be pipes. callr's default is "|", and
-    # workers print a lot (Seurat progress bars, caret messages, package load
-    # noise). Nobody in the app ever reads those pipes, so the OS pipe buffer
-    # (~64KB) fills up and the worker blocks forever inside write() — a task
-    # that takes 12s standalone hangs indefinitely inside Shiny. Redirect both
-    # to files instead: stdout discarded, stderr kept for debugging.
-    stdout = FALSE,
-    stderr = file.path(jobs_dir, "worker.log")
+    jobs_dir = jobs_dir
   )
   options(perception.master = worker)
   invisible(TRUE)
@@ -383,16 +415,12 @@ ensure_custom_worker <- function(shared) {
   }
   jobs_dir <- file.path(tempdir(), "perception_jobs_custom", make_job_id())
   dir.create(jobs_dir, recursive = TRUE, showWarnings = FALSE)
-  worker <- callr::r_bg(
-    func = train_custom_main,
+  worker <- spawn_r_bg_retry(
+    train_custom_main,
     args = list(pkg_root = getOption("perception.pkg_root", NULL),
                 depmap_path = shared$depmap_path,
                 jobs_dir = jobs_dir),
-    supervise = TRUE,
-    poll_connection = FALSE,
-    # stdout/stderr to files, NOT pipes — see ensure_master() note.
-    stdout = FALSE,
-    stderr = file.path(jobs_dir, "worker.log")
+    jobs_dir = jobs_dir
   )
   shared$jobs_dir <- jobs_dir
   shared$train_worker <- worker
@@ -1039,15 +1067,19 @@ ensure_session_worker <- function(shared) {
     unlink(shared$task_jobs_dir, recursive = TRUE)
   }
   dir.create(jobs_dir, recursive = TRUE, showWarnings = FALSE)
-  worker <- callr::r_bg(
-    func = session_task_main,
-    args = list(pkg_root = getOption("perception.pkg_root", NULL),
-                jobs_dir = jobs_dir),
-    supervise = TRUE,
-    poll_connection = FALSE,
-    # stdout/stderr to files, NOT pipes — see ensure_master() note.
-    stdout = FALSE,
-    stderr = file.path(jobs_dir, "worker.log")
+  worker <- tryCatch(
+    spawn_r_bg_retry(
+      session_task_main,
+      args = list(pkg_root = getOption("perception.pkg_root", NULL),
+                  jobs_dir = jobs_dir),
+      jobs_dir = jobs_dir
+    ),
+    error = function(e) {
+      # Spawn failed after retries: drop the abandoned job dir so stale task
+      # files cannot accumulate, then surface the diagnostic error.
+      unlink(jobs_dir, recursive = TRUE)
+      stop(conditionMessage(e), call. = FALSE)
+    }
   )
   shared$task_jobs_dir <- jobs_dir
   shared$task_worker <- worker
