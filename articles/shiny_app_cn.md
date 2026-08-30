@@ -47,7 +47,7 @@
 
 - **R** ≥ 4.1.0
 
-- 主要依赖包：`devtools`、`shiny`、`bslib`、`Seurat`、`ggplot2`、`ggiraph`、`glmnet`、`caret`、`DT`、`plotly`、`waiter`、`thematic`、`callr`、`readxl`（缺失时应用会在相应功能处提示安装）
+- 主要依赖包：`remotes`、`shiny`、`bslib`、`Seurat`、`ggplot2`、`ggiraph`、`glmnet`、`caret`、`DT`、`plotly`、`waiter`、`thematic`、`callr`、`readxl`（缺失时应用会在相应功能处提示安装）
 
 ------------------------------------------------------------------------
 

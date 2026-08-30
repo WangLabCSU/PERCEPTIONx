@@ -48,7 +48,7 @@ profile to predict drug response and resistance.
 
 - R ≥ 4.1.0.
 
-- Main dependencies: `devtools`, `shiny`, `bslib`, `Seurat`, `ggplot2`,
+- Main dependencies: `remotes`, `shiny`, `bslib`, `Seurat`, `ggplot2`,
   `ggiraph`, `glmnet`, `caret`, `DT`, `plotly`, `waiter`, `thematic`,
   `callr`, `readxl`. The app prompts you to install anything that is
   missing when a feature needs it.

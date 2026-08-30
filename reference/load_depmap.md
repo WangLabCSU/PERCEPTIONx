@@ -10,7 +10,7 @@ different regions.
 
 ``` r
 load_depmap(
-  dest = ".",
+  dest = perception_default_depmap_dir(),
   read = FALSE,
   mirror = FALSE,
   mirror_url = NULL,
@@ -23,7 +23,9 @@ load_depmap(
 
 - dest:
 
-  Directory to save the downloaded file. Default = ".".
+  Directory to save the downloaded file. Default: a cache-root derived
+  path (see `options(PERCEPTIONx.cache_root)`), or "." when no cache
+  root is set.
 
 - read:
 
