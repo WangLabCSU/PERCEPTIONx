@@ -589,7 +589,13 @@ mod_data_server <- function(id, shared) {
           patient_mapping   = shared$user_mapping,
           skip_clustering   = TRUE
         )),
-        error = function(e) { prep_busy(FALSE); w$hide(); NULL }
+        error = function(e) {
+          prep_busy(FALSE)
+          w$hide()
+          showNotification(paste("Failed to start the background task:", e$message),
+                           type = "error", duration = 12)
+          NULL
+        }
       )
       if (is.null(jobid)) return(invisible(NULL))
       poll_task(shared, session, jobid,
@@ -925,7 +931,12 @@ mod_data_server <- function(id, shared) {
           depmap_path = file$datapath,
           cache_file  = NULL
         )),
-        error = function(e) { w$hide(); NULL }
+        error = function(e) {
+          w$hide()
+          showNotification(paste("Failed to start the background task:", e$message),
+                           type = "error", duration = 12)
+          NULL
+        }
       )
       if (is.null(jobid)) return()
       poll_task(shared, session, jobid,
@@ -1296,7 +1307,15 @@ mod_data_server <- function(id, shared) {
           seurat_resolution = input$seurat_resolution,
           seurat_dims       = input$seurat_dims
         )),
-        error = function(e) { prep_busy(FALSE); w$hide(); NULL }
+        error = function(e) {
+          prep_busy(FALSE)
+          w$hide()
+          # Make a failed worker spawn VISIBLE — otherwise the overlay just
+          # vanishes after ~0.5s with no error and the status never changes.
+          showNotification(paste("Failed to start the background task:", e$message),
+                           type = "error", duration = 12)
+          NULL
+        }
       )
       if (is.null(jobid)) return()
       poll_task(shared, session, jobid,
