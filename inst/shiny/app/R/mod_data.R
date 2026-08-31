@@ -685,12 +685,17 @@ mod_data_server <- function(id, shared) {
       # hit refreshes a dedicated last-used flag file) for more than N hours,
       # so a stale ~567 MB file does not linger forever. Overridable via
       # options(PERCEPTIONx.depmap_cache_ttl_hours) or the
-      # PERCEPTIONx_DEPMAP_CACHE_TTL_HOURS env var (default 12). Set it to 0
-      # (or any value <= 0) to DISABLE expiry entirely — required when the
-      # DepMap is pre-cached on a deployment server, otherwise the pre-download
-      # would be deleted on the first click (age > 0 hours). If the file is
-      # locked by a running worker, unlink() fails harmlessly and the next
-      # click retries.
+      # PERCEPTIONx_DEPMAP_CACHE_TTL_HOURS env var. Set it to 0 (or any value
+      # <= 0) to DISABLE expiry entirely.
+      #
+      # Default: when a cache_root IS explicitly configured (deployment
+      # servers, where the DepMap is pre-downloaded into a persistent dir),
+      # expiry is DISABLED by default — a pre-cached file must survive until
+      # it is deliberately replaced, no matter how long it sits unused.
+      # Without cache_root (personal local use, data in tempdir) the default
+      # stays 12 h idle cleanup so a 567 MB file does not linger forever.
+      # If the file is locked by a running worker, unlink() fails harmlessly
+      # and the next click retries.
       #
       # NB: the "last used" time lives in a SEPARATE flag file, NEVER in
       # DepMap.RDS's own mtime — extract_depmap_meta() only trusts the meta
@@ -698,9 +703,12 @@ mod_data_server <- function(id, shared) {
       # would invalidate the meta cache and force a full 567 MB re-read on
       # every click.
       last_used <- file.path(cache_dir, "DepMap_used.flag")
-      cache_ttl_h <- as.numeric(getOption(
+      cache_ttl_h <- suppressWarnings(as.numeric(getOption(
         "PERCEPTIONx.depmap_cache_ttl_hours",
-        Sys.getenv("PERCEPTIONx_DEPMAP_CACHE_TTL_HOURS", "12")))
+        Sys.getenv("PERCEPTIONx_DEPMAP_CACHE_TTL_HOURS", ""))))
+      if (is.na(cache_ttl_h)) {
+        cache_ttl_h <- if (is.null(PERCEPTIONx:::perception_cache_root())) 12 else 0
+      }
       ref_file <- if (file.exists(last_used)) last_used else destfile
       # Only expire when a POSITIVE TTL is set; 0 / negative disables expiry
       # (pre-cached deployment files must survive).
