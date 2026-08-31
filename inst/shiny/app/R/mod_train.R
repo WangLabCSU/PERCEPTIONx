@@ -758,7 +758,8 @@ mod_train_server <- function(id, shared, main_session) {
       req(trained())
       div(style = "margin-top: 1rem;",
         downloadButton(ns("download_model"), "Download Model (.RDS)",
-                       class = "btn-outline-primary btn-sm")
+                       class = "btn-outline-primary btn-sm"),
+        tags$hr(style = "margin-top: 1rem; margin-bottom: 1rem; border-top: 1px solid var(--border-light);")
       )
     })
 
