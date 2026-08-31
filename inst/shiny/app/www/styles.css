@@ -1050,9 +1050,19 @@ body {
 }
 /* Force every child to the horizontal centre — robust even if a framework
    rule overrides align-items on the <a> itself (Shiny .action-button). */
-.wf-step-link > .wf-node,
-.wf-step-link > .wf-step-title,
-.wf-step-link > .wf-step-status {
+/* NOTE: Shiny >= 1.14 wraps actionLink labels in <span class="action-label">,
+   so direct-child (`>`) selectors no longer match the step children. Use
+   descendant selectors so BOTH structures (with and without .action-label)
+   centre correctly, and make .action-label itself a centred flex column. */
+.wf-step-link .action-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+.wf-step-link .wf-node,
+.wf-step-link .wf-step-title,
+.wf-step-link .wf-step-status {
   margin-left: auto;
   margin-right: auto;
 }
