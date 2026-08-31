@@ -21,12 +21,6 @@ Download and load DepMap reference data and pre-trained models.
 
 ## Preprocessing
 
-- [`rank_normalization_mat()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/rank_normalization_mat.md)
-  : Rank-normalize each column of a matrix
-- [`range01()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/range01.md)
-  : Change range to 0-1
-- [`zscore_viability()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/zscore_viability.md)
-  : Z-score scale viability values across patients
 - [`prepare_data()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/prepare_data.md)
   : Prepare patient data for PERCEPTIONx prediction
 
@@ -34,16 +28,6 @@ Download and load DepMap reference data and pre-trained models.
 
 - [`train_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/train_models.md)
   : Train PERCEPTIONx models for multiple drugs
-- [`get_response_matrix()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/get_response_matrix.md)
-  : Get specific drug response data for cell-lines
-- [`get_cellLine_list()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/get_cellLine_list.md)
-  : Determine training and test cell-lines for a given drug
-- [`feature_ranking_bulk()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/feature_ranking_bulk.md)
-  : Feature ranking for a single drug using bulk expression
-- [`run_parallel_feature_ranking_bulk()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/run_parallel_feature_ranking_bulk.md)
-  : Parallel feature ranking for multiple drugs
-- [`build_on_BULK_v2()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/build_on_BULK_v2.md)
-  : Build PERCEPTIONx model on bulk expression data
 
 ## Prediction
 
@@ -60,21 +44,6 @@ Download and load DepMap reference data and pre-trained models.
   : Get best performing models
 - [`get_performance()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/get_performance.md)
   : Load performance metrics from a saved model file
-- [`each_patient_pseudo_bulk()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/each_patient_pseudo_bulk.md)
-  : Compute pseudo-bulk expression for a patient
-
-## Clone & Seurat Pipeline
-
-- [`annotate_clones()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/annotate_clones.md)
-  : Annotate cells with clone IDs via Seurat clustering
-- [`build_clone_counts()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/build_clone_counts.md)
-  : Build clone abundance table from cell-clone mapping
-- [`build_clone_key()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/build_clone_key.md)
-  : Build a clone key from patient and clone id
-- [`parse_clone_keys()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/parse_clone_keys.md)
-  : Parse clone keys in "Patient@Clone" format
-- [`clone_mean_expression()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/clone_mean_expression.md)
-  : Compute clone-level mean expression from single-cell data
 
 ## Visualization
 
@@ -105,6 +74,40 @@ Download and load DepMap reference data and pre-trained models.
 
 - [`run_perception_app()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/run_perception_app.md)
   : Launch PERCEPTIONx Shiny Dashboard
+
+## Advanced - Pipeline Building Blocks
+
+Lower-level components used internally by train_models() and
+prepare_data(). Most users only need the main entry points above.
+
+- [`rank_normalization_mat()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/rank_normalization_mat.md)
+  : Rank-normalize each column of a matrix
+- [`range01()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/range01.md)
+  : Change range to 0-1
+- [`zscore_viability()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/zscore_viability.md)
+  : Z-score scale viability values across patients
+- [`get_response_matrix()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/get_response_matrix.md)
+  : Get specific drug response data for cell-lines
+- [`get_cellLine_list()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/get_cellLine_list.md)
+  : Determine training and test cell-lines for a given drug
+- [`feature_ranking_bulk()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/feature_ranking_bulk.md)
+  : Feature ranking for a single drug using bulk expression
+- [`run_parallel_feature_ranking_bulk()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/run_parallel_feature_ranking_bulk.md)
+  : Parallel feature ranking for multiple drugs
+- [`build_on_BULK_v2()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/build_on_BULK_v2.md)
+  : Build PERCEPTIONx model on bulk expression data
+- [`each_patient_pseudo_bulk()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/each_patient_pseudo_bulk.md)
+  : Compute pseudo-bulk expression for a patient
+- [`annotate_clones()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/annotate_clones.md)
+  : Annotate cells with clone IDs via Seurat clustering
+- [`build_clone_counts()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/build_clone_counts.md)
+  : Build clone abundance table from cell-clone mapping
+- [`build_clone_key()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/build_clone_key.md)
+  : Build a clone key from patient and clone id
+- [`parse_clone_keys()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/parse_clone_keys.md)
+  : Parse clone keys in "Patient@Clone" format
+- [`clone_mean_expression()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/clone_mean_expression.md)
+  : Compute clone-level mean expression from single-cell data
 
 ## Utilities
 

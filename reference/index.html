@@ -104,27 +104,6 @@
 
       <dl><dt>
 
-          <code><a href="rank_normalization_mat.html">rank_normalization_mat()</a></code>
-
-        </dt>
-        <dd>Rank-normalize each column of a matrix</dd>
-
-        <dt>
-
-          <code><a href="range01.html">range01()</a></code>
-
-        </dt>
-        <dd>Change range to 0-1</dd>
-
-        <dt>
-
-          <code><a href="zscore_viability.html">zscore_viability()</a></code>
-
-        </dt>
-        <dd>Z-score scale viability values across patients</dd>
-
-        <dt>
-
           <code><a href="prepare_data.html">prepare_data()</a></code>
 
         </dt>
@@ -145,41 +124,6 @@
 
         </dt>
         <dd>Train PERCEPTIONx models for multiple drugs</dd>
-
-        <dt>
-
-          <code><a href="get_response_matrix.html">get_response_matrix()</a></code>
-
-        </dt>
-        <dd>Get specific drug response data for cell-lines</dd>
-
-        <dt>
-
-          <code><a href="get_cellLine_list.html">get_cellLine_list()</a></code>
-
-        </dt>
-        <dd>Determine training and test cell-lines for a given drug</dd>
-
-        <dt>
-
-          <code><a href="feature_ranking_bulk.html">feature_ranking_bulk()</a></code>
-
-        </dt>
-        <dd>Feature ranking for a single drug using bulk expression</dd>
-
-        <dt>
-
-          <code><a href="run_parallel_feature_ranking_bulk.html">run_parallel_feature_ranking_bulk()</a></code>
-
-        </dt>
-        <dd>Parallel feature ranking for multiple drugs</dd>
-
-        <dt>
-
-          <code><a href="build_on_BULK_v2.html">build_on_BULK_v2()</a></code>
-
-        </dt>
-        <dd>Build PERCEPTIONx model on bulk expression data</dd>
       </dl></div><div class="section level2">
       <h2 id="prediction">Prediction<a class="anchor" aria-label="anchor" href="#prediction"></a></h2>
 
@@ -233,57 +177,6 @@
 
         </dt>
         <dd>Load performance metrics from a saved model file</dd>
-
-        <dt>
-
-          <code><a href="each_patient_pseudo_bulk.html">each_patient_pseudo_bulk()</a></code>
-
-        </dt>
-        <dd>Compute pseudo-bulk expression for a patient</dd>
-      </dl></div><div class="section level2">
-      <h2 id="clone-seurat-pipeline">Clone &amp; Seurat Pipeline<a class="anchor" aria-label="anchor" href="#clone-seurat-pipeline"></a></h2>
-
-
-
-      <dl></dl></div><div class="section level2">
-
-
-
-
-      <dl><dt>
-
-          <code><a href="annotate_clones.html">annotate_clones()</a></code>
-
-        </dt>
-        <dd>Annotate cells with clone IDs via Seurat clustering</dd>
-
-        <dt>
-
-          <code><a href="build_clone_counts.html">build_clone_counts()</a></code>
-
-        </dt>
-        <dd>Build clone abundance table from cell-clone mapping</dd>
-
-        <dt>
-
-          <code><a href="build_clone_key.html">build_clone_key()</a></code>
-
-        </dt>
-        <dd>Build a clone key from patient and clone id</dd>
-
-        <dt>
-
-          <code><a href="parse_clone_keys.html">parse_clone_keys()</a></code>
-
-        </dt>
-        <dd>Parse clone keys in "Patient@Clone" format</dd>
-
-        <dt>
-
-          <code><a href="clone_mean_expression.html">clone_mean_expression()</a></code>
-
-        </dt>
-        <dd>Compute clone-level mean expression from single-cell data</dd>
       </dl></div><div class="section level2">
       <h2 id="visualization">Visualization<a class="anchor" aria-label="anchor" href="#visualization"></a></h2>
 
@@ -386,6 +279,113 @@
 
         </dt>
         <dd>Launch PERCEPTIONx Shiny Dashboard</dd>
+      </dl></div><div class="section level2">
+      <h2 id="advanced-pipeline-building-blocks">Advanced - Pipeline Building Blocks<a class="anchor" aria-label="anchor" href="#advanced-pipeline-building-blocks"></a></h2>
+
+      <div class="section-desc"><p>Lower-level components used internally by train_models() and prepare_data(). Most users only need the main entry points above.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="rank_normalization_mat.html">rank_normalization_mat()</a></code>
+
+        </dt>
+        <dd>Rank-normalize each column of a matrix</dd>
+
+        <dt>
+
+          <code><a href="range01.html">range01()</a></code>
+
+        </dt>
+        <dd>Change range to 0-1</dd>
+
+        <dt>
+
+          <code><a href="zscore_viability.html">zscore_viability()</a></code>
+
+        </dt>
+        <dd>Z-score scale viability values across patients</dd>
+
+        <dt>
+
+          <code><a href="get_response_matrix.html">get_response_matrix()</a></code>
+
+        </dt>
+        <dd>Get specific drug response data for cell-lines</dd>
+
+        <dt>
+
+          <code><a href="get_cellLine_list.html">get_cellLine_list()</a></code>
+
+        </dt>
+        <dd>Determine training and test cell-lines for a given drug</dd>
+
+        <dt>
+
+          <code><a href="feature_ranking_bulk.html">feature_ranking_bulk()</a></code>
+
+        </dt>
+        <dd>Feature ranking for a single drug using bulk expression</dd>
+
+        <dt>
+
+          <code><a href="run_parallel_feature_ranking_bulk.html">run_parallel_feature_ranking_bulk()</a></code>
+
+        </dt>
+        <dd>Parallel feature ranking for multiple drugs</dd>
+
+        <dt>
+
+          <code><a href="build_on_BULK_v2.html">build_on_BULK_v2()</a></code>
+
+        </dt>
+        <dd>Build PERCEPTIONx model on bulk expression data</dd>
+
+        <dt>
+
+          <code><a href="each_patient_pseudo_bulk.html">each_patient_pseudo_bulk()</a></code>
+
+        </dt>
+        <dd>Compute pseudo-bulk expression for a patient</dd>
+
+        <dt>
+
+          <code><a href="annotate_clones.html">annotate_clones()</a></code>
+
+        </dt>
+        <dd>Annotate cells with clone IDs via Seurat clustering</dd>
+
+        <dt>
+
+          <code><a href="build_clone_counts.html">build_clone_counts()</a></code>
+
+        </dt>
+        <dd>Build clone abundance table from cell-clone mapping</dd>
+
+        <dt>
+
+          <code><a href="build_clone_key.html">build_clone_key()</a></code>
+
+        </dt>
+        <dd>Build a clone key from patient and clone id</dd>
+
+        <dt>
+
+          <code><a href="parse_clone_keys.html">parse_clone_keys()</a></code>
+
+        </dt>
+        <dd>Parse clone keys in "Patient@Clone" format</dd>
+
+        <dt>
+
+          <code><a href="clone_mean_expression.html">clone_mean_expression()</a></code>
+
+        </dt>
+        <dd>Compute clone-level mean expression from single-cell data</dd>
       </dl></div><div class="section level2">
       <h2 id="utilities">Utilities<a class="anchor" aria-label="anchor" href="#utilities"></a></h2>
 

@@ -129,6 +129,34 @@
 <p>The app has six tabs — Home, Data, Train, Predict, Visualize, and Help — with a Load Demo button that generates a small synthetic dataset (49 genes x 400 cells x 20 patients) to smoke-test the whole flow. See the <a href="https://wanglabcsu.github.io/PERCEPTIONx/articles/shiny_app.html">Shiny App Guide</a> for a full walkthrough.</p>
 </div>
 <div class="section level2">
+<h2 id="agent-skills">Agent Skills<a class="anchor" aria-label="anchor" href="#agent-skills"></a>
+</h2>
+<p>PERCEPTIONx ships two agent skills so AI coding assistants can drive the package correctly instead of guessing its API:</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr>
+<th>Skill</th>
+<th>Purpose</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><a href=".claude/skills/perceptionx-pipeline/SKILL.html"><code>perceptionx-pipeline</code></a></td>
+<td>Full workflow: load DepMap &amp; pre-trained models, prepare patient data, predict at clone/patient level, evaluate</td>
+</tr>
+<tr>
+<td><a href=".claude/skills/perceptionx-result/SKILL.html"><code>perceptionx-result</code></a></td>
+<td>Interpret predictions, model performance, ROC curves and result plots</td>
+</tr>
+</tbody>
+</table>
+<p>Claude Code picks them up automatically from <code>.claude/skills/</code>. For other agents (e.g. Codex), copy them into that agent’s skills directory:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">cp</span> <span class="at">-r</span> .claude/skills/perceptionx-pipeline ~/.codex/skills/</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="fu">cp</span> <span class="at">-r</span> .claude/skills/perceptionx-result ~/.codex/skills/</span></code></pre></div>
+</div>
+<div class="section level2">
 <h2 id="id_4-function-reference">4. Function Reference<a class="anchor" aria-label="anchor" href="#id_4-function-reference"></a>
 </h2>
 <div class="section level3">

@@ -499,6 +499,27 @@ package). After cloning the repo:</p>
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/source.html" class="external-link">source</a></span><span class="op">(</span><span class="st">"tools/test_pipeline.R"</span><span class="op">)</span></span></code></pre></div>
 <hr>
 </div>
+<div class="section level3">
+<h3 id="agent-skills">3.8 Agent skills<a class="anchor" aria-label="anchor" href="#agent-skills"></a>
+</h3>
+<p>The repository ships two agent skills (<code>.claude/skills/</code>)
+that let AI coding assistants drive the package correctly instead of
+guessing its API:</p>
+<ul>
+<li>
+<code>perceptionx-pipeline</code> — the full workflow from this
+tutorial: load reference data, prepare patient data, predict, and
+evaluate.</li>
+<li>
+<code>perceptionx-result</code> — interpretation of prediction
+tables, model performance, and the plotting suite.</li>
+</ul>
+<p>Claude Code picks them up automatically. For other agents
+(e.g. Codex), copy them into that agent’s skills directory:</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a><span class="fu">cp</span> <span class="at">-r</span> .claude/skills/perceptionx-pipeline ~/.codex/skills/</span>
+<span id="cb20-2"><a href="#cb20-2" tabindex="-1"></a><span class="fu">cp</span> <span class="at">-r</span> .claude/skills/perceptionx-result ~/.codex/skills/</span></code></pre></div>
+<hr>
+</div>
 </div>
 <div class="section level2">
 <h2 id="citation">4. Citation<a class="anchor" aria-label="anchor" href="#citation"></a>
