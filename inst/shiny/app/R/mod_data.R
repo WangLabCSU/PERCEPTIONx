@@ -1,5 +1,10 @@
 # Data Loading Module
 
+# Size of the official DepMap.RDS release asset (bytes). Used to (a) drive the
+# download progress bar and (b) reject truncated downloads / partial cache
+# files — a partial file must never be treated as a cache hit or parsed.
+depmap_release_size <- 594589700
+
 # ---- Upload helpers: flexible table reading + column name normalization ----
 
 # Read an uploaded table by file extension. Supported: rds, csv, tsv/txt, xlsx.
@@ -699,7 +704,11 @@ mod_data_server <- function(id, shared) {
       # it is fresh. If the sidecar is missing/stale, re-extract it in the
       # background worker — the main process must never deserialize the
       # 567 MB file (blocks the UI + spikes RAM).
-      if (file.exists(destfile) && file.size(destfile) > 0) {
+      # A partial file from an interrupted download must never be treated as a
+      # cache hit (it would fail at readRDS). Only files that reach the full
+      # release size count as a valid cache.
+      if (file.exists(destfile) &&
+          is.finite(file.size(destfile)) && file.size(destfile) >= depmap_release_size) {
         meta_cache <- file.path(cache_dir, "DepMap_meta.RDS")
         meta <- read_cached_meta(destfile, meta_cache)
         if (!is.null(meta)) {
@@ -786,7 +795,7 @@ mod_data_server <- function(id, shared) {
       # Expected size of the official DepMap.RDS release asset (bytes) — used
       # only as the progress-bar denominator. The real file is validated by
       # the parsing step below, so a wrong estimate can never corrupt data.
-      download_progress(list(jobid = jobid, destfile = destfile, expected = 594589700))
+      download_progress(list(jobid = jobid, destfile = destfile, expected = depmap_release_size))
 
       poll_task(shared, session, jobid,
         on_done = function(path) {
@@ -837,10 +846,25 @@ mod_data_server <- function(id, shared) {
                                      "cannot open the connection|not a list|",
                                      "missing required components"), msg, ignore.case = TRUE)
               if (corrupt) {
-                unlink(path)
-                unlink(file.path(cache_dir, "DepMap_meta.RDS"))
-                showNotification("Downloaded DepMap.RDS is corrupt (incomplete download?) — it was deleted. Please click 'Download & Load' again.",
-                                 type = "error", duration = 10)
+                # Distinguish an INCOMPLETE download (file smaller than the
+                # release asset — safe to delete, the next click re-downloads)
+                # from a FULL-SIZE file that still fails to parse (usually
+                # insufficient RAM: reading 567 MB needs ~2-4x its size).
+                # Deleting the full-size file would force a pointless 567 MB
+                # re-download that fails the same way.
+                full_size <- file.exists(destfile) &&
+                  is.finite(file.size(destfile)) && file.size(destfile) >= depmap_release_size
+                if (full_size) {
+                  showNotification(paste0("DepMap.RDS is complete but could not be read: ", msg,
+                                          ". This is usually insufficient RAM (reading the file needs ~2-4x its size). ",
+                                          "The file was kept — close other applications and try again."),
+                                   type = "error", duration = 12)
+                } else {
+                  unlink(destfile)
+                  unlink(file.path(cache_dir, "DepMap_meta.RDS"))
+                  showNotification("Downloaded DepMap.RDS is incomplete/corrupt (interrupted download?) — it was deleted. Please click 'Download & Load' again.",
+                                   type = "error", duration = 10)
+                }
               } else {
                 showNotification(paste("Error:", msg), type = "error", duration = 10)
               }
@@ -1064,15 +1088,19 @@ mod_data_server <- function(id, shared) {
         )
       } else {
         drug_names <- names(cache)
+        # Simulated demo models are labelled [demo] so they are never mistaken
+        # for real trained/pretrained models.
+        demo_names <- demo_models(cache)
         cards <- lapply(drug_names, function(d) {
           btn_id <- paste0("toggle_", gsub("[^A-Za-z0-9]", "_", d))
           is_active <- isTRUE(shared$model_active[[d]])
           state_class <- if (is_active) "active" else "inactive"
           dot_class <- if (is_active) "green" else "gray"
           label <- if (is_active) "Active" else "Inactive"
+          display_name <- if (d %in% demo_names) paste0(d, " [demo]") else d
           div(class = "model-mgmt-card",
             div(class = "model-mgmt-status",
-              strong(d)
+              strong(display_name)
             ),
             # NOTE: the status dot must go in `label`, not `icon` — Shiny >= 1.10
             # validates the icon arg (validateIcon) and errors "Invalid icon"

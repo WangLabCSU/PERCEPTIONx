@@ -232,10 +232,12 @@ mod_predict_server <- function(id, shared, main_session) {
         showNotification("A prediction is already running", type = "warning", duration = 5)
         return()
       }
-      pred_busy(TRUE)
 
       # Pre-check: gene overlap between model features and expression data
       # (check ALL models, not just the first one)
+      # NOTE: this runs BEFORE pred_busy(TRUE) — a blocked prediction must not
+      # leave the busy flag set, or the next click would wrongly report
+      # "A prediction is already running".
       extract_features <- function(m) {
         if (inherits(m, "train")) {
           feats <- setdiff(colnames(m$trainingData), ".outcome")
@@ -264,11 +266,22 @@ mod_predict_server <- function(id, shared, main_session) {
           overlap <- intersect(features_made, expr_rownames_made)
         }
         if (length(overlap) == 0) {
-          showNotification(
-            paste0("Gene name mismatch: none of the model's ", length(all_features),
-                   " features found in your expression data. ",
-                   "Check gene name formats (hyphens vs dots) between training and prediction data."),
-            type = "error", duration = 12)
+          showModal(modalDialog(
+            title = "Data incompatibility — prediction blocked",
+            tags$div(
+              div(style = "text-align: center; margin-bottom: 0.6rem;",
+                icon("exclamation-triangle", style = "color: #e08a3c; font-size: 1.8rem;")),
+              p(paste0("None of the model's ", length(all_features),
+                       " features were found in the expression data (",
+                       nrow(expr), " genes available).")),
+              p("The model was trained on the DepMap gene space; the current ",
+                "expression data shares no genes with it. Check gene name formats ",
+                "(hyphens vs dots, e.g. MIF-1 vs MIF.1) between training and ",
+                "prediction data.")
+            ),
+            footer = modalButton("OK"),
+            easyClose = TRUE
+          ))
           return()
         }
         if (length(overlap) < length(all_features) * 0.5) {
@@ -278,6 +291,10 @@ mod_predict_server <- function(id, shared, main_session) {
             type = "warning", duration = 8)
         }
       }
+
+      # All validation passed — only now claim the busy flag so a blocked run
+      # never leaves it set.
+      pred_busy(TRUE)
 
       w <- Waiter$new(
         html = tagList(div(class = "spinner-ring"), h4("Predicting..."),
@@ -367,7 +384,22 @@ mod_predict_server <- function(id, shared, main_session) {
       n_rows <- nrow(mat)
       h <- if (is.null(n_rows) || n_rows <= 0) 400
            else min(700, max(240, 140 + 16 * n_rows))
-      plotlyOutput(ns("clone_heatmap"), height = paste0(h, "px"))
+      # Demo models are SIMULATED (trained on random noise, not real drug
+      # response data) but carry real drug names — the results must carry a
+      # visible banner whenever any of them appear in the prediction.
+      demo <- intersect(colnames(mat), demo_models(shared$models))
+      banner <- if (length(demo) > 0) {
+        div(class = "info-box",
+            style = "border-left-color: var(--warning); margin-bottom: 0.6rem;",
+            icon("exclamation-triangle"),
+            strong("Demo simulation: "),
+            paste(demo, collapse = ", "),
+            " model(s) are SIMULATED placeholders, not trained on real drug response data. ",
+            "These predictions demonstrate the workflow only and must NOT be interpreted as real drug response.")
+      } else {
+        NULL
+      }
+      tagList(banner, plotlyOutput(ns("clone_heatmap"), height = paste0(h, "px")))
     })
 
     # Card annotations (icon + description + hint) are statically pre-rendered

@@ -218,20 +218,10 @@ mod_train_server <- function(id, shared, main_session) {
              html = paste0("<div class='train-progress-bar' style='width: ", pct, "%;'></div>")))
     }
 
-    # Train
-    observeEvent(input$train, {
-      # Guard against double-submitting: a second click would overwrite
-      # active_job, orphan the first job and leak its waiter overlay.
-      if (!is.null(shared$active_job)) {
-        showNotification("A training job is already running — wait for it to finish.",
-                         type = "warning", duration = 6)
-        return()
-      }
-      # Validate
-      if (is.null(shared$depmap_meta)) {
-        showNotification("Please load DepMap data first (Data tab)", type = "error")
-        return()
-      }
+    # Actual training entry — shared by the Train button and the demo-mode
+    # confirmation dialog. Validates inputs, drops the demo's simulated
+    # models, then shows the overlay and submits the background job.
+    start_training <- function() {
       # GOI is optional — if empty, use all genes from DepMap
       goi <- goi_parsed()
       if (is.null(goi) || length(goi) == 0) {
@@ -263,6 +253,19 @@ mod_train_server <- function(id, shared, main_session) {
           showNotification("No valid drug names left — check spellings", type = "error")
           return()
         }
+      }
+
+      # Starting a REAL training means the user wants real models. The demo's
+      # simulated models occupy real drug names (abemaciclib / erlotinib) and
+      # would otherwise be mistaken for trained ones — drop them now, along
+      # with any predictions made with them. (Demo EXPRESSION data stays; only
+      # the placeholder models are removed.)
+      if (isTRUE(shared$demo_loaded)) {
+        shared$models <- NULL
+        shared$model_cache <- list()
+        shared$model_active <- list()
+        shared$predictions <- NULL
+        shared$patient_pred <- NULL
       }
 
       # ONE overlay layer: spinner + stage text + progress bar live together
@@ -314,7 +317,57 @@ mod_train_server <- function(id, shared, main_session) {
         train_waiter(NULL)
         showNotification(paste("Failed to start training job:", e$message), type = "error", duration = 10)
       })
+    }
+
+    # Train
+    observeEvent(input$train, {
+      # Guard against double-submitting: a second click would overwrite
+      # active_job, orphan the first job and leak its waiter overlay.
+      if (!is.null(shared$active_job)) {
+        showNotification("A training job is already running — wait for it to finish.",
+                         type = "warning", duration = 6)
+        return()
+      }
+      if (is.null(shared$depmap_meta)) {
+        showNotification("Please load DepMap data first (Data tab)", type = "error")
+        return()
+      }
+      # In demo mode, warn BEFORE any overlay appears: the demo ships its own
+      # simulated abemaciclib/erlotinib models (trained on the demo's 49-gene
+      # space), and a freshly trained DepMap-space model shares no genes with
+      # the demo data. Training starts ONLY after the user confirms, so the
+      # spinner overlay is never shown under/over the dialog.
+      if (isTRUE(shared$demo_loaded)) {
+        showModal(modalDialog(
+          title = "Heads up — demo mode",
+          tags$div(
+            div(style = "text-align: center; margin-bottom: 0.6rem;",
+              icon("lightbulb", style = "color: #e08a3c; font-size: 1.8rem;")),
+            p("You are on the demo dataset (49 genes). The demo already ships ",
+              strong("simulated"), " abemaciclib / erlotinib models for walking ",
+              "through the workflow — you can predict with them directly."),
+            p("Training now builds a ", strong("real"), " DepMap-space model whose ",
+              "features will NOT match the demo data, so prediction with it will fail. ",
+              "If you want real models, use your own full expression data instead of the demo.")
+          ),
+          footer = tagList(
+            modalButton("Cancel"),
+            actionButton(ns("confirm_train_demo"), "Continue training",
+                         class = "btn-primary", icon = icon("play"))
+          ),
+          easyClose = FALSE
+        ))
+        return()
+      }
+      start_training()
     })
+
+    # Demo-mode confirmation: the user clicked "Continue training" in the
+    # dialog — now (and only now) the overlay + background job start.
+    observeEvent(input$confirm_train_demo, {
+      removeModal()
+      start_training()
+    }, ignoreInit = TRUE)
 
     # Poll the background training job every second; drive the overlay and
     # finalize when the worker reports done / error. Also detects a DEAD
@@ -371,7 +424,42 @@ mod_train_server <- function(id, shared, main_session) {
                                   " (feature ranking or model building failed — see console warnings)."),
                            type = "warning", duration = 10)
         }
-        showNotification("Training completed successfully!", type = "message")
+        # Feature-compatibility check against the CURRENT expression data.
+        # A freshly trained model lives in the DepMap feature space (top-k of
+        # ~19,000 genes); the demo's 49-gene data shares no genes with it, so
+        # prediction would fail at gene matching. Warn PER DRUG right now
+        # instead of letting the user discover it when clicking
+        # "Run Prediction" (a batch with several drugs may only have some
+        # incompatible ones — the rest stay usable).
+        expr_genes <- if (!is.null(shared$prepared_data)) {
+          rownames(shared$prepared_data$clone_expression_rnorm)
+        } else if (!is.null(shared$user_expr)) {
+          rownames(shared$user_expr)
+        } else {
+          NULL
+        }
+        compat <- check_model_expression_compat(result, expr_genes)
+        if (length(compat$incompatible) > 0) {
+          showModal(modalDialog(
+            title = "Training finished — incompatible models",
+            tags$div(
+              div(style = "text-align: center; margin-bottom: 0.6rem;",
+                icon("exclamation-triangle", style = "color: #e08a3c; font-size: 1.8rem;")),
+              p(paste0("Training completed, but ", length(compat$incompatible),
+                       " model(s) share NO genes with the current expression data (",
+                       compat$n_genes, " genes available):")),
+              p(style = "font-weight: 600;",
+                paste(compat$incompatible, collapse = ", ")),
+              p("Their features come from the DepMap gene space, so prediction with ",
+                "them will fail. Use the demo's built-in models, clear the demo, ",
+                "or upload a pre-trained model instead.")
+            ),
+            footer = modalButton("OK"),
+            easyClose = TRUE
+          ))
+        } else {
+          showNotification("Training completed successfully!", type = "message")
+        }
         return()
       }
       if (st$status == "error") {
@@ -573,7 +661,12 @@ mod_train_server <- function(id, shared, main_session) {
           tabPanel("Validation ROC",
             plotlyOutput(ns("perf_roc_plot"), height = paste0(roc_h, "px")),
             tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
-              "ROC of the predicted viability in stratifying the top vs bottom 50% observed response by rank (paper's convention), one curve per validation dataset (bulk / pseudo-bulk / single-cell) with AUC annotated in a box. 0.5 = random."),
+              "ROC of the predicted viability in stratifying the top vs bottom 50% observed response by rank (paper's convention), one curve per validation dataset with AUC annotated in a box. 0.5 = random."),
+            tags$small(class = "text-muted", style = "display: block; margin-top: 0.3rem;",
+              strong("Validation sets are built-in:"), " each model was validated on DepMap data it never trained on — ",
+              strong("bulk"), " = cell-line bulk expression, ",
+              strong("pseudo-bulk"), " = single-cell expression aggregated to simulate bulk, ",
+              strong("single-cell"), " = DepMap single-cell expression. A curve shows whether the model's predicted viability correctly separates the most vs least responsive cell lines on that validation set."),
             div(style = "margin-top: 0.4rem;",
               downloadButton(ns("download_roc_png"), "PNG", class = "btn-outline-primary btn-sm"),
               downloadButton(ns("download_roc_pdf"), "PDF", class = "btn-outline-primary btn-sm")

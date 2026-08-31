@@ -9,6 +9,12 @@ NULL
 # (avoids assigning to .GlobalEnv which triggers R CMD check NOTE)
 .depmap_env <- new.env(parent = emptyenv())
 
+# Size of the official DepMap.RDS release asset (bytes). Used to reject
+# truncated downloads / partial cache files so they are never cached or
+# parsed. Bump this if the release asset is ever regenerated with a
+# different size.
+.depmap_release_size <- 594589700
+
 #' Get the DepMap dataset
 #'
 #' Retrieves the DepMap dataset from the package-level cache.
@@ -45,6 +51,10 @@ utils::globalVariables("DepMap")
 #' @param speed_threshold Numeric, speed threshold in KB/s to warn user. Default = 10.
 #' @param timeout_seconds Numeric, timeout for each download attempt in seconds. Default = 300.
 #' @param retries Integer, number of retries for each mirror. Default = 0.
+#' @param expected_size Optional expected file size in bytes. When provided, a
+#'        finished transfer that is SMALLER than this is treated as an
+#'        interrupted/partial download: the file is discarded and the next
+#'        mirror/retry is attempted (a partial file must never be cached).
 #'
 #' @return TRUE if successful, FALSE otherwise
 #' @keywords internal
@@ -52,7 +62,8 @@ utils::globalVariables("DepMap")
 download_with_mirrors <- function(urls, destfile, quiet = FALSE,
                                   speed_threshold = 10,
                                   timeout_seconds = 30,
-                                  retries = 0) {
+                                  retries = 0,
+                                  expected_size = NULL) {
   # Save and restore R timeout setting
   old_timeout <- getOption("timeout")
   on.exit(options(timeout = old_timeout), add = TRUE)
@@ -65,6 +76,25 @@ download_with_mirrors <- function(urls, destfile, quiet = FALSE,
   # Fall back to libcurl when no curl binary is on PATH.
   download_method <- if (nzchar(Sys.which("curl"))) "curl" else "libcurl"
 
+  # Extra flags for the curl method. R's curl method runs `curl url -o file`
+  # WITHOUT these by default, which is what broke DepMap downloads:
+  #   -L    follow the GitHub release 302 redirect to
+  #         objects.githubusercontent.com (without it curl saves the 302 page)
+  #   --fail  turn HTTP 4xx/5xx into a nonzero exit (a proxy returning an HTML
+  #         error page would otherwise "succeed")
+  #   --ssl-no-revoke  Windows only: curl.exe uses the schannel TLS backend,
+  #         which by default contacts the certificate revocation servers —
+  #         unreachable behind GFW, so EVERY handshake failed with
+  #         "curl: (35) schannel ... revocation". This flag skips that check.
+  #         Linux curl uses OpenSSL and simply ignores the flag.
+  #   -C -  resume an interrupted transfer on retries, so a 567 MB file is not
+  #         re-downloaded from zero every time. The first attempt is always a
+  #         fresh start (curl -o overwrites), so a stale partial file can never
+  #         be silently appended to.
+  # (libcurl ignores `extra`; it follows redirects, checks HTTP status and has
+  # no schannel CRL issue, so the fallback path needs none of this.)
+  extra_base <- "-L --fail --ssl-no-revoke"
+
   for (i in seq_along(urls)) {
     if (!quiet) message("Trying mirror ", i, "/", length(urls))
 
@@ -74,11 +104,13 @@ download_with_mirrors <- function(urls, destfile, quiet = FALSE,
       start_time <- Sys.time()
       success <- FALSE
       timeout_occurred <- FALSE
+      incomplete <- FALSE
 
       tryCatch({
         suppressWarnings({
+          curl_extra <- if (attempt > 0) paste(extra_base, "-C -") else extra_base
           download.file(urls[i], destfile, mode = "wb", quiet = quiet,
-                        method = download_method)
+                        method = download_method, extra = curl_extra)
         })
         success <- TRUE
       }, error = function(e) {
@@ -94,6 +126,22 @@ download_with_mirrors <- function(urls, destfile, quiet = FALSE,
         }
         if (file.exists(destfile)) file.remove(destfile)
       })
+
+      # A "successful" transfer can still be truncated by a flaky connection
+      # or a misbehaving proxy: verify the size against the known release
+      # asset when the caller provides one. A partial file must NEVER be
+      # kept — otherwise it would poison the cache and every later parse.
+      if (success && file.exists(destfile)) {
+        sz <- file.size(destfile)
+        if (!is.null(expected_size) && is.finite(sz) && sz < expected_size) {
+          incomplete <- TRUE
+          if (!quiet) message(sprintf(
+            "  Incomplete download: %d of %d bytes (%.1f%%), discarding and retrying",
+            sz, expected_size, 100 * sz / expected_size))
+          file.remove(destfile)
+          success <- FALSE
+        }
+      }
 
       if (success && file.exists(destfile) && file.size(destfile) > 0) {
         end_time <- Sys.time()
@@ -112,8 +160,8 @@ download_with_mirrors <- function(urls, destfile, quiet = FALSE,
         return(TRUE)
       }
 
-      if (timeout_occurred && attempt < retries) {
-        if (!quiet) message("  Retrying mirror ", i, " (timeout)...")
+      if ((timeout_occurred || incomplete) && attempt < retries) {
+        if (!quiet) message("  Retrying mirror ", i, "...")
         next
       }
     }
@@ -406,7 +454,16 @@ load_depmap <- function(dest = perception_default_depmap_dir(), read = FALSE, mi
     message("force = TRUE: removed cached DepMap.RDS, re-downloading...")
   }
 
-  if (!file.exists(destfile)) {
+  # A partial file from an interrupted download must never be treated as a
+  # cache hit (it would fail at readRDS). Re-download when the on-disk file is
+  # smaller than the official release asset.
+  if (!file.exists(destfile) ||
+      is.finite(file.size(destfile)) && file.size(destfile) < .depmap_release_size) {
+    if (file.exists(destfile)) {
+      message(sprintf("Existing DepMap.RDS is incomplete (%d bytes < expected %d), re-downloading...",
+                      file.size(destfile), .depmap_release_size))
+      file.remove(destfile)
+    }
     base_urls <- if (!is.null(mirror_url)) {
       mirror_url
     } else if (mirror) {
@@ -420,7 +477,8 @@ load_depmap <- function(dest = perception_default_depmap_dir(), read = FALSE, mi
 
     if (!download_with_mirrors(urls, destfile, quiet = FALSE,
                                timeout_seconds = timeout_seconds,
-                               retries = retries)) {
+                               retries = retries,
+                               expected_size = .depmap_release_size)) {
       message("\nAutomatic download failed. Please try manual download:")
       message("  1. Download from: https://github.com/WangLabCSU/PERCEPTIONx/releases/tag/depmap")
       message("  2. Save the file to: ", destfile)
