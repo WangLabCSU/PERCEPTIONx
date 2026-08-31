@@ -242,6 +242,10 @@ train_master_main <- function(pkg_root, jobs_dir, max_parallel, idle_minutes) {
     if (!is.null(DepMap) &&
         as.numeric(difftime(Sys.time(), last_activity, units = "mins")) > idle_minutes) {
       message("[master] idle for ", idle_minutes, " min - exiting to release memory")
+      # quit() tears down R connections and would warn about leftover unused
+      # ones ("closing unused connection N") in the server log — close them
+      # first so the exit is clean.
+      suppressWarnings(try(closeAllConnections(), silent = TRUE))
       quit(save = "no")
     }
 

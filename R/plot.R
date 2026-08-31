@@ -796,17 +796,26 @@ plot_roc_curve <- function(response,
   curve_df$data_id <- paste0("roc_", seq_len(nrow(curve_df)))
 
   tt_ok <- tooltip && requireNamespace("ggiraph", quietly = TRUE)
+  # Degenerate predictions (all equal) collapse the ROC curve to a single
+  # coordinate — geom_line then has nothing to connect and ggplot warns
+  # "Each group consists of only one observation". Skip the line, keep the
+  # points (the curve simply renders as a dot).
+  can_line <- nrow(curve_df) >= 2L
 
   if (tt_ok) {
-    p <- ggplot(curve_df, aes(x = fpr, y = tpr)) +
-      ggiraph::geom_line_interactive(aes(tooltip = tooltip_text, data_id = data_id),
-                                     linewidth = 1.1, color = "#2E86AB") +
-      ggiraph::geom_point_interactive(aes(tooltip = tooltip_text, data_id = data_id),
-                                      size = 1.4, color = "#2E86AB", alpha = 0.7)
+    p <- ggplot(curve_df, aes(x = fpr, y = tpr))
+    if (can_line) {
+      p <- p + ggiraph::geom_line_interactive(aes(tooltip = tooltip_text, data_id = data_id),
+                                              linewidth = 1.1, color = "#2E86AB")
+    }
+    p <- p + ggiraph::geom_point_interactive(aes(tooltip = tooltip_text, data_id = data_id),
+                                             size = 1.4, color = "#2E86AB", alpha = 0.7)
   } else {
-    p <- ggplot(curve_df, aes(x = fpr, y = tpr)) +
-      geom_line(linewidth = 1.1, color = "#2E86AB") +
-      geom_point(size = 1.4, color = "#2E86AB", alpha = 0.7)
+    p <- ggplot(curve_df, aes(x = fpr, y = tpr))
+    if (can_line) {
+      p <- p + geom_line(linewidth = 1.1, color = "#2E86AB")
+    }
+    p <- p + geom_point(size = 1.4, color = "#2E86AB", alpha = 0.7)
   }
 
   p <- p +

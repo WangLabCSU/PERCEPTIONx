@@ -332,6 +332,12 @@ server <- function(input, output, session) {
         unlink(d, recursive = TRUE)
       }
     }
+    # 3. Close leftover R connections. R emits "closing unused connection N"
+    # warnings when it tears down unused connections at process exit (a
+    # well-known Shiny Server artifact, e.g. from ggiraph/temp file handling).
+    # Closing them here, after the workers are killed, keeps the server log
+    # clean without touching anything still in use.
+    suppressWarnings(try(closeAllConnections(), silent = TRUE))
   })
 }
 
