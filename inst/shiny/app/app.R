@@ -21,6 +21,17 @@ options(shiny.maxRequestSize = 1 * 1024^3)  # 1 GB (DepMap.RDS is ~567 MB)
 options(shiny.heartbeat.timeout = 1800)  # 30 minutes, then consider dead
 
 # ---------------------------------------------------------------------------
+# sass/bslib compile cache. On hosted deployments (Shiny Server) sass defaults
+# the cache to <appDir>/app_cache/sass, but this app lives INSIDE the
+# installed package, so that resolves to the read-only package install dir —
+# every session then warns "cannot create dir .../app_cache (Permission
+# denied)" and falls back to tempdir. Pin the cache to a writable directory
+# (tempdir is always writable) so the fallback never triggers. Note: the old
+# sass.cache_dir option is defunct in sass >= 0.4.1 — sass.cache now takes a
+# directory path directly.
+options(sass.cache = file.path(tempdir(check = TRUE), "sass-cache"))
+
+# ---------------------------------------------------------------------------
 # Static assets are INLINED into the HTML (no external file requests).
 #
 # The app can run two ways: locally via runApp() on the package's
