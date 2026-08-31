@@ -33,7 +33,7 @@ The core workflow is five steps. Load the reference data, load pre-trained model
 ### 2.1 Load Data
 
 ```r
-devtools::load_all()                      # from the package source tree
+library(PERCEPTIONx)                      # after installing (see Section 1)
 models <- load_model("abemaciclib", read = TRUE)   # pre-trained models (44 drugs)
 load_depmap(read = TRUE)                  # DepMap reference (~567 MB, first run only)
 ```
@@ -76,7 +76,7 @@ Every plot accepts `tooltip = TRUE` (default): with the `ggiraph` package instal
 PERCEPTION-shiny wraps the whole pipeline in an interactive web dashboard. Heavy computation (training, Seurat clustering, prediction, plotting) runs in background worker processes, so the interface stays responsive while a large job runs.
 
 ```r
-devtools::load_all()
+library(PERCEPTIONx)
 run_perception_app()          # starts the app in your browser
 ```
 

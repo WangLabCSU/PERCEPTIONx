@@ -52,10 +52,10 @@ vignette: >
 
 ### 0.2 启动方式
 
-在包源码根目录打开 R/RStudio，运行：
+安装包之后，打开 R/RStudio，运行：
 
 ```{r, eval = FALSE}
-devtools::load_all()          # 从源码加载 PERCEPTIONx
+library(PERCEPTIONx)          # 安装后加载 PERCEPTIONx（详见 pipeline 教程）
 run_perception_app()          # 启动应用（自动打开浏览器）
 ```
 
