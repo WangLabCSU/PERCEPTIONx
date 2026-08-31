@@ -57,11 +57,11 @@ profile to predict drug response and resistance.
 
 #### 0.2 Launch
 
-From the package source root:
+From an installed package:
 
 ``` r
 
-devtools::load_all()          # load PERCEPTIONx from source
+library(PERCEPTIONx)          # load PERCEPTIONx after installation (see pipeline tutorial)
 run_perception_app()          # launch the app (opens your browser)
 ```
 

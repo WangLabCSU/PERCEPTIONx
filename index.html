@@ -85,7 +85,7 @@
 <h3 id="id_21-load-data">2.1 Load Data<a class="anchor" aria-label="anchor" href="#id_21-load-data"></a>
 </h3>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">load_all</span><span class="op">(</span><span class="op">)</span>                      <span class="co"># from the package source tree</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://wanglabcsu.github.io/PERCEPTIONx">PERCEPTIONx</a></span><span class="op">)</span>                      <span class="co"># after installing (see Section 1)</span></span>
 <span><span class="va">models</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/load_model.html">load_model</a></span><span class="op">(</span><span class="st">"abemaciclib"</span>, read <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>   <span class="co"># pre-trained models (44 drugs)</span></span>
 <span><span class="fu"><a href="reference/load_depmap.html">load_depmap</a></span><span class="op">(</span>read <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>                  <span class="co"># DepMap reference (~567 MB, first run only)</span></span></code></pre></div>
 </div>
@@ -124,7 +124,7 @@
 </h2>
 <p>PERCEPTION-shiny wraps the whole pipeline in an interactive web dashboard. Heavy computation (training, Seurat clustering, prediction, plotting) runs in background worker processes, so the interface stays responsive while a large job runs.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">load_all</span><span class="op">(</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://wanglabcsu.github.io/PERCEPTIONx">PERCEPTIONx</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/run_perception_app.html">run_perception_app</a></span><span class="op">(</span><span class="op">)</span>          <span class="co"># starts the app in your browser</span></span></code></pre></div>
 <p>The app has six tabs — Home, Data, Train, Predict, Visualize, and Help — with a Load Demo button that generates a small synthetic dataset (49 genes x 400 cells x 20 patients) to smoke-test the whole flow. See the <a href="https://wanglabcsu.github.io/PERCEPTIONx/articles/shiny_app.html">Shiny App Guide</a> for a full walkthrough.</p>
 </div>
