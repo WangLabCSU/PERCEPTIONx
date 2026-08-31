@@ -2,7 +2,8 @@ Package: PERCEPTIONx
 Title: Personalized Drug Response Prediction from Single-Cell Transcriptomics
 Version: 0.1.0
 Authors@R: 
-    person("Jia", "Ding", , "jiading682@qq.com", role = c("aut", "cre"))
+    person("Jia", "Ding", , "jiading682@qq.com", role = c("ctb"),
+           comment = c(ORCID = "0009-0002-2530-0897"))
 Description: An R implementation of the PERCEPTION approach (Sinha et al., 2024)
     for predicting personalized drug response from single-cell tumor
     transcriptomics. It trains drug-response models on large-scale cell-line
