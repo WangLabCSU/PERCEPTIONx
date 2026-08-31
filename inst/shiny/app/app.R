@@ -189,6 +189,20 @@ ui <- page_navbar(
         if (el) el.style.display = 'none';
       });
 
+      // Safety net for Shiny modals: modalDialog locks body scrolling via the
+      // Bootstrap 'modal-open' class. When one modal REPLACES another (e.g. a
+      // demo-confirm dialog followed by a training-complete dialog) or a modal
+      // is dismissed in a non-standard way, the class can be left on <body>
+      // and the page can no longer scroll at all. Whenever a modal hides,
+      // restore body scrolling if no modal is still open.
+      $(document).on('hidden.bs.modal', function () {
+        if (document.querySelectorAll('.modal.show, .modal.in').length === 0) {
+          document.body.classList.remove('modal-open');
+          document.body.style.removeProperty('overflow');
+          document.body.style.removeProperty('padding-right');
+        }
+      });
+
       // Keep the viewport still when the hidden file input receives focus on
       // 'Browse...' click (Shiny positions it at top:-1e6px, so the browser
       // would otherwise scroll the page to the top). We must NOT

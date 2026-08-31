@@ -240,3 +240,77 @@ run_demo_pipeline <- function(shared, session, on_success = NULL, on_error = NUL
     })
   invisible(NULL)
 }
+
+# ---------------------------------------------------------------------------
+# Model <-> expression feature compatibility (Train/Predict modules)
+#
+# A freshly trained model lives in the DepMap feature space (top-k of ~19,000
+# genes). If the CURRENT expression data (e.g. the 49-gene demo) shares no
+# genes with those features, prediction is guaranteed to fail at the
+# gene-matching step. The training module calls this right after a batch
+# finishes so the user is warned PER DRUG instead of discovering it when
+# clicking "Run Prediction".
+# ---------------------------------------------------------------------------
+
+# Extract the gene features a trained model actually uses (mirrors the
+# pre-check inside mod_predict.R).
+extract_model_features <- function(m) {
+  if (inherits(m, "train")) {
+    feats <- setdiff(colnames(m$trainingData), ".outcome")
+    if (length(feats) > 0) return(feats)
+    feats <- colnames(m$trainingData)
+    if (length(feats) > 1) return(feats[-1])
+  }
+  if (!is.null(m$preProcess) && !is.null(m$preProcess$mean)) {
+    return(names(m$preProcess$mean))
+  }
+  if (!is.null(m$finalModel) && !is.null(m$finalModel$beta)) {
+    return(rownames(m$finalModel$beta))
+  }
+  character(0)
+}
+
+# Per-drug feature overlap between a trained model list and the CURRENT
+# expression data (as rownames). Returns:
+#   $incompatible: drugs with ZERO overlap (prediction would fail),
+#   $n_genes:      number of genes in the current expression data,
+#   $overlaps:     named integer vector of overlap counts (NA = no features
+#                  could be extracted from the model).
+check_model_expression_compat <- function(models, expr_genes) {
+  empty <- list(incompatible = character(0), n_genes = 0,
+                overlaps = setNames(integer(0), character(0)))
+  if (is.null(models) || length(models) == 0) return(empty)
+  if (is.null(expr_genes) || length(expr_genes) == 0) {
+    # No expression data to compare against -> nothing to warn about.
+    return(list(incompatible = character(0), n_genes = 0,
+                overlaps = setNames(rep(NA_integer_, length(models)), names(models))))
+  }
+  expr_made <- make.names(expr_genes, unique = TRUE)
+  overlaps <- setNames(integer(length(models)), names(models))
+  for (nm in names(models)) {
+    feats <- extract_model_features(models[[nm]]$model)
+    if (length(feats) == 0) { overlaps[[nm]] <- NA_integer_; next }
+    ov <- intersect(feats, expr_genes)
+    # Hyphen-vs-dot fallback (same rule as the prediction pre-check).
+    if (length(ov) == 0) {
+      ov <- intersect(make.names(feats, unique = TRUE), expr_made)
+    }
+    overlaps[[nm]] <- length(ov)
+  }
+  list(incompatible = names(overlaps)[!is.na(overlaps) & overlaps == 0],
+       n_genes = length(expr_genes),
+       overlaps = overlaps)
+}
+
+# Names of the SIMULATED demo models (attr model_source == "demo") in a model
+# list. They are trained on random noise under real drug names and must be
+# visibly labelled wherever they appear so their output is never mistaken for
+# a real drug-response prediction.
+demo_models <- function(models) {
+  if (is.null(models) || length(models) == 0) return(character(0))
+  src <- vapply(models, function(m) {
+    s <- attr(m, "model_source")
+    if (is.null(s)) NA_character_ else as.character(s)
+  }, character(1))
+  names(models)[!is.na(src) & src == "demo"]
+}

@@ -613,6 +613,10 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
         predVSgroundTruth = list(pred_gt_scRNA = data.frame(Observed = rnorm(20), Test_pred_sc = rnorm(20))),
         single_best = marker_genes[1])
       attr(obj, "drug_name") <- drug_name
+      # SIMULATED demo model: trained on random noise, NOT on real drug
+      # response data. UI must label it so users never mistake its output for
+      # a real prediction.
+      attr(obj, "model_source") <- "demo"
       obj
     }
 
@@ -985,7 +989,8 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
     ok <- PERCEPTIONx:::download_with_mirrors(
       a$urls, a$destfile, quiet = TRUE,
       timeout_seconds = a$timeout_seconds,
-      retries = a$retries)
+      retries = a$retries,
+      expected_size = a$expected_size)
     if (!ok) stop("Automatic download failed after trying all mirrors")
     if (!file.exists(a$destfile) || file.size(a$destfile) == 0) {
       stop("Downloaded file is missing or empty")
