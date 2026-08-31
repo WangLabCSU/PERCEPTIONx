@@ -20,7 +20,10 @@
 
 # IDE files
 .positai/
-.claude/
+# Keep .claude local EXCEPT the agent skills, which are part of the repo
+.claude/*
+!.claude/skills/
+!.claude/skills/**
 .vscode/
 
 # Large data files

@@ -236,14 +236,18 @@ EGFR      4.7       2.1       0.0")
             p(style = "font-size: 0.8rem; font-weight: 700; color: var(--text); margin: 0.3rem 0 0.5rem;",
               "Header is auto-detected as the first row with ≥2 columns (cell_id / patient_id); single-field title/comment rows above it are skipped."),
             # Cell-level example (default). Clone-level mode swaps to the
-            # count-column example via the conditional panel below.
-            div(class = "data-format-hint",
-              icon("users"), " Format: cell_id + patient_id",
-              tags$pre(class = "data-format-example", 
-              "cell_id    patient_id
+            # count-column example below — the two hints are mutually
+            # exclusive so only the one matching the selected format shows.
+            conditionalPanel(
+              condition = paste0("input['", ns("expr_format"), "'] != 'clone'"),
+              div(class = "data-format-hint",
+                icon("users"), " Format: cell_id + patient_id",
+                tags$pre(class = "data-format-example", 
+                "cell_id    patient_id
 CELL_001   PAT_001
 CELL_002   PAT_001
 CELL_003   PAT_002")
+              )
             ),
             conditionalPanel(
               condition = paste0("input['", ns("expr_format"), "'] == 'clone'"),
