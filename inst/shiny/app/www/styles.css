@@ -2882,3 +2882,15 @@ table.dataTable thead th {
   color: #c13232;
   background: rgba(193, 50, 50, 0.08);
 }
+
+/* ===========================================================================
+   Vertically center Shiny modal dialogs. Bootstrap's default aligns them to
+   the top of the viewport (margin: 30px auto), which reads as "off-center"
+   for the confirm/error dialogs this app uses. Same technique as Bootstrap's
+   own .modal-dialog-centered; safe for Bootstrap 3/4/5 markup.
+   =========================================================================== */
+.modal-dialog {
+  display: flex;
+  align-items: center;
+  min-height: calc(100% - 3.5rem);
+}
