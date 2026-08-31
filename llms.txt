@@ -121,18 +121,12 @@ for a full walkthrough.
 | Function | Description |
 |----|----|
 | [`prepare_data()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/prepare_data.md) | Seurat clustering + rank normalization → clone-level inputs |
-| [`rank_normalization_mat()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/rank_normalization_mat.md) | Rank-normalize an expression matrix |
-| [`range01()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/range01.md) | Scale a numeric vector to the 0-1 range |
 
 ### 4.3 Model Training
 
 | Function | Description |
 |----|----|
 | [`train_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/train_models.md) | Full training pipeline (main entry point) |
-| [`get_response_matrix()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/get_response_matrix.md) | Extract drug response data from DepMap |
-| [`get_cellLine_list()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/get_cellLine_list.md) | Get training/test cell line split |
-| [`feature_ranking_bulk()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/feature_ranking_bulk.md) | Rank features by correlation with drug response |
-| [`build_on_BULK_v2()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/build_on_BULK_v2.md) | Build a single-drug model (glmnet or random forest) |
 
 ### 4.4 Prediction
 
@@ -147,7 +141,6 @@ for a full walkthrough.
 |----|----|
 | [`compare_performance()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/compare_performance.md) | Compare performance across model configurations |
 | [`get_significant_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/get_significant_models.md) | Filter models with significant stratification |
-| [`each_patient_pseudo_bulk()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/each_patient_pseudo_bulk.md) | Compute patient pseudo-bulk expression |
 
 ### 4.6 Visualization
 
