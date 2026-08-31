@@ -52,10 +52,10 @@ The methodology is PERCEPTION (PERsonalized single-Cell Expression-based Plannin
 
 ### 0.2 Launch
 
-From the package source root:
+From an installed package:
 
 ```{r, eval = FALSE}
-devtools::load_all()          # load PERCEPTIONx from source
+library(PERCEPTIONx)          # load PERCEPTIONx after installation (see pipeline tutorial)
 run_perception_app()          # launch the app (opens your browser)
 ```
 
