@@ -154,11 +154,18 @@ ui <- page_navbar(
       // workflow stepper / data dashboard, and by the Data page to swap the
       // Load-Demo / Clear-Demo button after the static first paint. innerHTML
       // drops Shiny's event bindings on replaced nodes, so re-bind inputs and
-      // widgets inside the container afterwards — bindAll is idempotent
-      // (already-bound elements are skipped).
+      // widgets inside the container afterwards.
+      //
+      // unbindAll() BEFORE replacing is NOT optional: Shiny (>= 1.14) keeps a
+      // GLOBAL per-id binding counter, and innerHTML alone never decrements it.
+      // Without the unbind, every replace+bindAll bumps the counter and the
+      // console reports the 'Duplicate input IDs were found' warning for
+      // these ids (e.g. workflow stepper links, the Load-Demo button) after
+      // a few state updates.
       Shiny.addCustomMessageHandler('set-html', function(msg) {
         var el = document.getElementById(msg.id);
         if (el) {
+          Shiny.unbindAll(el);
           el.innerHTML = msg.html;
           Shiny.bindAll(el);
         }
