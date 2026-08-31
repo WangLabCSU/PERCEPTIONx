@@ -10,7 +10,7 @@
 #   #   PERCEPTIONX_CACHE_ROOT=/data/perceptionx
 #
 # Resulting layout:
-#   <root>/depmap/  DepMap.RDS + DepMap_meta.RDS + DepMap_used.flag
+#   <root>/depmap/  DepMap.RDS + DepMap_meta.RDS
 #   <root>/models/  pre-trained model .RDS files
 #   <root>/jobs/    background training job dirs (shared master pool)
 #
