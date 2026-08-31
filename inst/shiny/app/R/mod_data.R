@@ -1181,6 +1181,15 @@ mod_data_server <- function(id, shared) {
         if (is.integer(mat)) mat <- matrix(as.numeric(mat), nrow = nrow(mat), ncol = ncol(mat),
                                            dimnames = dimnames(mat))
         storage.mode(mat) <- "numeric"
+        # Sanity check: a real expression matrix needs a plausible number of
+        # genes x cells. A stray text file (e.g. a gene list) would otherwise
+        # "parse" into a tiny matrix and silently load with no error at all.
+        if (nrow(mat) < 10 || ncol(mat) < 3) {
+          stop(sprintf(paste0("Expression matrix looks invalid: %d genes x %d cells. ",
+                              "A matrix needs at least ~10 genes and 3 cells — ",
+                              "check you uploaded the expression file, not a gene list or response file."),
+                       nrow(mat), ncol(mat)))
+        }
         shared$user_expr <- mat
         shared$prepared_data <- NULL  # Reset prepared data when expression changes
         list(ok = TRUE,

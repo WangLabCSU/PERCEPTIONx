@@ -42,7 +42,6 @@ options(sass.cache = file.path(tempdir(check = TRUE), "sass-cache"))
 # stylesheets and the tour script are embedded, and the favicon is embedded as
 # a data URI (both in <link rel="icon"> and inside styles.css backgrounds).
 # ---------------------------------------------------------------------------
-perception_www_dir <- file.path(system.file("shiny", "app", package = "PERCEPTIONx"), "www")
 perception_asset <- function(name) {
   paste(readLines(file.path(perception_www_dir, name), warn = FALSE), collapse = "\n")
 }
@@ -77,6 +76,16 @@ for (cand in candidates) {
     pkg_root <- normalizePath(cand)
     break
   }
+}
+# Assets come from the LIVE source tree in dev, and from the installed package
+# on the server. This matters: system.file() would silently serve a STALE copy
+# whenever the package was installed before the latest CSS change, so "I edited
+# styles.css but nothing happened" is exactly what users hit locally. In dev we
+# read the working tree so CSS edits apply immediately.
+perception_www_dir <- if (!is.null(pkg_root)) {
+  file.path(pkg_root, "inst", "shiny", "app", "www")
+} else {
+  file.path(system.file("shiny", "app", package = "PERCEPTIONx"), "www")
 }
 if (!is.null(pkg_root)) {
   suppressMessages(devtools::load_all(pkg_root, quiet = TRUE))
