@@ -345,6 +345,22 @@ source("tools/test_pipeline.R")
 
 ---
 
+## 3.8 Agent skills
+
+The repository ships two agent skills (`.claude/skills/`) that let AI coding assistants drive the package correctly instead of guessing its API:
+
+- `perceptionx-pipeline` — the full workflow from this tutorial: load reference data, prepare patient data, predict, and evaluate.
+- `perceptionx-result` — interpretation of prediction tables, model performance, and the plotting suite.
+
+Claude Code picks them up automatically. For other agents (e.g. Codex), copy them into that agent's skills directory:
+
+```bash
+cp -r .claude/skills/perceptionx-pipeline ~/.codex/skills/
+cp -r .claude/skills/perceptionx-result ~/.codex/skills/
+```
+
+---
+
 # 4. Citation
 
 If you use this app or package, please cite both the package and the original methodology paper:

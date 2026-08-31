@@ -82,6 +82,22 @@ run_perception_app()          # starts the app in your browser
 
 The app has six tabs — Home, Data, Train, Predict, Visualize, and Help — with a Load Demo button that generates a small synthetic dataset (49 genes x 400 cells x 20 patients) to smoke-test the whole flow. See the [Shiny App Guide](https://wanglabcsu.github.io/PERCEPTIONx/articles/shiny_app.html) for a full walkthrough.
 
+## Agent Skills
+
+PERCEPTIONx ships two agent skills so AI coding assistants can drive the package correctly instead of guessing its API:
+
+| Skill | Purpose |
+|---|---|
+| [`perceptionx-pipeline`](.claude/skills/perceptionx-pipeline/SKILL.md) | Full workflow: load DepMap & pre-trained models, prepare patient data, predict at clone/patient level, evaluate |
+| [`perceptionx-result`](.claude/skills/perceptionx-result/SKILL.md) | Interpret predictions, model performance, ROC curves and result plots |
+
+Claude Code picks them up automatically from `.claude/skills/`. For other agents (e.g. Codex), copy them into that agent's skills directory:
+
+```bash
+cp -r .claude/skills/perceptionx-pipeline ~/.codex/skills/
+cp -r .claude/skills/perceptionx-result ~/.codex/skills/
+```
+
 ## 4. Function Reference
 
 ### 4.1 Data Loading

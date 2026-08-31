@@ -45,18 +45,10 @@ reference:
       - reset_mirrors
   - title: Preprocessing
     contents:
-      - rank_normalization_mat
-      - range01
-      - zscore_viability
       - prepare_data
   - title: Model Training
     contents:
       - train_models
-      - get_response_matrix
-      - get_cellLine_list
-      - feature_ranking_bulk
-      - run_parallel_feature_ranking_bulk
-      - build_on_BULK_v2
   - title: Prediction
     contents:
       - predict_drugs
@@ -66,14 +58,6 @@ reference:
       - compare_performance
       - get_significant_models
       - get_performance
-      - each_patient_pseudo_bulk
-  - title: Clone & Seurat Pipeline
-    contents:
-      - annotate_clones
-      - build_clone_counts
-      - build_clone_key
-      - parse_clone_keys
-      - clone_mean_expression
   - title: Visualization
     contents:
       - plot_tsne_response
@@ -90,6 +74,23 @@ reference:
   - title: Shiny Application
     contents:
       - run_perception_app
+  - title: Advanced - Pipeline Building Blocks
+    desc: Lower-level components used internally by train_models() and prepare_data(). Most users only need the main entry points above.
+    contents:
+      - rank_normalization_mat
+      - range01
+      - zscore_viability
+      - get_response_matrix
+      - get_cellLine_list
+      - feature_ranking_bulk
+      - run_parallel_feature_ranking_bulk
+      - build_on_BULK_v2
+      - each_patient_pseudo_bulk
+      - annotate_clones
+      - build_clone_counts
+      - build_clone_key
+      - parse_clone_keys
+      - clone_mean_expression
   - title: Utilities
     contents:
       - hypergeometric_test_for_twolists
