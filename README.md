@@ -97,18 +97,12 @@ The app has six tabs — Home, Data, Train, Predict, Visualize, and Help — wit
 | Function | Description |
 |----------|-------------|
 | `prepare_data()` | Seurat clustering + rank normalization → clone-level inputs |
-| `rank_normalization_mat()` | Rank-normalize an expression matrix |
-| `range01()` | Scale a numeric vector to the 0-1 range |
 
 ### 4.3 Model Training
 
 | Function | Description |
 |----------|-------------|
 | `train_models()` | Full training pipeline (main entry point) |
-| `get_response_matrix()` | Extract drug response data from DepMap |
-| `get_cellLine_list()` | Get training/test cell line split |
-| `feature_ranking_bulk()` | Rank features by correlation with drug response |
-| `build_on_BULK_v2()` | Build a single-drug model (glmnet or random forest) |
 
 ### 4.4 Prediction
 
@@ -123,7 +117,6 @@ The app has six tabs — Home, Data, Train, Predict, Visualize, and Help — wit
 |----------|-------------|
 | `compare_performance()` | Compare performance across model configurations |
 | `get_significant_models()` | Filter models with significant stratification |
-| `each_patient_pseudo_bulk()` | Compute patient pseudo-bulk expression |
 
 ### 4.6 Visualization
 
