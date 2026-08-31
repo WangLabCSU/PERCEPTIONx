@@ -687,47 +687,13 @@ mod_data_server <- function(id, shared) {
       dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
       destfile <- file.path(cache_dir, "DepMap.RDS")
 
-      # Cache TTL: drop the cached file if it has not been USED (each cache
-      # hit refreshes a dedicated last-used flag file) for more than N hours,
-      # so a stale ~567 MB file does not linger forever. Overridable via
-      # options(PERCEPTIONx.depmap_cache_ttl_hours) or the
-      # PERCEPTIONx_DEPMAP_CACHE_TTL_HOURS env var. Set it to 0 (or any value
-      # <= 0) to DISABLE expiry entirely.
-      #
-      # Default: when a cache_root IS explicitly configured (deployment
-      # servers, where the DepMap is pre-downloaded into a persistent dir),
-      # expiry is DISABLED by default — a pre-cached file must survive until
-      # it is deliberately replaced, no matter how long it sits unused.
-      # Without cache_root (personal local use, data in tempdir) the default
-      # stays 12 h idle cleanup so a 567 MB file does not linger forever.
-      # If the file is locked by a running worker, unlink() fails harmlessly
-      # and the next click retries.
-      #
-      # NB: the "last used" time lives in a SEPARATE flag file, NEVER in
-      # DepMap.RDS's own mtime — extract_depmap_meta() only trusts the meta
-      # sidecar when it is newer than the source RDS, so touching the source
-      # would invalidate the meta cache and force a full 567 MB re-read on
-      # every click.
-      last_used <- file.path(cache_dir, "DepMap_used.flag")
-      cache_ttl_h <- suppressWarnings(as.numeric(getOption(
-        "PERCEPTIONx.depmap_cache_ttl_hours",
-        Sys.getenv("PERCEPTIONx_DEPMAP_CACHE_TTL_HOURS", ""))))
-      if (is.na(cache_ttl_h)) {
-        cache_ttl_h <- if (is.null(PERCEPTIONx:::perception_cache_root())) 12 else 0
-      }
-      ref_file <- if (file.exists(last_used)) last_used else destfile
-      # Only expire when a POSITIVE TTL is set; 0 / negative disables expiry
-      # (pre-cached deployment files must survive).
-      if (file.exists(destfile) && !is.na(cache_ttl_h) && cache_ttl_h > 0) {
-        age_h <- as.numeric(difftime(Sys.time(), file.info(ref_file)$mtime, units = "hours"))
-        if (is.finite(age_h) && age_h > cache_ttl_h) {
-          unlink(destfile)
-          unlink(file.path(cache_dir, "DepMap_meta.RDS"))
-          unlink(last_used)
-          showNotification(sprintf("Cached DepMap expired (unused for %.0f h > %.0f h) — re-downloading.",
-                                   age_h, cache_ttl_h), type = "message", duration = 6)
-        }
-      }
+      # NOTE: the on-disk DepMap cache is NEVER auto-expired. A deployment
+      # server pre-downloads DepMap.RDS once and every user's first click must
+      # hit it ("DepMap data loaded from cache"); deleting it after idle time
+      # silently forces a 567 MB re-download. Memory is released separately by
+      # the master worker's idle timeout (PERCEPTION_WORKER_IDLE_MINUTES).
+      # To replace a stale/corrupt file deliberately, use force = TRUE in
+      # load_depmap() or delete the file manually.
 
       # Already cached: serve the metadata sidecar directly (kilobytes) when
       # it is fresh. If the sidecar is missing/stale, re-extract it in the
@@ -737,9 +703,6 @@ mod_data_server <- function(id, shared) {
         meta_cache <- file.path(cache_dir, "DepMap_meta.RDS")
         meta <- read_cached_meta(destfile, meta_cache)
         if (!is.null(meta)) {
-          # Cache hit: refresh the last-used timestamp in the SEPARATE flag
-          # file — never touch DepMap.RDS's own mtime (see the TTL note above).
-          suppressWarnings(try(file.create(last_used), silent = TRUE))
           shared$depmap_meta <- meta
           shared$depmap_path <- destfile
           # Cached standard download = trusted standard file -> shared worker pool.
@@ -769,7 +732,6 @@ mod_data_server <- function(id, shared) {
         if (is.null(jobid)) return()
         poll_task(shared, session, jobid,
           on_done = function(meta) {
-            suppressWarnings(try(file.create(last_used), silent = TRUE))
             shared$depmap_meta <- meta
             shared$depmap_path <- destfile
             shared$depmap_is_standard <- TRUE
@@ -857,7 +819,6 @@ mod_data_server <- function(id, shared) {
           }
           poll_task(shared, session, jobid2,
             on_done = function(meta) {
-              suppressWarnings(try(file.create(last_used), silent = TRUE))
               shared$depmap_meta <- meta
               shared$depmap_path <- path
               # Built-in download = trusted standard file -> shared worker pool.
