@@ -389,7 +389,9 @@ Shiny.addCustomMessageHandler('expr-format-state-", ns("expr_format"), "', funct
       )
     ),
 
-    # Data Overview & Preview (merged)
+    # Data Overview & Preview (merged). The card is ALWAYS visible so users
+    # see which preview tabs exist; each tab shows a placeholder until its
+    # data is loaded (instead of a blank table after the demo is cleared).
     fluidRow(style = "margin-top: 1.5rem;",
       column(12,
         div(class = "card animate-fade-in",
@@ -401,10 +403,10 @@ Shiny.addCustomMessageHandler('expr-format-state-", ns("expr_format"), "', funct
             uiOutput(ns("status_overview")),
             hr(),
             tabsetPanel(
-              tabPanel("Expression", DTOutput(ns("expr_preview"))),
-              tabPanel("Clone Map", DTOutput(ns("clone_preview"))),
-              tabPanel("Response", DTOutput(ns("response_preview"))),
-              tabPanel("DepMap", DTOutput(ns("depmap_preview")))
+              tabPanel("Expression", uiOutput(ns("expr_preview"))),
+              tabPanel("Clone Map", uiOutput(ns("clone_preview"))),
+              tabPanel("Response", uiOutput(ns("response_preview"))),
+              tabPanel("DepMap", uiOutput(ns("depmap_preview")))
             )
           )
         )
@@ -1460,8 +1462,20 @@ mod_data_server <- function(id, shared) {
       if (n %in% names(depmap_help)) depmap_help[[n]] else NULL
     }
 
-    output$depmap_preview <- renderDT({
-      req(shared$depmap_meta)
+    # Placeholder shown in a preview tab until its data is loaded (so the tab
+    # is never a blank area — e.g. right after the demo is cleared).
+    preview_placeholder <- function(msg) {
+      div(style = paste("padding: 1.2rem; text-align: center;",
+                        "color: var(--text-muted);",
+                        "border: 1px dashed var(--border);",
+                        "border-radius: 0.5rem; font-size: 0.88rem;"),
+        icon("table"), " ", msg)
+    }
+
+    output$depmap_preview <- renderUI({
+      if (is.null(shared$depmap_meta)) {
+        return(preview_placeholder("DepMap data not loaded yet"))
+      }
       comps <- shared$depmap_meta$components
       nms <- names(comps)
       summary_df <- data.frame(
@@ -1513,21 +1527,27 @@ mod_data_server <- function(id, shared) {
       ))
     })
 
-    output$expr_preview <- renderDT({
-      req(shared$user_expr)
+    output$expr_preview <- renderUI({
+      if (is.null(shared$user_expr)) {
+        return(preview_placeholder("Expression matrix not loaded yet"))
+      }
       datatable(shared$user_expr[, 1:min(10, ncol(shared$user_expr)), drop = FALSE],
                 options = list(pageLength = 10, dom = "tp", scrollX = TRUE),
                 class = "display")
     })
 
-    output$clone_preview <- renderDT({
-      req(shared$user_clones)
+    output$clone_preview <- renderUI({
+      if (is.null(shared$user_clones)) {
+        return(preview_placeholder("Clone map not available yet"))
+      }
       datatable(shared$user_clones, options = list(pageLength = 10, dom = "tp"),
                 rownames = FALSE, class = "display")
     })
 
-    output$response_preview <- renderDT({
-      req(shared$user_response)
+    output$response_preview <- renderUI({
+      if (is.null(shared$user_response)) {
+        return(preview_placeholder("Clinical response not loaded yet"))
+      }
       datatable(shared$user_response, options = list(pageLength = 10, dom = "tp"),
                 rownames = FALSE, class = "display")
     })
