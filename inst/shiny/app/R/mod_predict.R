@@ -216,16 +216,33 @@ mod_predict_server <- function(id, shared, main_session) {
     clone_pred <- reactiveVal(NULL)
     patient_pred <- reactiveVal(NULL)
 
+    # The module-local results are mirrors of shared$predictions / $patient_pred
+    # (set on every completed job). When the app clears them — Clear Demo,
+    # uploading new data, deactivating models — the local copies must follow,
+    # or the Predict tab keeps showing stale results that contradict the
+    # global state (e.g. "Predictions Not loaded" in the sidebar).
+    observe({
+      if (is.null(shared$predictions) && !is.null(clone_pred())) clone_pred(NULL)
+      if (is.null(shared$patient_pred) && !is.null(patient_pred())) patient_pred(NULL)
+    })
+
     observeEvent(input$predict, {
       model <- current_model()
       expr <- current_expr()
 
+      # Completely empty state: point the user somewhere actionable instead of
+      # a generic "no model" / "no data" pair.
+      if (is.null(model) && is.null(expr)) {
+        showNotification("No model or expression data loaded yet — use 'Load Demo Data' or upload your data in the Data tab first.",
+                         type = "warning", duration = 8)
+        return()
+      }
       if (is.null(model)) {
-        showNotification("No model available. Train or upload a model first.", type = "error")
+        showNotification("No model available. Train or upload a model first.", type = "error", duration = 8)
         return()
       }
       if (is.null(expr)) {
-        showNotification("No expression data available. Load or upload data first.", type = "error")
+        showNotification("No expression data available. Load or upload data first.", type = "error", duration = 8)
         return()
       }
       if (pred_busy()) {
@@ -378,9 +395,13 @@ mod_predict_server <- function(id, shared, main_session) {
     # Heatmap area — only rendered after a prediction run, so no empty
     # heatmap frame shows before the user clicks Run Prediction. Height grows
     # with the number of clones so many rows are not squashed.
+    # NOTE: return an EXPLICIT empty div when there are no results. A bare
+    # req() failure inside renderUI leaves the previous output in place
+    # (Shiny keeps stale content on silent errors), which is exactly how the
+    # old heatmap survived "Clear Demo Data".
     output$clone_heatmap_area <- renderUI({
-      req(clone_pred())
       mat <- clone_pred()
+      if (is.null(mat)) return(div())
       n_rows <- nrow(mat)
       h <- if (is.null(n_rows) || n_rows <= 0) 400
            else min(700, max(240, 140 + 16 * n_rows))
