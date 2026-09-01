@@ -1163,7 +1163,6 @@ submit_session_task <- function(shared, task, args) {
   # to claim this job (workers only pick up dirs with the ready marker).
   file.create(file.path(job_dir, "ready"))
   file.create(file.path(job_dir, "progress.txt"))
-  shared$active_task <- jobid
   invisible(jobid)
 }
 

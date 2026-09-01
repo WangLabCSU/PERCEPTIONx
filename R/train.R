@@ -536,17 +536,7 @@ train_models <- function(drug_list = NULL,
   # 3. Determine drug list
   # ============================================================================
   if (is.null(drug_list)) {
-    drug_list <- c(
-      "abemaciclib", "afatinib", "axitinib", "azacitidine", "cladribine",
-      "clofarabine", "cobimetinib", "dabrafenib", "dasatinib", "daunorubicin",
-      "decitabine", "docetaxel", "doxorubicin", "epirubicin", "erlotinib",
-      "etoposide", "gefitinib", "gemcitabine", "homoharringtonine", "ibrutinib",
-      "icotinib", "ixabepilone", "lapatinib", "lenvatinib", "midostaurin",
-      "niraparib", "osimertinib", "paclitaxel", "palbociclib", "ponatinib",
-      "romidepsin", "sunitinib", "temsirolimus", "teniposide", "thioguanine",
-      "topotecan", "trametinib", "vandetanib", "vemurafenib", "vinblastine",
-      "vincristine", "vindesine", "vinflunine", "vinorelbine"
-    )
+    drug_list <- perception_all_drugs
   }
 
   # ============================================================================

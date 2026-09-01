@@ -1,7 +1,3 @@
-# Opposite of standard %in% function
-'%!in%' <- function(x,y)!('%in%'(x,y))
-
-
 # RowMeans functions considering the boundary case where mat has a single
 # column (one cell / sample) — rowMeans would error on a one-column matrix.
 rowMeans_if_one_row <- function(mat){

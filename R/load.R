@@ -276,7 +276,8 @@ reset_mirrors <- function() {
 
 # The 44 pre-trained model drugs shipped with the package (used by
 # load_model(all = TRUE) to pre-cache the full set on deployment servers).
-# Keep in sync with the drug list in inst/shiny/app/R/mod_data.R.
+# Single source of truth — train_models() defaults and the Shiny app's drug
+# dropdown both read this list.
 perception_all_drugs <- c(
   "abemaciclib", "afatinib", "axitinib", "azacitidine", "cladribine",
   "clofarabine", "cobimetinib", "dabrafenib", "dasatinib", "daunorubicin",
