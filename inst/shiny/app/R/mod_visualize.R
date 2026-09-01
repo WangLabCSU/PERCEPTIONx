@@ -421,7 +421,15 @@ mod_visualize_server <- function(id, shared, main_session) {
     # ---- Core: generate a plot (normal or spatial) in the background ----
     generate_plot <- function(pt) {
       is_spatial <- pt %in% c("umap_gene", "umap_viability", "umap_clone")
-      is_combo <- identical(input$drug_name_common, "Combination")
+
+      # Drug: the parameter panel may not have initialized on the FIRST card
+      # click, so input$drug_name_common can still be NULL then — fall back to
+      # the panel's default "Combination" so the plot matches what the
+      # dropdown shows (otherwise the first drug leaks in as a silent default).
+      drug_sel <- if (!is.null(input$drug_name_common) && nzchar(input$drug_name_common)) {
+        input$drug_name_common
+      } else "Combination"
+      is_combo <- identical(drug_sel, "Combination")
 
       # umap_gene: the parameter panel may not have rendered on the FIRST card
       # click, so input$umap_gene can still be NULL/empty then — fall back to
@@ -436,7 +444,7 @@ mod_visualize_server <- function(id, shared, main_session) {
 
       # Cache hit: identical request was generated before — reuse instantly.
       ck <- if (is_spatial) paste(pt, gene_sel, input$umap_drug, sep = "\u0001")
-            else paste(pt, is_combo, input$drug_name_common,
+            else paste(pt, is_combo, drug_sel,
                        input$roc_group_a, input$roc_group_b, sep = "\u0001")
       cached <- get0(ck, envir = plot_cache, inherits = FALSE)
       if (!is.null(cached)) {
@@ -526,7 +534,7 @@ mod_visualize_server <- function(id, shared, main_session) {
               )
             ),
             params = list(
-              drug = if (!is.null(input$drug_name_common) && nchar(input$drug_name_common) > 0) input$drug_name_common else "",
+              drug = drug_sel,
               combo = is_combo,
               roc_group_a = input$roc_group_a,
               roc_group_b = input$roc_group_b

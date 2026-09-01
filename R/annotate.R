@@ -18,10 +18,13 @@ NULL
 # plot_seurat_clustering() so they stay in sync and share the same safeguards.
 run_seurat_pipeline <- function(expression_matrix, method,
                                 min_cells, min_features, nfeatures,
-                                dims, resolution, seed, progress_cb = NULL) {
+                                dims, resolution, seed, progress_cb = NULL,
+                                cluster_algorithm = 1,
+                                variable_selection = c("vst", "dispersion", "mvp")) {
   notify <- function(phase) {
     if (is.function(progress_cb)) progress_cb(phase)
   }
+  variable_selection <- match.arg(variable_selection)
   set.seed(seed)
 
   notify("normalizing")
@@ -32,7 +35,10 @@ run_seurat_pipeline <- function(expression_matrix, method,
   so <- Seurat::NormalizeData(so, normalization.method = "LogNormalize",
                               scale.factor = 10000)
   notify("variable-features")
-  so <- Seurat::FindVariableFeatures(so, selection.method = "vst",
+  # vst is the most accurate but by far the slowest variable-feature method
+  # on large matrices; dispersion/mvp trade a little feature quality for a
+  # big speedup. The Seurat pipeline below works with any of them.
+  so <- Seurat::FindVariableFeatures(so, selection.method = variable_selection,
                                      nfeatures = nfeatures)
   notify("scaling")
   so <- Seurat::ScaleData(so, features = Seurat::VariableFeatures(object = so))
@@ -55,8 +61,12 @@ run_seurat_pipeline <- function(expression_matrix, method,
   so <- Seurat::FindNeighbors(so, dims = seq_len(actual_dims))
   # verbose = FALSE: FindClusters prints "Modularity Optimizer" progress to
   # stdout, which pollutes worker logs / can leave stray files behind.
+  # algorithm = 1 is the default Louvain (no extra dependency). Leiden (4)
+  # is slightly faster on VERY large graphs but pulls in the 'leidenbase'
+  # package — not worth the dependency at PERCEPTIONx's typical cell counts.
   notify("clustering")
-  so <- Seurat::FindClusters(so, resolution = resolution, verbose = FALSE)
+  so <- Seurat::FindClusters(so, resolution = resolution,
+                             algorithm = cluster_algorithm, verbose = FALSE)
 
   notify(if (method == "umap") "umap" else "tsne")
   if (method == "umap") {
@@ -128,9 +138,13 @@ annotate_clones <- function(method = c("umap", "tsne"),
                              nfeatures = 2000,
                              dims = 10,
                              resolution = 0.8,
-                             seed = 42) {
+                             seed = 42,
+                             progress_cb = NULL,
+                             cluster_algorithm = 1,
+                             variable_selection = c("vst", "dispersion", "mvp")) {
 
   method <- match.arg(method)
+  variable_selection <- match.arg(variable_selection)
 
   if (!requireNamespace("Seurat", quietly = TRUE)) {
     stop("Package 'Seurat' is required for clone annotation. ",
@@ -139,7 +153,8 @@ annotate_clones <- function(method = c("umap", "tsne"),
 
   so <- run_seurat_pipeline(expression_matrix, method,
                             min_cells, min_features, nfeatures,
-                            dims, resolution, seed)
+                            dims, resolution, seed, progress_cb,
+                            cluster_algorithm, variable_selection)
 
   cluster_ids <- Seurat::Idents(so)
   emb <- Seurat::Embeddings(so, reduction = method)
