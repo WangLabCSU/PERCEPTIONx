@@ -14,8 +14,7 @@ mod_home_ui <- function(id) {
             h1(class = "hero-title", "PERCEPTION-shiny")
           ),
           p(class = "hero-tagline",
-            "Precision oncology from single-cell transcriptomics \u2014 ",
-            "trained on DepMap, applied to patient tumors."
+            "From single-cell transcriptomics to precision oncology."
           ),
           p(class = "hero-desc",
             "PERCEPTION (PERsonalized single-Cell Expression-based Planning for Treatments In ONcology) ",

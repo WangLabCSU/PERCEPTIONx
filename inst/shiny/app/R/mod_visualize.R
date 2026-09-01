@@ -35,7 +35,7 @@ mod_visualize_ui <- function(id) {
           div(class = "card-body",
             uiOutput(ns("gallery_grid")),
             tags$small(class = "text-muted", style = "display: block; margin-top: 0.5rem;",
-              icon("lightbulb"), " Grey cards are missing data — hover to see what they need.")
+              icon("lightbulb"), " Grey cards are missing data.")
           )
         ),
         # Parameters appear here once a card is clicked.
