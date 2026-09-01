@@ -44,42 +44,63 @@ make_job_id <- function(user_key = "") {
 # fine — so we retry briefly before giving up. On final failure the error
 # message carries the diagnostics needed to debug a stubborn deployment
 # (Rscript path, PATH, cwd, tempdir) instead of a bare "processx_exec failed".
+#
+# WHY A LADDER OF CONFIGS: restricted containers reject individual processx
+# configurations in deployment-specific ways — TRUE/FALSE stdio got EACCES
+# (fixed by /dev/null on some servers), the supervisor's socketpair or a
+# stderr file redirect can be rejected on others. Pinning one config makes the
+# app depend on which exact failure mode the host hits. Instead we try
+# progressively simpler configs and keep the first one the environment
+# accepts. Each config gets the full retry budget, and a failed attempt runs
+# gc() so half-open connections from the failed spawn do not accumulate.
 spawn_r_bg_retry <- function(func, args, jobs_dir, retries = 2L, delay_ms = 500L) {
+  configs <- list(
+    # 1. Preferred: supervisor on, stdout discarded, stderr to the job log.
+    list(supervise = TRUE,  stdout = "/dev/null", stderr = file.path(jobs_dir, "worker.log")),
+    # 2. Supervisor and stderr file are the two most container-hostile bits;
+    #    drop both, keep stdout discarded. (On Windows "/dev/null" does not
+    #    exist, so configs 1-2 fail there and 3 below is what runs locally.)
+    list(supervise = FALSE, stdout = "/dev/null", stderr = "/dev/null"),
+    # 3. Most basic: inherit stdio (no pipes to fill, nothing to redirect,
+    #    no supervisor). Always accepted unless fork itself is blocked.
+    list(supervise = FALSE, stdout = NULL, stderr = NULL)
+  )
   last_err <- NULL
-  for (attempt in seq_len(retries + 1L)) {
-    tryCatch(
-      return(callr::r_bg(
-        func = func,
-        args = args,
-        supervise = TRUE,
-        poll_connection = FALSE,
-        # stdout/stderr to files, NOT pipes — a worker writing enough to fill
-        # the OS pipe buffer (~64KB) would block forever inside write(). See
-        # ensure_master() for the full rationale.
-        # NOTE: use "/dev/null" instead of FALSE for stdout. In some container
-        # deployments (e.g. rocker/shiny-verse run as the shiny user) passing
-        # TRUE/FALSE for stdio makes processx_exec fail with EACCES (system
-        # error 13, "Permission denied"). Redirecting to /dev/null keeps stdout
-        # discarded without triggering that path.
-        stdout = "/dev/null",
-        stderr = file.path(jobs_dir, "worker.log")
-      )),
-      error = function(e) {
-        last_err <<- e
-        if (attempt <= retries) Sys.sleep(delay_ms / 1000)
-        NULL
-      }
-    )
+  config_err <- character(0)
+  for (cfg in configs) {
+    for (attempt in seq_len(retries + 1L)) {
+      tryCatch(
+        return(callr::r_bg(
+          func = func,
+          args = args,
+          supervise = cfg$supervise,
+          poll_connection = FALSE,
+          stdout = cfg$stdout,
+          stderr = cfg$stderr
+        )),
+        error = function(e) {
+          last_err <<- e
+          if (attempt <= retries) Sys.sleep(delay_ms / 1000)
+          NULL
+        }
+      )
+    }
+    config_err <- c(config_err, conditionMessage(last_err))
+    gc()  # release any half-open connections before the next config
   }
   stop(
-    "Failed to start the background worker after ", retries + 1L, " attempts. ",
-    "Last error: ", conditionMessage(last_err), ". ",
+    "Failed to start the background worker after ", length(configs), " configs x ",
+    retries + 1L, " attempts. ",
+    "Last errors: ", paste(config_err, collapse = " | "), ". ",
     "Diagnostics: R.home(bin)=", R.home("bin"),
     "; Rscript exists=", file.exists(file.path(R.home("bin"), "Rscript")),
     "; Sys.which(Rscript)=", Sys.which("Rscript"),
     "; PATH=", Sys.getenv("PATH"),
     "; getwd()=", getwd(),
     "; tempdir=", tempdir(),
+    "; jobs_dir exists=", dir.exists(jobs_dir),
+    "; jobs_dir writable=", isTRUE(file.access(jobs_dir, 2) == 0),
+    "; open connections=", length(connections()),
     "; R version=", paste(R.version$major, R.version$minor, sep = "."),
     "; callr=", tryCatch(as.character(utils::packageVersion("callr")), error = function(e) "?"),
     "; processx=", tryCatch(as.character(utils::packageVersion("processx")), error = function(e) "?"),
@@ -382,6 +403,11 @@ ensure_master <- function() {
   # cache root is set (deployment-friendly), else tempdir()/perception_jobs.
   jobs_dir <- PERCEPTIONx:::perception_jobs_dir()
   dir.create(jobs_dir, recursive = TRUE, showWarnings = FALSE)
+  if (!dir.exists(jobs_dir) || file.access(jobs_dir, 2) != 0) {
+    stop("Cannot use master jobs dir at '", jobs_dir,
+         "' (unwritable or not creatable). Fix the permission, or unset ",
+         "PERCEPTIONx.cache_root to fall back to tempdir().")
+  }
   options(perception.jobs_dir = jobs_dir)
   max_par <- suppressWarnings(as.integer(Sys.getenv("PERCEPTION_WORKERS", "16")))
   if (is.na(max_par) || max_par < 1L) max_par <- 16L
