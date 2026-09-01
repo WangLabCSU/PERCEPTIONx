@@ -37,6 +37,20 @@ and cells as columns. Raw counts or normalized values are both accepted.}
 \item{resolution}{Numeric. Clustering resolution. Default = 0.8.}
 
 \item{seed}{Integer. Random seed for reproducibility. Default = 42.}
+
+\item{progress_cb}{Optional function called with the current Seurat stage
+name (e.g. \code{"pca"}, \code{"clustering"}) between pipeline steps.
+Used to show live progress in the Shiny app.}
+
+\item{cluster_algorithm}{Integer. Community-detection algorithm passed to
+\code{Seurat::FindClusters()}. Default = 1 (Louvain, no extra
+dependency). Use 4 (Leiden) only if the \pkg{leidenbase} package is
+installed.}
+
+\item{variable_selection}{Character. Variable-feature selection method for
+\code{Seurat::FindVariableFeatures()}. One of \code{"vst"} (default,
+most accurate), \code{"dispersion"} or \code{"mvp"} (faster on large
+matrices at a small cost in feature quality).}
 }
 \value{
 A data frame with columns: \code{cell_id}, \code{clone_id}, and

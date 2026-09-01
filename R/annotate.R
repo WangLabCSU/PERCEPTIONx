@@ -120,6 +120,17 @@ run_seurat_pipeline <- function(expression_matrix, method,
 #' @param dims Integer. Number of PCA dimensions for clustering. Default = 10.
 #' @param resolution Numeric. Clustering resolution. Default = 0.8.
 #' @param seed Integer. Random seed for reproducibility. Default = 42.
+#' @param progress_cb Optional function called with the current Seurat stage
+#'        name (e.g. \code{"pca"}, \code{"clustering"}) between pipeline steps.
+#'        Used to show live progress in the Shiny app.
+#' @param cluster_algorithm Integer. Community-detection algorithm passed to
+#'        \code{Seurat::FindClusters()}. Default = 1 (Louvain, no extra
+#'        dependency). Use 4 (Leiden) only if the \pkg{leidenbase} package is
+#'        installed.
+#' @param variable_selection Character. Variable-feature selection method for
+#'        \code{Seurat::FindVariableFeatures()}. One of \code{"vst"} (default,
+#'        most accurate), \code{"dispersion"} or \code{"mvp"} (faster on large
+#'        matrices at a small cost in feature quality).
 #'
 #' @return A data frame with columns: \code{cell_id}, \code{clone_id}, and
 #'         \code{dim_1}, \code{dim_2} (2D embedding coordinates for visualization).
@@ -314,6 +325,9 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 #'   Use this when you already have a clone-level expression matrix (e.g. from a
 #'   published study). Rank normalization and clone counts are still applied.
 #'   No UMAP/t-SNE embedding is produced in this mode.
+#' @param progress_cb Optional function called as \code{progress_cb(phase, i, n,
+#'   drug)} with the current pipeline stage (e.g. \code{"seurat-pca"},
+#'   \code{"mapping"}). Used to show live progress in the Shiny app.
 #'
 #' @export
 prepare_data <- function(method = c("umap", "tsne"),
