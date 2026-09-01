@@ -586,9 +586,9 @@ UMAP Drug Viability 使用 z-score（以 0
 为中心，可负）。数值越高表示在该批次克隆中越耐药（活力越高），不代表绝对杀伤比例。多克隆异质性、耐药通路激活都会拉高分数（活力升高）。</p>
 <p><strong>Q5：关闭应用后数据会留下吗？</strong> 会保留。DepMap
 数据缓存在持久化目录（Windows：用户数据目录，Linux 可用环境变量
-<code>PERCEPTIONX_DEPMAP_CACHE_DIR</code> 指定），带 12
-小时未使用自动过期（TTL）机制。应用关闭后文件仍留在磁盘；超过 12
-小时未使用，下次点击时会自动删除并重新下载。</p>
+<code>PERCEPTIONX_DEPMAP_CACHE_DIR</code>
+指定）。应用关闭后文件仍留在磁盘，且<strong>永远不会被自动删除</strong>——服务器管理员预先下载好的缓存会被所有用户直接复用，约
+567 MB 的下载只会发生一次。</p>
 <p><strong>Q6：为什么点训练/聚类/预测/画图时界面不卡？</strong>
 训练、聚类、预测、绘图都在<strong>后台独立进程（worker）</strong>中运行，界面只做轮询和显示进度，因此大任务执行期间仍可正常操作其他页面。若后台进程意外中断（极少数情况），页面会提示
 “Background worker stopped” 而非一直转圈；重新点击提交即可。</p>

@@ -547,9 +547,10 @@ raise the score.
 
 Yes. DepMap data is cached in a persistent directory (on Windows, the
 user data directory; on Linux, set the `PERCEPTIONX_DEPMAP_CACHE_DIR`
-environment variable) with a 12-hour unused-expiry mechanism. Files stay
-on disk after the app closes; if unused for more than 12 hours, the next
-click deletes and re-downloads them.
+environment variable). Files stay on disk after the app closes and are
+**never auto-deleted** — a pre-downloaded copy (for example one fetched
+by the server administrator) is reused by every user, so the ~567 MB
+download only ever happens once.
 
 **Q6: Why does the interface stay responsive during training /
 clustering / prediction?**

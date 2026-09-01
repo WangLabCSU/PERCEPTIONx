@@ -648,10 +648,11 @@ resistance pathways both raise the score.</p>
 <p><strong>Q5: Does data persist after I close the app?</strong></p>
 <p>Yes. DepMap data is cached in a persistent directory (on Windows, the
 user data directory; on Linux, set the
-<code>PERCEPTIONX_DEPMAP_CACHE_DIR</code> environment variable) with a
-12-hour unused-expiry mechanism. Files stay on disk after the app
-closes; if unused for more than 12 hours, the next click deletes and
-re-downloads them.</p>
+<code>PERCEPTIONX_DEPMAP_CACHE_DIR</code> environment variable). Files
+stay on disk after the app closes and are <strong>never
+auto-deleted</strong> — a pre-downloaded copy (for example one fetched
+by the server administrator) is reused by every user, so the ~567 MB
+download only ever happens once.</p>
 <p><strong>Q6: Why does the interface stay responsive during training /
 clustering / prediction?</strong></p>
 <p>All heavy computation runs in background worker processes; the
