@@ -56,7 +56,12 @@ spawn_r_bg_retry <- function(func, args, jobs_dir, retries = 2L, delay_ms = 500L
         # stdout/stderr to files, NOT pipes — a worker writing enough to fill
         # the OS pipe buffer (~64KB) would block forever inside write(). See
         # ensure_master() for the full rationale.
-        stdout = FALSE,
+        # NOTE: use "/dev/null" instead of FALSE for stdout. In some container
+        # deployments (e.g. rocker/shiny-verse run as the shiny user) passing
+        # TRUE/FALSE for stdio makes processx_exec fail with EACCES (system
+        # error 13, "Permission denied"). Redirecting to /dev/null keeps stdout
+        # discarded without triggering that path.
+        stdout = "/dev/null",
         stderr = file.path(jobs_dir, "worker.log")
       )),
       error = function(e) {
