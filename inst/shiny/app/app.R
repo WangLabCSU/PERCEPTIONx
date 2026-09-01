@@ -333,7 +333,8 @@ server <- function(input, output, session) {
   # need (the shared DepMap cache, an in-progress download, or a queued job),
   # breaking their training. Per-session job dirs are removed below; R's
   # tempdir() is cleaned up by the OS on process exit, and the DepMap cache
-  # has its own 12-hour unused-expiry (TTL).
+  # on disk is NEVER auto-expired (a pre-downloaded copy must be reused by
+  # every user, not deleted after idle time).
 
   session$onSessionEnded(function() {
     # NOTE: this callback runs OUTSIDE any reactive context. Reading a
@@ -366,12 +367,13 @@ server <- function(input, output, session) {
         unlink(d, recursive = TRUE)
       }
     }
-    # 3. Close leftover R connections. R emits "closing unused connection N"
-    # warnings when it tears down unused connections at process exit (a
-    # well-known Shiny Server artifact, e.g. from ggiraph/temp file handling).
-    # Closing them here, after the workers are killed, keeps the server log
-    # clean without touching anything still in use.
-    suppressWarnings(try(closeAllConnections(), silent = TRUE))
+    # NOTE: deliberately NO closeAllConnections() here. It was added to silence
+    # "closing unused connection N" warnings in the server log, but it corrupts
+    # the process's R connection table — any later connection use (a refreshed
+    # session in the same process, or the shutdown sequence itself) then fails
+    # with "invalid connection", e.g. callr::r_bg failing to start workers
+    # ("Failed to start the background worker after 3 attempts"). Log warnings
+    # are cosmetic; a broken session is not.
   })
 }
 
