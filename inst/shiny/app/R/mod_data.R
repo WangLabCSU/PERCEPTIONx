@@ -3,7 +3,8 @@
 # Size of the official DepMap.RDS release asset (bytes). Used to (a) drive the
 # download progress bar and (b) reject truncated downloads / partial cache
 # files — a partial file must never be treated as a cache hit or parsed.
-depmap_release_size <- 594589700
+# Single source of truth: the package-level constant in R/load.R.
+depmap_release_size <- PERCEPTIONx:::.depmap_release_size
 
 # ---- Upload helpers: flexible table reading + column name normalization ----
 
@@ -487,15 +488,7 @@ Shiny.addCustomMessageHandler('expr-format-state-", ns("expr_format"), "', funct
             div(class = "inline-form-row", style = "display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;",
               tags$label(class = "control-label", style = "margin:0; font-size:0.88rem; font-weight:600; white-space:nowrap; line-height:38px;", "Drug"),
               selectizeInput(ns("model_name"), label = NULL, width = "300px",
-                             choices = c("abemaciclib", "afatinib", "axitinib", "azacitidine", "cladribine",
-                                         "clofarabine", "cobimetinib", "dabrafenib", "dasatinib", "daunorubicin",
-                                         "decitabine", "docetaxel", "doxorubicin", "epirubicin", "erlotinib",
-                                         "etoposide", "gefitinib", "gemcitabine", "homoharringtonine", "ibrutinib",
-                                         "icotinib", "ixabepilone", "lapatinib", "lenvatinib", "midostaurin",
-                                         "niraparib", "osimertinib", "paclitaxel", "palbociclib", "ponatinib",
-                                         "romidepsin", "sunitinib", "temsirolimus", "teniposide", "thioguanine",
-                                         "topotecan", "trametinib", "vandetanib", "vemurafenib", "vinblastine",
-                                         "vincristine", "vindesine", "vinflunine", "vinorelbine"),
+                             choices = PERCEPTIONx:::perception_all_drugs,
                              selected = "abemaciclib",
                              multiple = TRUE,
                              options = list(placeholder = "Select one or more drugs...", maxOptions = 50,
@@ -1118,15 +1111,7 @@ mod_data_server <- function(id, shared) {
     })
 
     # Toggle observers for all 44 drugs
-    drug_list <- c("abemaciclib", "afatinib", "axitinib", "azacitidine", "cladribine",
-                   "clofarabine", "cobimetinib", "dabrafenib", "dasatinib", "daunorubicin",
-                   "decitabine", "docetaxel", "doxorubicin", "epirubicin", "erlotinib",
-                   "etoposide", "gefitinib", "gemcitabine", "homoharringtonine", "ibrutinib",
-                   "icotinib", "ixabepilone", "lapatinib", "lenvatinib", "midostaurin",
-                   "niraparib", "osimertinib", "paclitaxel", "palbociclib", "ponatinib",
-                   "romidepsin", "sunitinib", "temsirolimus", "teniposide", "thioguanine",
-                   "topotecan", "trametinib", "vandetanib", "vemurafenib", "vinblastine",
-                   "vincristine", "vindesine", "vinflunine", "vinorelbine")
+    drug_list <- PERCEPTIONx:::perception_all_drugs
     for (d in drug_list) {
       local({
         drug_local <- d

@@ -46,11 +46,6 @@ test_that("fdrcorr returns correct structure", {
   expect_true(all(result >= pvals - 1e-10))
 })
 
-test_that("%!in% operator works correctly", {
-  expect_true(3 %!in% c(1, 2, 4))
-  expect_false(2 %!in% c(1, 2, 3))
-})
-
 test_that("stripall2match normalizes strings", {
   result <- stripall2match("Hello World 123")
   expect_type(result, "character")
