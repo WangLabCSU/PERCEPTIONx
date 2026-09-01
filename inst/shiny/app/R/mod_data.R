@@ -1353,12 +1353,12 @@ mod_data_server <- function(id, shared) {
         if (identical(input$expr_format, "clone")) {
           tags$span(class = "status-badge unloaded",
             span(class = "status-dot gray"),
-            "Clone-level mode — will auto-prepare once expression + mapping are loaded"
+            "Clone-level mode. Will auto-prepare once expression and mapping are loaded"
           )
         } else {
           tags$span(class = "status-badge unloaded",
             span(class = "status-dot gray"),
-            "Not run yet — upload expression + mapping, then click Run Seurat Clustering"
+            "Not run yet. Upload expression and mapping, then click Run Seurat Clustering"
           )
         }
       } else {
