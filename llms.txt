@@ -106,7 +106,7 @@ genes x 400 cells x 20 patients) to smoke-test the whole flow. See the
 Guide](https://wanglabcsu.github.io/PERCEPTIONx/articles/shiny_app.html)
 for a full walkthrough.
 
-## Agent Skills
+## 4. Agent Skills
 
 PERCEPTIONx ships two agent skills so AI coding assistants can drive the
 package correctly instead of guessing its API:
@@ -124,9 +124,9 @@ cp -r .claude/skills/perceptionx-pipeline ~/.codex/skills/
 cp -r .claude/skills/perceptionx-result ~/.codex/skills/
 ```
 
-## 4. Function Reference
+## 5. Function Reference
 
-### 4.1 Data Loading
+### 5.1 Data Loading
 
 | Function | Description |
 |----|----|
@@ -134,33 +134,33 @@ cp -r .claude/skills/perceptionx-result ~/.codex/skills/
 | [`load_model()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/load_model.md) | Download and load pre-trained models |
 | [`get_mirrors()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/get_mirrors.md) / [`add_mirrors()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/add_mirrors.md) / [`list_mirrors()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/list_mirrors.md) / [`reset_mirrors()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/reset_mirrors.md) | Manage download mirrors |
 
-### 4.2 Preprocessing
+### 5.2 Preprocessing
 
 | Function | Description |
 |----|----|
 | [`prepare_data()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/prepare_data.md) | Seurat clustering + rank normalization → clone-level inputs |
 
-### 4.3 Model Training
+### 5.3 Model Training
 
 | Function | Description |
 |----|----|
 | [`train_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/train_models.md) | Full training pipeline (main entry point) |
 
-### 4.4 Prediction
+### 5.4 Prediction
 
 | Function | Description |
 |----|----|
 | [`predict_drugs()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/predict_drugs.md) | Predict drug sensitivity at clone level |
 | [`predict_patients()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/predict_patients.md) | Aggregate clone-level predictions to patient level |
 
-### 4.5 Evaluation
+### 5.5 Evaluation
 
 | Function | Description |
 |----|----|
 | [`compare_performance()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/compare_performance.md) | Compare performance across model configurations |
 | [`get_significant_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/get_significant_models.md) | Filter models with significant stratification |
 
-### 4.6 Visualization
+### 5.6 Visualization
 
 | Function | Description |
 |----|----|
@@ -175,7 +175,7 @@ cp -r .claude/skills/perceptionx-result ~/.codex/skills/
 | [`plot_seurat_clustering()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_seurat_clustering.md) | Seurat clustering and UMAP visualization |
 | [`plot_patient_response_panel()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_patient_response_panel.md) | Composite patient response panel |
 
-## 5. Workflow
+## 6. Workflow
 
     DepMap Data ──► Model Training ──► Clone Prediction ──► Patient Aggregation
                        │                    │                     │
@@ -186,7 +186,7 @@ cp -r .claude/skills/perceptionx-result ~/.codex/skills/
                        (clustering +                     │
                         rank normalization)        plot_*() / compare_performance()
 
-## 6. Data Requirements
+## 7. Data Requirements
 
 - **DepMap reference data**: downloaded automatically via
   [`load_depmap()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/load_depmap.md)
@@ -199,7 +199,7 @@ cp -r .claude/skills/perceptionx-result ~/.codex/skills/
 - **Clinical responses (optional)**: patient-level response labels, used
   for validation (ROC, responder vs. non-responder boxplots).
 
-## 7. Citation
+## 8. Citation
 
 If you use this package, please cite both the package and the original
 PERCEPTION study:
@@ -214,7 +214,7 @@ PERCEPTION study:
 
 Feedback: <jiading682@qq.com>
 
-## 8. License
+## 9. License
 
 MIT © PERCEPTIONx authors
 
