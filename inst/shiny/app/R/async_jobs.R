@@ -75,6 +75,9 @@ spawn_r_bg_retry <- function(func, args, jobs_dir, retries = 2L, delay_ms = 500L
     "; PATH=", Sys.getenv("PATH"),
     "; getwd()=", getwd(),
     "; tempdir=", tempdir(),
+    "; R version=", paste(R.version$major, R.version$minor, sep = "."),
+    "; callr=", tryCatch(as.character(utils::packageVersion("callr")), error = function(e) "?"),
+    "; processx=", tryCatch(as.character(utils::packageVersion("processx")), error = function(e) "?"),
     call. = FALSE
   )
 }
@@ -242,9 +245,13 @@ train_master_main <- function(pkg_root, jobs_dir, max_parallel, idle_minutes) {
     if (!is.null(DepMap) &&
         as.numeric(difftime(Sys.time(), last_activity, units = "mins")) > idle_minutes) {
       message("[master] idle for ", idle_minutes, " min - exiting to release memory")
-      # quit() tears down R connections and would warn about leftover unused
-      # ones ("closing unused connection N") in the server log — close them
-      # first so the exit is clean.
+      # SAFE here (unlike in the Shiny session): this runs inside the worker's
+      # OWN process, which is about to exit anyway, so closing its leftover
+      # connections only avoids "closing unused connection N" noise in the
+      # server log. It can NOT corrupt any other process. (In the Shiny app
+      # process closeAllConnections() is fatal — it kills the session's data
+      # channel, making callr workers fail with "invalid connection" and the
+      # page disconnect — so app.R must never do this.)
       suppressWarnings(try(closeAllConnections(), silent = TRUE))
       quit(save = "no")
     }
