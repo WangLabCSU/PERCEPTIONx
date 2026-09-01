@@ -26,7 +26,8 @@ prepare_data(
   seurat_min_cells = 3,
   seurat_min_features = 200,
   seurat_seed = 42,
-  skip_clustering = FALSE
+  skip_clustering = FALSE,
+  progress_cb = NULL
 )
 ```
 
