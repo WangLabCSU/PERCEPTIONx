@@ -82,7 +82,7 @@ run_perception_app()          # starts the app in your browser
 
 The app has six tabs — Home, Data, Train, Predict, Visualize, and Help — with a Load Demo button that generates a small synthetic dataset (49 genes x 400 cells x 20 patients) to smoke-test the whole flow. See the [Shiny App Guide](https://wanglabcsu.github.io/PERCEPTIONx/articles/shiny_app.html) for a full walkthrough.
 
-## Agent Skills
+## 4. Agent Skills
 
 PERCEPTIONx ships two agent skills so AI coding assistants can drive the package correctly instead of guessing its API:
 
@@ -98,9 +98,9 @@ cp -r .claude/skills/perceptionx-pipeline ~/.codex/skills/
 cp -r .claude/skills/perceptionx-result ~/.codex/skills/
 ```
 
-## 4. Function Reference
+## 5. Function Reference
 
-### 4.1 Data Loading
+### 5.1 Data Loading
 
 | Function | Description |
 |----------|-------------|
@@ -108,33 +108,33 @@ cp -r .claude/skills/perceptionx-result ~/.codex/skills/
 | `load_model()` | Download and load pre-trained models |
 | `get_mirrors()` / `add_mirrors()` / `list_mirrors()` / `reset_mirrors()` | Manage download mirrors |
 
-### 4.2 Preprocessing
+### 5.2 Preprocessing
 
 | Function | Description |
 |----------|-------------|
 | `prepare_data()` | Seurat clustering + rank normalization → clone-level inputs |
 
-### 4.3 Model Training
+### 5.3 Model Training
 
 | Function | Description |
 |----------|-------------|
 | `train_models()` | Full training pipeline (main entry point) |
 
-### 4.4 Prediction
+### 5.4 Prediction
 
 | Function | Description |
 |----------|-------------|
 | `predict_drugs()` | Predict drug sensitivity at clone level |
 | `predict_patients()` | Aggregate clone-level predictions to patient level |
 
-### 4.5 Evaluation
+### 5.5 Evaluation
 
 | Function | Description |
 |----------|-------------|
 | `compare_performance()` | Compare performance across model configurations |
 | `get_significant_models()` | Filter models with significant stratification |
 
-### 4.6 Visualization
+### 5.6 Visualization
 
 | Function | Description |
 |----------|-------------|
@@ -149,7 +149,7 @@ cp -r .claude/skills/perceptionx-result ~/.codex/skills/
 | `plot_seurat_clustering()` | Seurat clustering and UMAP visualization |
 | `plot_patient_response_panel()` | Composite patient response panel |
 
-## 5. Workflow
+## 6. Workflow
 
 ```
 DepMap Data ──► Model Training ──► Clone Prediction ──► Patient Aggregation
@@ -162,13 +162,13 @@ Patient scRNA ──► prepare_data()                Visualization & Evaluation
                     rank normalization)        plot_*() / compare_performance()
 ```
 
-## 6. Data Requirements
+## 7. Data Requirements
 
 - **DepMap reference data**: downloaded automatically via `load_depmap()` (bulk expression, single-cell expression, drug response, cell line annotations).
 - **Patient data**: single-cell RNA expression matrix (genes as rows, cells as columns). `prepare_data()` handles clustering and rank normalization.
 - **Clinical responses (optional)**: patient-level response labels, used for validation (ROC, responder vs. non-responder boxplots).
 
-## 7. Citation
+## 8. Citation
 
 If you use this package, please cite both the package and the original PERCEPTION study:
 
@@ -177,6 +177,6 @@ If you use this package, please cite both the package and the original PERCEPTIO
 
 Feedback: jiading682@qq.com
 
-## 8. License
+## 9. License
 
 MIT © PERCEPTIONx authors
