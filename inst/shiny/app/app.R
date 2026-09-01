@@ -153,7 +153,7 @@ ui <- page_navbar(
     div(id = "demo-overlay", class = "demo-overlay", style = "display: none;",
       div(class = "spinner-ring"),
       h4("Preparing demo data..."),
-      p(class = "text-muted", "Running Seurat clustering")),
+      p(id = "demo-stage", class = "text-muted", "Running Seurat clustering...")),
     # Assets are inlined (see the perception_asset block above) — no external
     # file requests, so no www/ directory is needed on the server. The
     # favicon.svg references inside styles.css are swapped for the data URI.
@@ -168,6 +168,12 @@ ui <- page_navbar(
       Shiny.addCustomMessageHandler('scroll-to', function(id) {
         var el = document.getElementById(id);
         if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+      });
+
+      // Live stage text inside the demo overlay (Seurat phases).
+      Shiny.addCustomMessageHandler('set-demo-stage', function(msg) {
+        var el = document.getElementById('demo-stage');
+        if (el && msg && msg.text) el.textContent = msg.text;
       });
 
       // Replace a container's innerHTML. Used by the Home page to update the

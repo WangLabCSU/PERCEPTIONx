@@ -18,17 +18,23 @@ NULL
 # plot_seurat_clustering() so they stay in sync and share the same safeguards.
 run_seurat_pipeline <- function(expression_matrix, method,
                                 min_cells, min_features, nfeatures,
-                                dims, resolution, seed) {
+                                dims, resolution, seed, progress_cb = NULL) {
+  notify <- function(phase) {
+    if (is.function(progress_cb)) progress_cb(phase)
+  }
   set.seed(seed)
 
+  notify("normalizing")
   so <- Seurat::CreateSeuratObject(counts = expression_matrix,
                                    project = "PERCEPTIONx",
                                    min.cells = min_cells,
                                    min.features = min_features)
   so <- Seurat::NormalizeData(so, normalization.method = "LogNormalize",
                               scale.factor = 10000)
+  notify("variable-features")
   so <- Seurat::FindVariableFeatures(so, selection.method = "vst",
                                      nfeatures = nfeatures)
+  notify("scaling")
   so <- Seurat::ScaleData(so, features = Seurat::VariableFeatures(object = so))
 
   # PCA requires npcs < min(nrow, ncol) of the scaled matrix -- cap dims to the
@@ -42,13 +48,17 @@ run_seurat_pipeline <- function(expression_matrix, method,
             " due to limited cells/features")
   }
 
+  notify("pca")
   so <- Seurat::RunPCA(so, features = Seurat::VariableFeatures(object = so),
                        npcs = actual_dims)
+  notify("neighbors")
   so <- Seurat::FindNeighbors(so, dims = seq_len(actual_dims))
   # verbose = FALSE: FindClusters prints "Modularity Optimizer" progress to
   # stdout, which pollutes worker logs / can leave stray files behind.
+  notify("clustering")
   so <- Seurat::FindClusters(so, resolution = resolution, verbose = FALSE)
 
+  notify(if (method == "umap") "umap" else "tsne")
   if (method == "umap") {
     # RunUMAP's uwot call is single-threaded and uses heavy defaults
     # (n_neighbors = 30, n_epochs = 500, n_trees = 50) -- on small datasets
@@ -306,9 +316,13 @@ prepare_data <- function(method = c("umap", "tsne"),
                           seurat_min_cells = 3,
                           seurat_min_features = 200,
                           seurat_seed = 42,
-                          skip_clustering = FALSE) {
+                          skip_clustering = FALSE,
+                          progress_cb = NULL) {
 
   method <- match.arg(method)
+  notify_stage <- function(phase, i, n) {
+    if (is.function(progress_cb)) progress_cb(phase, i, n, "")
+  }
   message("=== PERCEPTIONx Patient Data Preparation ===")
   message("  Reduction method: ", toupper(method))
 
@@ -369,6 +383,7 @@ prepare_data <- function(method = c("umap", "tsne"),
 
   # --- Step 1: Define clones (Seurat clustering OR clone-level input) ---
   if (isTRUE(skip_clustering)) {
+    notify_stage("clones", 1L, 5L)
     message("[1/5] Skipping Seurat clustering -- each column is treated as one clone...")
     cn <- colnames(expression_matrix)
     if (is.null(cn)) {
@@ -404,6 +419,7 @@ prepare_data <- function(method = c("umap", "tsne"),
       message("  Using ", length(cn), " provided clone columns.")
     }
   } else {
+    notify_stage("seurat", 1L, 5L)
     message("[1/5] Clustering cells via Seurat...")
 
     # Auto-adjust min_features and nfeatures if gene count is small
@@ -427,13 +443,17 @@ prepare_data <- function(method = c("umap", "tsne"),
       nfeatures = seurat_nfeatures,
       dims = seurat_dims,
       resolution = seurat_resolution,
-      seed = seurat_seed
+      seed = seurat_seed,
+      # Seurat step callbacks (normalizing/pca/clustering/...) are forwarded
+      # through the same channel so the UI can show live stage text.
+      progress_cb = function(step) notify_stage(paste0("seurat-", step), 1L, 5L)
     )
     message("  Found ", length(unique(cell_clone_map$clone_id)), " clones across ",
             nrow(cell_clone_map), " cells.")
   }
 
   # --- Step 2: Build patient IDs ---
+  notify_stage("mapping", 2L, 5L)
   message("[2/5] Mapping cells to patients...")
   if (is.null(sample_cell_names)) {
     patient_ids <- rep("patient1", ncol(expression_matrix))
@@ -511,6 +531,7 @@ prepare_data <- function(method = c("umap", "tsne"),
   clone_expression_rnorm <- rank_normalization_mat(clone_expr_merged)
 
   # --- Step 5: Build clone counts table ---
+  notify_stage("clone-counts", 5L, 5L)
   message("[5/5] Building clone abundance table...")
   clone_counts <- build_clone_counts(
     cell_clone_map = cell_clone_map,

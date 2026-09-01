@@ -26,7 +26,9 @@ mod_train_ui <- function(id) {
     fluidRow(style = "margin-top: 0.5rem;",
       # Parameters Panel — align-self:flex-start keeps it at natural height
       # when the results column grows after training (see styles.css).
-      column(5, class = "train-config-col",
+      # Width 4 matches Predict/Visualize so the sidebar ratio is consistent
+      # across the three analysis tabs.
+      column(4, class = "train-config-col",
         div(class = "card train-params-card animate-fade-in-up",
           div(class = "card-header",
             icon("sliders-h"), " Parameters"
@@ -93,7 +95,7 @@ mod_train_ui <- function(id) {
       ),
 
       # Results Panel
-      column(7, class = "train-results-col",
+      column(8, class = "train-results-col",
         div(class = "card",
           div(class = "card-header",
             icon("chart-bar"), " Training Results"

@@ -414,8 +414,7 @@ mod_predict_server <- function(id, shared, main_session) {
             style = "border-left-color: var(--warning); margin-bottom: 0.6rem;",
             icon("exclamation-triangle"),
             strong("Demo simulation: "),
-            paste(demo, collapse = ", "),
-            " model(s) are SIMULATED placeholders, not trained on real drug response data. ",
+            "Demo models are SIMULATED placeholders, not trained on real drug response data. ",
             "These predictions demonstrate the workflow only and must NOT be interpreted as real drug response.")
       } else {
         NULL

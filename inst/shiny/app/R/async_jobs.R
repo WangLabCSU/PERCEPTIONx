@@ -561,7 +561,11 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
          "remotes::install_github(\"WangLabCSU/PERCEPTIONx\"), then restart the app.")
   }
 
-  run_prepare <- function(a) {
+  write_progress <- function(progress_file, phase, i, n, drug) {
+    writeLines(sprintf("%s|%d|%d|%s", phase, i, n, drug), progress_file)
+  }
+
+  run_prepare <- function(a, progress_cb = NULL) {
     PERCEPTIONx::prepare_data(
       method            = a$method,
       expression_matrix = a$expression_matrix,
@@ -570,11 +574,12 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
       seurat_dims       = a$seurat_dims,
       seurat_nfeatures  = if (!is.null(a$seurat_nfeatures)) a$seurat_nfeatures else 2000,
       seurat_seed       = 42,
-      skip_clustering   = isTRUE(a$skip_clustering)
+      skip_clustering   = isTRUE(a$skip_clustering),
+      progress_cb       = progress_cb
     )
   }
 
-  run_demo <- function(a) {
+  run_demo <- function(a, progress_cb = NULL) {
     set.seed(42)
     gene_names <- c("TP53", "BRCA1", "EGFR", "MYC", "KRAS", "PIK3CA", "PTEN", "RB1",
                     "APC", "BRAF", "CDH1", "CDKN2A", "ERBB2", "FGFR1", "ALK",
@@ -605,21 +610,29 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
     expr_matrix <- matrix(0.1, nrow = length(gene_names), ncol = n_cells)
     rownames(expr_matrix) <- gene_names
     colnames(expr_matrix) <- cell_names
+    # Tumor heterogeneity: each patient's cells MIX both phenotypes (65/35)
+    # using ONE shared high/low partition per cell, so clone structure stays
+    # coherent. Patient-level means therefore overlap — demo ROC AUC lands in
+    # the realistic ~0.8-0.9 range instead of a perfect 1.0 — while single
+    # cells still show a clear responder/non-responder expression trend.
+    set.seed(7)  # fixed seed: the demo is reproducible across loads
+    hi_cell <- runif(n_cells) < ifelse(is_responder_cell, 0.65, 0.35)
     for (g in abemaciclib_markers) {
-      expr_matrix[g, is_responder_cell] <- pmax(rnorm(sum(is_responder_cell), mean = 8, sd = 3), 0.1)
-      expr_matrix[g, !is_responder_cell] <- pmax(rnorm(sum(!is_responder_cell), mean = 3, sd = 2), 0.1)
+      expr_matrix[g, hi_cell]  <- pmax(rnorm(sum(hi_cell),  6, 3), 0.1)
+      expr_matrix[g, !hi_cell] <- pmax(rnorm(sum(!hi_cell), 4, 3), 0.1)
     }
     for (g in erlotinib_markers) {
-      expr_matrix[g, is_responder_cell] <- pmax(rnorm(sum(is_responder_cell), mean = 3, sd = 2), 0.1)
-      expr_matrix[g, !is_responder_cell] <- pmax(rnorm(sum(!is_responder_cell), mean = 8, sd = 3), 0.1)
+      expr_matrix[g, hi_cell]  <- pmax(rnorm(sum(hi_cell),  4, 3), 0.1)
+      expr_matrix[g, !hi_cell] <- pmax(rnorm(sum(!hi_cell), 6, 3), 0.1)
     }
-    for (g in noise_genes) expr_matrix[g, ] <- runif(n_cells, 0.5, 8)
+    for (g in noise_genes) expr_matrix[g, ] <- runif(n_cells, 0.5, 3.5)
     storage.mode(expr_matrix) <- "numeric"
 
     prepared <- PERCEPTIONx::prepare_data(
       method = "umap", expression_matrix = expr_matrix, patient_mapping = patient_mapping,
       seurat_resolution = 0.8, seurat_dims = 10,
-      seurat_nfeatures = min(2000, length(gene_names)))
+      seurat_nfeatures = min(2000, length(gene_names)),
+      progress_cb = progress_cb)
 
     make_structured_training <- function(marker_genes, direction, n_train = 160) {
       x_train <- matrix(0, nrow = length(gene_names), ncol = n_train)
@@ -1075,8 +1088,12 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
         }
         out <- tryCatch(
           switch(params$task,
-            prepare = run_prepare(params$args),
-            demo    = run_demo(params$args),
+            prepare = run_prepare(params$args, progress_cb = function(phase, i, n, drug) {
+              write_progress(file.path(j, "progress.txt"), phase, i, n, drug)
+            }),
+            demo    = run_demo(params$args, progress_cb = function(phase, i, n, drug) {
+              write_progress(file.path(j, "progress.txt"), phase, i, n, drug)
+            }),
             predict = run_predict(params$args),
             plot    = run_plot(params$args),
             download = run_download(params$args),
@@ -1172,10 +1189,30 @@ read_task_state <- function(shared, jobid) {
 # session worker died mid-task (is_alive == FALSE) the poll gives up with an
 # actionable error instead of spinning forever.
 poll_task <- function(shared, session, jobid, on_done, on_error = NULL,
-                      poll_ms = 250) {
+                      poll_ms = 250, on_progress = NULL) {
   obs <- NULL
+  last_progress <- NULL
   obs <- observe({
     st <- read_task_state(shared, jobid)
+    # Live progress: read the worker's progress.txt and forward every change
+    # through on_progress(phase, i, n, drug). Used by prepare/demo to show the
+    # current Seurat stage in the overlay.
+    if (!is.null(on_progress)) {
+      tj <- shared$task_jobs_dir
+      pf <- if (!is.null(tj) && nzchar(tj)) file.path(tj, jobid, "progress.txt") else NULL
+      if (!is.null(pf) && file.exists(pf)) {
+        l <- readLines(pf, warn = FALSE)
+        if (length(l) > 0 && !identical(l, last_progress)) {
+          last_progress <- l
+          parts <- strsplit(l, "\\|", fixed = FALSE)[[1]]
+          phase <- if (length(parts) >= 1) parts[1] else ""
+          i <- if (length(parts) >= 2) suppressWarnings(as.integer(parts[2])) else 0L
+          n <- if (length(parts) >= 3) suppressWarnings(as.integer(parts[3])) else 0L
+          drug <- if (length(parts) >= 4) parts[4] else ""
+          on_progress(phase, i, n, drug)
+        }
+      }
+    }
     # Helper: drop the finished job's on-disk files (result is already in
     # memory). Guard against a NULL jobs dir — file.path(NULL, id) would
     # degrade to a bare relative path that unlink could resolve in cwd.
