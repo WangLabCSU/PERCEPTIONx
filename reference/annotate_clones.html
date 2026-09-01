@@ -101,6 +101,26 @@ and cells as columns. Raw counts or normalized values are both accepted.</p></dd
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
 <dd><p>Integer. Random seed for reproducibility. Default = 42.</p></dd>
 
+
+<dt id="arg-progress-cb">progress_cb<a class="anchor" aria-label="anchor" href="#arg-progress-cb"></a></dt>
+<dd><p>Optional function called with the current Seurat stage
+name (e.g. <code>"pca"</code>, <code>"clustering"</code>) between pipeline steps.
+Used to show live progress in the Shiny app.</p></dd>
+
+
+<dt id="arg-cluster-algorithm">cluster_algorithm<a class="anchor" aria-label="anchor" href="#arg-cluster-algorithm"></a></dt>
+<dd><p>Integer. Community-detection algorithm passed to
+<code><a href="https://satijalab.org/seurat/reference/FindClusters.html" class="external-link">Seurat::FindClusters()</a></code>. Default = 1 (Louvain, no extra
+dependency). Use 4 (Leiden) only if the <span class="pkg">leidenbase</span> package is
+installed.</p></dd>
+
+
+<dt id="arg-variable-selection">variable_selection<a class="anchor" aria-label="anchor" href="#arg-variable-selection"></a></dt>
+<dd><p>Character. Variable-feature selection method for
+<code><a href="https://satijalab.org/seurat/reference/FindVariableFeatures.html" class="external-link">Seurat::FindVariableFeatures()</a></code>. One of <code>"vst"</code> (default,
+most accurate), <code>"dispersion"</code> or <code>"mvp"</code> (faster on large
+matrices at a small cost in feature quality).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>

@@ -60,6 +60,26 @@ annotate_clones(
 
   Integer. Random seed for reproducibility. Default = 42.
 
+- progress_cb:
+
+  Optional function called with the current Seurat stage name (e.g.
+  `"pca"`, `"clustering"`) between pipeline steps. Used to show live
+  progress in the Shiny app.
+
+- cluster_algorithm:
+
+  Integer. Community-detection algorithm passed to
+  [`Seurat::FindClusters()`](https://satijalab.org/seurat/reference/FindClusters.html).
+  Default = 1 (Louvain, no extra dependency). Use 4 (Leiden) only if the
+  leidenbase package is installed.
+
+- variable_selection:
+
+  Character. Variable-feature selection method for
+  [`Seurat::FindVariableFeatures()`](https://satijalab.org/seurat/reference/FindVariableFeatures.html).
+  One of `"vst"` (default, most accurate), `"dispersion"` or `"mvp"`
+  (faster on large matrices at a small cost in feature quality).
+
 ## Value
 
 A data frame with columns: `cell_id`, `clone_id`, and `dim_1`, `dim_2`

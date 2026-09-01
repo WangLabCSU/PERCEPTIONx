@@ -129,6 +129,12 @@ prepare_data(
   published study). Rank normalization and clone counts are still
   applied. No UMAP/t-SNE embedding is produced in this mode.
 
+- progress_cb:
+
+  Optional function called as `progress_cb(phase, i, n, drug)` with the
+  current pipeline stage (e.g. `"seurat-pca"`, `"mapping"`). Used to
+  show live progress in the Shiny app.
+
 ## Value
 
 A named list with:

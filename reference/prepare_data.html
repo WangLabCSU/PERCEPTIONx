@@ -166,6 +166,12 @@ Use this when you already have a clone-level expression matrix (e.g. from a
 published study). Rank normalization and clone counts are still applied.
 No UMAP/t-SNE embedding is produced in this mode.</p></dd>
 
+
+<dt id="arg-progress-cb">progress_cb<a class="anchor" aria-label="anchor" href="#arg-progress-cb"></a></dt>
+<dd><p>Optional function called as <code>progress_cb(phase, i, n,
+drug)</code> with the current pipeline stage (e.g. <code>"seurat-pca"</code>,
+<code>"mapping"</code>). Used to show live progress in the Shiny app.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
