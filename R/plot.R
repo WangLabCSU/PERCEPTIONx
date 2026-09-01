@@ -772,6 +772,7 @@ plot_roc_curve <- function(response,
 
   rocobj <- pROC::roc(response = response, predictor = predictor)
 
+  smooth_ok <- FALSE
   if (smooth_curve) {
     rocobj_smooth <- tryCatch(
       pROC::smooth(rocobj),
@@ -782,14 +783,36 @@ plot_roc_curve <- function(response,
     )
     if (!is.null(rocobj_smooth)) {
       rocobj <- rocobj_smooth
+      smooth_ok <- TRUE
     }
   }
 
   # Extract curve coordinates for both static & interactive rendering.
-  curve_df <- as.data.frame(
-    pROC::coords(rocobj, x = "all", ret = c("specificity", "sensitivity"),
-                 transpose = FALSE)
-  )
+  # binormal-smoothed coords cluster in the middle and leave only 1-2 points
+  # near the (0,0) / (1,1) corners (e.g. FPR jumps 1.0 -> 0.35), which renders
+  # as a visibly broken line at both ends. Densify the smoothed curve onto a
+  # uniform FPR grid so the corners connect smoothly. Unsmoothed (step) curves
+  # are kept as-is — their steps are already continuous.
+  if (smooth_ok) {
+    sp <- as.data.frame(
+      pROC::coords(rocobj, x = "all", ret = c("specificity", "sensitivity"),
+                   transpose = FALSE)
+    )
+    sp$fpr <- 1 - sp$specificity
+    sp <- sp[order(sp$fpr), ]
+    sp <- sp[!duplicated(sp$fpr), ]
+    if (nrow(sp) > 2) {
+      dens <- approx(sp$fpr, sp$sensitivity, xout = seq(0, 1, length.out = 200))
+      curve_df <- data.frame(specificity = 1 - dens$x, sensitivity = dens$y)
+    } else {
+      curve_df <- sp
+    }
+  } else {
+    curve_df <- as.data.frame(
+      pROC::coords(rocobj, x = "all", ret = c("specificity", "sensitivity"),
+                   transpose = FALSE)
+    )
+  }
   curve_df$fpr <- 1 - curve_df$specificity
   curve_df$tpr <- curve_df$sensitivity
   curve_df$tooltip_text <- sprintf("FPR: %.3f\nTPR: %.3f", curve_df$fpr, curve_df$tpr)

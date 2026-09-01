@@ -2613,6 +2613,189 @@ table.dataTable thead th {
   font-weight: 600;
 }
 
+/* ============================================================
+   Visualization "Gallery Cockpit"
+   ============================================================ */
+/* Data readiness bar */
+.viz-readiness-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.6rem;
+  background: rgba(22, 92, 145, 0.04);
+  border: 1px solid rgba(22, 92, 145, 0.15);
+  border-radius: 8px;
+  margin-bottom: 0.7rem;
+}
+.viz-readiness-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text, #1e2a4a);
+  margin-right: 0.3rem;
+}
+.readiness-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.76rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 20px;
+  border: 1px solid transparent;
+}
+.readiness-pill.ok {
+  background: rgba(16, 122, 87, 0.08);
+  color: #107a57;
+  border-color: rgba(16, 122, 87, 0.25);
+}
+.readiness-pill.missing {
+  background: rgba(217, 119, 6, 0.07);
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.25);
+}
+.readiness-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.readiness-dot.green { background: #10b981; }
+.readiness-dot.gray  { background: #d1d5db; }
+.readiness-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+.readiness-go {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--accent, #165C91);
+  background: rgba(22, 92, 145, 0.12);
+  border: none;
+  border-radius: 10px;
+  padding: 0.05rem 0.4rem;
+  cursor: pointer;
+}
+.readiness-go:hover { background: rgba(22, 92, 145, 0.2); }
+
+/* Gallery grid */
+.viz-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.7rem;
+}
+.viz-card {
+  border: 1px solid rgba(22, 92, 145, 0.15);
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  background: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+.viz-card.ready {
+  border-left: 4px solid var(--primary, #165C91);
+}
+.viz-card.ready:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(22, 92, 145, 0.18);
+  border-color: var(--primary, #165C91);
+}
+.viz-card.missing {
+  background: rgba(243, 244, 246, 0.6);
+  border-color: rgba(107, 114, 128, 0.2);
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+.viz-card-icon {
+  font-size: 1.3rem;
+  color: var(--primary, #165C91);
+  margin-bottom: 0.35rem;
+}
+.viz-card.missing .viz-card-icon {
+  color: #9ca3af;
+}
+.viz-card-title {
+  font-weight: 600;
+  font-size: 0.86rem;
+  color: var(--text, #1e2a4a);
+  margin-bottom: 0.15rem;
+}
+.viz-card-tagline {
+  font-size: 0.72rem;
+  color: var(--text-muted, #6b7280);
+  line-height: 1.4;
+  margin-bottom: 0.4rem;
+}
+.viz-card-status {
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.viz-card-ready {
+  color: #107a57;
+  font-weight: 600;
+}
+.viz-card-missing {
+  color: #b45309;
+}
+
+/* Parameter card */
+.viz-param-card {
+  margin-top: 0.5rem;
+  border-left: 3px solid var(--accent, #165C91);
+}
+.viz-param-card .card-header {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--primary, #165C91);
+}
+.viz-param-card .card-body {
+  padding: 0.6rem 0.7rem;
+}
+.viz-param-card .control-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.viz-param-card .selectize-input,
+.viz-param-card .form-control {
+  font-size: 0.8rem;
+}
+
+/* Left-column gallery: compact single-column list so the sidebar stays short
+   and the output area keeps the width. */
+.viz-sidebar-col .viz-gallery-grid {
+  grid-template-columns: 1fr;
+  gap: 0.4rem;
+}
+.viz-sidebar-col .viz-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.42rem 0.55rem;
+  border-left-width: 4px;
+}
+.viz-sidebar-col .viz-card-icon {
+  font-size: 1rem;
+  margin-bottom: 0;
+  flex: 0 0 auto;
+}
+.viz-sidebar-col .viz-card-title {
+  font-size: 0.79rem;
+  margin-bottom: 0;
+}
+.viz-sidebar-col .viz-card-tagline {
+  display: none;
+}
+.viz-sidebar-col .viz-card-status {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
 /* Plot explanation card — compact */
 .viz-explanation-card {
   margin-top: 0.5rem;
@@ -2629,6 +2812,15 @@ table.dataTable thead th {
 }
 .viz-explanation-card .card-body > p {
   margin-bottom: 0.3rem;
+}
+.viz-preview-tag {
+  margin-left: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent, #165C91);
+  background: rgba(22, 92, 145, 0.1);
+  padding: 0.1rem 0.4rem;
+  border-radius: 10px;
 }
 .viz-explanation-card h6 {
   margin-bottom: 0.2rem;

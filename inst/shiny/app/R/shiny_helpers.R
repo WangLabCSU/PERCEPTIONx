@@ -190,6 +190,28 @@ data_dashboard_html <- function(shared) {
 #
 # @return Invisibly, a list with the loaded counts (genes/cells/patients/clones).
 # ---------------------------------------------------------------------------
+
+# Human-readable stage text for the demo overlay, mapping the worker's
+# progress phases (prepare_data / Seurat step callbacks) to short labels.
+stage_text <- function(phase) {
+  switch(phase,
+    "seurat"                 = "Running Seurat clustering...",
+    "seurat-normalizing"     = "Normalizing expression data...",
+    "seurat-variable-features" = "Finding variable genes...",
+    "seurat-scaling"         = "Scaling expression data...",
+    "seurat-pca"             = "Running PCA...",
+    "seurat-neighbors"       = "Building cell graph...",
+    "seurat-clustering"      = "Clustering cells...",
+    "seurat-umap"            = "Computing UMAP embedding...",
+    "seurat-tsne"            = "Computing t-SNE embedding...",
+    "clones"                 = "Reading clone-level input...",
+    "mapping"                = "Mapping cells to patients...",
+    "clone-expression"       = "Computing clone-level expression...",
+    "rank-normalizing"       = "Rank-normalizing expression...",
+    "clone-counts"           = "Building clone abundance table...",
+    "Running Seurat clustering...")
+}
+
 run_demo_pipeline <- function(shared, session, on_success = NULL, on_error = NULL) {
   # The whole demo (structured data + Seurat clustering + 2 demo models) runs
   # in the per-session background worker (task "demo", see async_jobs.R), so
@@ -216,6 +238,11 @@ run_demo_pipeline <- function(shared, session, on_success = NULL, on_error = NUL
   )
   if (is.null(jobid)) return(invisible(NULL))
   poll_task(shared, session, jobid,
+    # Live Seurat stage text in the demo overlay (normalizing / PCA /
+    # clustering / UMAP / ...).
+    on_progress = function(phase, i, n, drug) {
+      session$sendCustomMessage("set-demo-stage", list(text = stage_text(phase)))
+    },
     on_done = function(res) {
       hide_overlay()
       shared$user_response <- res$user_response
