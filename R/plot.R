@@ -802,7 +802,7 @@ plot_roc_curve <- function(response,
     sp <- sp[order(sp$fpr), ]
     sp <- sp[!duplicated(sp$fpr), ]
     if (nrow(sp) > 2) {
-      dens <- approx(sp$fpr, sp$sensitivity, xout = seq(0, 1, length.out = 200))
+      dens <- stats::approx(sp$fpr, sp$sensitivity, xout = seq(0, 1, length.out = 200))
       curve_df <- data.frame(specificity = 1 - dens$x, sensitivity = dens$y)
     } else {
       curve_df <- sp

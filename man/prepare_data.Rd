@@ -81,6 +81,10 @@ treat every column of \code{expression_matrix} as one pre-defined clone.
 Use this when you already have a clone-level expression matrix (e.g. from a
 published study). Rank normalization and clone counts are still applied.
 No UMAP/t-SNE embedding is produced in this mode.}
+
+\item{progress_cb}{Optional function called as \code{progress_cb(phase, i, n,
+drug)} with the current pipeline stage (e.g. \code{"seurat-pca"},
+\code{"mapping"}). Used to show live progress in the Shiny app.}
 }
 \value{
 A named list with:
