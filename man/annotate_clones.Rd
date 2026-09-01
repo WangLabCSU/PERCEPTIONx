@@ -12,7 +12,10 @@ annotate_clones(
   nfeatures = 2000,
   dims = 10,
   resolution = 0.8,
-  seed = 42
+  seed = 42,
+  progress_cb = NULL,
+  cluster_algorithm = 1,
+  variable_selection = c("vst", "dispersion", "mvp")
 )
 }
 \arguments{
