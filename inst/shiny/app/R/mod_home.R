@@ -150,8 +150,8 @@ mod_home_ui <- function(id) {
               p(
                 icon("github"),
                 " ",
-                a("github.com/dm-lab-04/PERCEPTION",
-                  href = "https://github.com/dm-lab-04/PERCEPTION",
+                a("github.com/ruppinlab/PERCEPTION",
+                  href = "https://github.com/ruppinlab/PERCEPTION",
                   target = "_blank"),
                 tags$small(" (original Python implementation by Sinha et al.)",
                            class = "text-muted")
