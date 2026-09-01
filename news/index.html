@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">PERCEPTIONx</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,15 +36,40 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="0.1.0" id="perceptionx-010">PERCEPTIONx 0.1.0<a class="anchor" aria-label="anchor" href="#perceptionx-010"></a></h2>
-<ul><li>Initial release of the R implementation of the PERCEPTION approach (predicting personalized drug response from single-cell transcriptomics).</li>
-<li>Train drug-response models on large-scale cell-line screens (<code>train_models</code>) or load pre-trained models (<code>load_model</code>).</li>
-<li>Predict response at clone level (<code>predict_drugs</code>) and patient level (<code>predict_patients</code>) with multiple aggregation strategies.</li>
-<li>Interactive visualizations with hover tooltips (<code>ggiraph</code>) and publication-quality export (600 dpi PNG, PDF, SVG).</li>
-<li>Shiny web application (<code>run_perception_app</code>) covering the whole pipeline.</li>
-<li>Vignette “The PERCEPTIONx Pipeline” documents the complete workflow.</li>
+<h2 class="pkg-version" data-toc-text="0.2.0" id="perceptionx-020">PERCEPTIONx 0.2.0<a class="anchor" aria-label="anchor" href="#perceptionx-020"></a></h2>
+<div class="section level3">
+<h3 id="new-features-0-2-0">New features<a class="anchor" aria-label="anchor" href="#new-features-0-2-0"></a></h3>
+<ul><li>Redesigned the visualization tab as a “plot gallery”: all 7 plot types visible as clickable cards, a data-readiness bar showing what is loaded, and click-to-draw (no Generate button). Parameter changes (drug / gene / ROC pair) redraw the plot automatically; hovering a card previews its description before you commit; generated-at timestamps are shown in UTC.</li>
+<li>Seurat clustering now reports live stage progress (normalizing / variable features / PCA / clustering / UMAP / …) in the Load Demo overlay.</li>
+<li>Demo data is more realistic and reproducible: tumor-heterogeneity mixing (responder/non-responder cells mixed 65/35 per patient) brings the ROC AUC from a perfect 1.0 to ~0.86, tighter noise-gene range sharpens the UMAP clone layout, and a fixed seed makes every Load Demo identical.</li>
+<li>Layout widths unified across Train / Predict / Visualize (sidebar ratio 4:8); Data readiness order now groups the three user-uploaded inputs first.</li>
+<li>
+<code><a href="../reference/annotate_clones.html">annotate_clones()</a></code> / <code><a href="../reference/prepare_data.html">prepare_data()</a></code> gained an optional <code>progress_cb</code> and a <code>variable_selection</code> option (vst default; dispersion/mvp for speed).</li>
 </ul></div>
-  </main></div>
+<div class="section level3">
+<h3 id="bug-fixes-0-2-0">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-2-0"></a></h3>
+<ul><li>Background workers could not start in container deployments (“Failed to start the background worker … invalid connection”). Spawning now tries a ladder of progressively simpler callr configs (supervise + stderr file -&gt; /dev/null -&gt; inherited stdio) and reports rich diagnostics on final failure.</li>
+<li>
+<code>stdout = FALSE</code> was rejected with EACCES in the rocker/shiny-verse container; stdout now redirects to <code>/dev/null</code> instead.</li>
+<li>Removed <code><a href="https://rdrr.io/r/base/showConnections.html" class="external-link">closeAllConnections()</a></code> from the Shiny session-end callback; it corrupted the process connection table and killed later spawns.</li>
+<li>DepMap load no longer disconnects the session; demo load failures fixed.</li>
+<li>Clearing demo data now also drops stale predictions; invalid expression files are rejected up front.</li>
+<li>ROC curve corners (0,0) / (1,1) no longer render as a broken line (smoothed coords are densified onto a uniform FPR grid).</li>
+<li>ROC / boxplot defaulted to the first drug on first click instead of the selected “Combination” (selectize init race); Gene Expression no longer shows “Select a gene first” on first draw.</li>
+<li>DepMap cache is never auto-expired on disk (removed the TTL cleanup that could delete a 567 MB pre-downloaded cache); <code>cache_ttl_hours &lt;= 0</code> no longer deletes the file immediately.</li>
+<li>Removed a stray <code>inst/shiny/app/FALSE</code> binary file from the repository.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="changes-0-2-0">Changes<a class="anchor" aria-label="anchor" href="#changes-0-2-0"></a></h3>
+<ul><li>Removed the on-disk TTL mechanism for the DepMap cache; memory is instead released by the master worker’s idle timeout.</li>
+</ul></div>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.0" id="perceptionx-010">PERCEPTIONx 0.1.0<a class="anchor" aria-label="anchor" href="#perceptionx-010"></a></h2>
+<p>Initial release.</p>
+</div>
+  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+    </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">
