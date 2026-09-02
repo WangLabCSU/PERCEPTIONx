@@ -331,7 +331,7 @@ server <- function(input, output, session) {
   mod_train_server("train", shared, session)
   mod_predict_server("predict", shared, session)
   mod_visualize_server("visualize", shared, session)
-  mod_help_server("help", session)
+  mod_help_server("help", session, shared)
 
   # NOTE: no session-end file sweep here. Shiny itself deletes a session's
   # uploaded files when it ends. A global sweep over the cache/temp areas
