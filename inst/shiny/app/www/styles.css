@@ -2344,11 +2344,19 @@ table.dataTable thead th {
   align-self: flex-start !important;  /* don't stretch to match right column */
 }
 
-/* Main column: aligned to top */
+/* Main column: aligned to top; children are spaced so the About card is not
+   glued to the Output card below it. */
 .viz-main-col {
   display: flex !important;
   flex-direction: column !important;
   align-self: flex-start !important;
+  gap: 0.6rem;
+}
+/* uiOutput wrappers that returned NULL (e.g. the About card before a plot is
+   selected) still leave an empty div behind; collapse it so the Output card
+   below it stays flush with the top of the left gallery column. */
+.viz-main-col .shiny-html-output:empty {
+  display: none !important;
 }
 
 /* Output card: natural height, do NOT stretch to match sidebar */
@@ -2765,6 +2773,24 @@ table.dataTable thead th {
   font-size: 0.8rem;
 }
 
+/* Hint shown under the Drug dropdown when "Combination" (the ensemble model)
+   is selected — helps users understand the option before drawing. */
+.viz-combo-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: var(--text-muted, #5a6a8a);
+  background: rgba(22, 92, 145, 0.05);
+  border-radius: 6px;
+}
+.viz-combo-hint i {
+  margin-top: 0.12rem;
+}
+
 /* Left-column gallery: compact single-column list so the sidebar stays short
    and the output area keeps the width. */
 .viz-sidebar-col .viz-gallery-grid {
@@ -2796,9 +2822,11 @@ table.dataTable thead th {
   flex: 0 0 auto;
 }
 
-/* Plot explanation card — compact */
+/* Plot explanation card — sits at the very top of the right column, so its
+   top edge aligns flush with the gallery card on the left (gap below it comes
+   from .viz-main-col). */
 .viz-explanation-card {
-  margin-top: 0.5rem;
+  margin-top: 0;
   border-left: 3px solid var(--primary, #165C91);
 }
 .viz-explanation-card .card-header {
@@ -3085,4 +3113,18 @@ table.dataTable thead th {
   display: flex;
   align-items: center;
   min-height: calc(100% - 3.5rem);
+}
+
+/* Pending-generation status line (shown on the very first draw) */
+.viz-gen-pending {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 1.1rem 1rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-muted, #5a6a8a);
+  background: rgba(22, 92, 145, 0.04);
+  border-radius: 8px;
 }

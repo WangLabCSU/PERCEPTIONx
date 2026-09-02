@@ -59,7 +59,7 @@ mod_train_ui <- function(id) {
                 " Leave empty to use ", strong("all genes"), " from DepMap data (recommended for most users). ",
                 "Or enter specific gene symbols to restrict feature selection to a subset."
               ),
-              textAreaInput(ns("goi"), "Gene Symbols (optional — empty = all genes)",
+              textAreaInput(ns("goi"), "Gene Symbols (optional, empty = all genes)",
                             placeholder = "Enter gene symbols, one per line or comma-separated.\nLeave empty to use all genes.",
                             rows = 8,
                             height = "120px",

@@ -7,13 +7,20 @@
 #    what they need (and let you jump to the tab that provides it).
 #  * Clicking a card draws the plot IMMEDIATELY — there is no Generate button,
 #    and switching plot types never requires a confirm step. Parameter changes
-#    (drug / gene / ROC pair) redraw the current plot automatically.
-#  * The plot explanation follows the currently selected card (no more stale
-#    "About this plot" that sticks to the spatial radio), and the generated-at
-#    timestamp is shown in UTC.
+#    (drug / gene / ROC pair) redraw the current plot automatically. While a
+#    plot is generating, new requests are QUEUED and drawn afterwards, so
+#    rapid clicking always gets feedback instead of being silently dropped.
+#  * Right column, top → bottom: an "About This Plot" card (always shown for
+#    the selected plot, no hover tricks), then the Output card whose body
+#    starts with the compact Plot Size & Export controls (width % / height % /
+#    DPI / text size) and then shows the status line + interactive plot.
+#  * One logical canvas (100 % width = 1000 px, height default 750 px) drives
+#    BOTH the preview aspect and the PNG/PDF downloads, so preview == file.
+#    PNG is rendered at the user-set DPI (default 300), PDF at the same
+#    physical size in vector form. Generated-at timestamp is shown in UTC.
 #
 # The heavy lifting (background worker submit, plot_cache/widget_cache, girafe
-# rendering, PNG/PDF download) is unchanged from the previous layout.
+# rendering, PNG/PDF download) lives here as before.
 
 mod_visualize_ui <- function(id) {
   ns <- NS(id)
@@ -35,15 +42,17 @@ mod_visualize_ui <- function(id) {
           div(class = "card-body",
             uiOutput(ns("gallery_grid")),
             tags$small(class = "text-muted", style = "display: block; margin-top: 0.5rem;",
-              icon("lightbulb"), " Grey cards are missing data.")
+              icon("lightbulb"), " Grey = required data not loaded yet.")
           )
         ),
         # Parameters appear here once a card is clicked.
         uiOutput(ns("param_panel"))
       ),
 
-      # RIGHT column: output + about.
+      # RIGHT column: "About this plot" card sits ABOVE the Output card, then
+      # the Output card (size/export controls → status → interactive plot).
       column(8, class = "viz-main-col",
+        uiOutput(ns("plot_explanation")),
         div(class = "card animate-fade-in-up delay-1 viz-output-card",
           div(class = "card-header",
             icon("image"), " Output",
@@ -55,11 +64,29 @@ mod_visualize_ui <- function(id) {
             )
           ),
           div(class = "card-body",
+            div(class = "viz-size-controls", style = "margin-top: 0; margin-bottom: 0.6rem;",
+              tags$label(class = "viz-size-label", icon("arrows-alt"), " Plot Size & Export"),
+              div(class = "viz-size-row",
+                div(class = "viz-size-col",
+                  tags$span(class = "viz-size-mini-label", "Width (%)"),
+                  numericInput(ns("plot_width"), NULL, value = 100, min = 50, max = 200, step = 10)),
+                div(class = "viz-size-col",
+                  tags$span(class = "viz-size-mini-label", "Height (%)"),
+                  numericInput(ns("plot_height"), NULL, value = 100, min = 50, max = 200, step = 10)),
+                div(class = "viz-size-col",
+                  tags$span(class = "viz-size-mini-label", "DPI (100-1200)"),
+                  numericInput(ns("plot_dpi"), NULL, value = 300, step = 50))
+              ),
+              div(class = "viz-size-row",
+                sliderInput(ns("plot_text_size"), "Text size",
+                            min = 60, max = 160, value = 100, step = 10,
+                            post = "%", ticks = TRUE, width = "100%")
+              )
+            ),
             uiOutput(ns("plot_status")),
             uiOutput(ns("main_plot_host"))
           )
-        ),
-        uiOutput(ns("plot_explanation"))
+        )
       )
     )
   )
@@ -74,6 +101,19 @@ mod_visualize_server <- function(id, shared, main_session) {
     viz_selected <- reactiveVal(NULL)
     current_plot_type <- reactiveVal(NULL)
     viz_busy <- reactiveVal(FALSE)
+    # When a card/param change arrives while a plot is still generating, the
+    # request is QUEUED here instead of being dropped — dropping it was what
+    # made rapid clicks feel like "nothing happened".
+    pending_plot <- reactiveVal(NULL)
+    # Single shared overlay (created once; reused by every generation call).
+    viz_waiter <- Waiter$new(
+      html = tagList(
+        div(class = "spinner-ring"),
+        h4("Generating plot..."),
+        p(class = "text-muted", "Drawing plot in the background...")
+      ),
+      color = "rgba(255,255,255,0.85)"
+    )
 
     # --- In-memory plot cache ---
     # plot_cache   : request signature (plot type + parameters) -> finished ggplot
@@ -129,14 +169,44 @@ mod_visualize_server <- function(id, shared, main_session) {
       grps[!is.na(grps) & nzchar(trimws(grps)) & grps != "NA"]
     })
 
-    # Reactive plot size / text scale / reduction label (unchanged).
+    # ---- Plot size & export ----
+    # Logical canvas: 100% width = 1000 px, 100% height = 750 px (Clone
+    # Viability is taller by default). The SAME numbers drive the preview
+    # aspect and the PNG/PDF downloads, so the preview ratio always matches
+    # the exported file. PNG pixels are scaled by the chosen DPI (default 300).
     plot_size <- reactive({
-      w_pct <- if (is.null(input$plot_width)) 100 else as.numeric(input$plot_width)
-      h_pct <- if (is.null(input$plot_height)) 100 else as.numeric(input$plot_height)
-      list(w = round(1000 * w_pct / 100), h = round(750 * h_pct / 100))
+      wp <- suppressWarnings(as.numeric(input$plot_width))
+      hp <- suppressWarnings(as.numeric(input$plot_height))
+      dp <- suppressWarnings(as.numeric(input$plot_dpi))
+      wp <- if (is.null(wp) || !is.finite(wp)) 100 else wp
+      hp <- if (is.null(hp) || !is.finite(hp)) 100 else hp
+      dp <- if (is.null(dp) || !is.finite(dp) || dp < 72) 300 else dp
+      base_h <- 750
+      if (identical(current_plot_type(), "clone_kill")) base_h <- 975
+      list(w = round(1000 * wp / 100),
+           h = round(base_h * hp / 100),
+           dpi = round(dp))
     })
+    # Debounced preview dims: typing in the width/height boxes re-renders the
+    # interactive SVG only after the input settles (each rebuild costs ~1 s).
+    preview_size <- reactive(plot_size()) |> debounce(300)
     text_scale <- reactive({
       if (is.null(input$plot_text_size)) 100 else as.numeric(input$plot_text_size) / 100
+    })
+    # DPI bounds are enforced server-side (the input itself has no min/max, so
+    # the browser never pops its locale-dependent "value cannot exceed" tooltip).
+    # The check is debounced: it only runs after the user stops typing for 1 s,
+    # so typing "200" never gets clamped halfway (e.g. right after the "2").
+    dpi_clamp <- reactive(input$plot_dpi) |> debounce(1000)
+    observeEvent(dpi_clamp(), {
+      d <- dpi_clamp()
+      if (is.null(d) || !is.finite(d)) return()
+      d2 <- min(max(round(d), 100), 1200)
+      if (d2 != round(d)) {
+        updateNumericInput(session, "plot_dpi", value = d2)
+        showNotification(sprintf("DPI must be between 100 and 1200. Reset to %d.", d2),
+                         type = "warning", duration = 4)
+      }
     })
     reduction_method <- reactive({
       m <- shared$prepared_data$reduction_method
@@ -255,12 +325,6 @@ mod_visualize_server <- function(id, shared, main_session) {
         div(class = paste("viz-card", if (ready) "ready" else "missing"),
           title = if (ready) paste(it$title, "- click to draw") else
             paste0("Missing: ", paste(missing, collapse = ", ")),
-          # Hovering a card previews its full description in the About panel
-          # (without drawing); clicking draws it.
-          onmouseover = sprintf("Shiny.setInputValue('%s', '%s');",
-                                ns("preview_plot"), it$id),
-          onmouseout  = sprintf("Shiny.setInputValue('%s', '');",
-                                ns("preview_plot")),
           onclick = sprintf("Shiny.setInputValue('%s', '%s');",
                             ns("pick_plot"), it$id),
           div(class = "viz-card-icon", icon(it$icon)),
@@ -277,15 +341,6 @@ mod_visualize_server <- function(id, shared, main_session) {
       div(class = "viz-gallery-grid", cards)
     })
 
-    # Hover preview: hovering a gallery card shows that plot's full
-    # description in the About panel WITHOUT drawing it — users learn what a
-    # plot is before committing to it. Moving off clears back to the selected
-    # plot (or to nothing).
-    hover_plot <- reactiveVal(NULL)
-    observeEvent(input$preview_plot, {
-      hp <- input$preview_plot
-      if (is.null(hp) || !nzchar(hp)) hover_plot(NULL) else hover_plot(hp)
-    })
 
     # Clicking a card selects it and draws immediately. When the required
     # data is missing, do NOT select it — otherwise the parameter panel would
@@ -338,6 +393,9 @@ mod_visualize_server <- function(id, shared, main_session) {
       has_drug  <- pt %in% c("clone_kill", "boxplot", "roc", "umap_viability")
       has_gene  <- pt == "umap_gene"
       has_roc   <- pt == "roc"
+      # Plots that need NO user parameters (clone_dist, umap_clone) get no
+      # parameter panel at all — an empty box would only confuse.
+      if (!has_drug && !has_gene && !has_roc) return(NULL)
 
       drug_choices <- NULL
       if (!is.null(shared$models)) drug_choices <- names(shared$models)
@@ -375,29 +433,25 @@ mod_visualize_server <- function(id, shared, main_session) {
                                width = "100%",
                                options = list(maxItems = 1, placeholder = "Select a gene"))
               ),
-              if (has_roc) column(12, uiOutput(ns("roc_pair_picker"))),
-              column(12,
-                div(class = "viz-size-controls",
-                  tags$label(class = "viz-size-label", icon("arrows-alt"), " Plot Size"),
-                  div(class = "viz-size-row",
-                    div(class = "viz-size-col",
-                      tags$span(class = "viz-size-mini-label", "Width"),
-                      numericInput(ns("plot_width"), NULL, value = 100, min = 50, max = 200, step = 10)),
-                    div(class = "viz-size-col",
-                      tags$span(class = "viz-size-mini-label", "Height"),
-                      numericInput(ns("plot_height"), NULL, value = 100, min = 50, max = 200, step = 10))
-                  ),
-                  div(class = "viz-size-row",
-                    sliderInput(ns("plot_text_size"), "Text size",
-                                min = 60, max = 160, value = 100, step = 10,
-                                post = "%", ticks = TRUE)
-                  )
-                )
-              )
-            )
+              if (has_roc) column(12, uiOutput(ns("roc_pair_picker")))
+            ),
+            if (has_drug && pt != "umap_viability") uiOutput(ns("combo_hint"))
           )
         )
       )
+    })
+
+    # Small hint under the Drug dropdown: "Combination" is the ENSEMBLE model
+    # (clone-level predictions aggregated across all drugs), not a single drug.
+    # Rendered as its own output so switching the dropdown never rebuilds the
+    # panel (which would reset the selectize).
+    output$combo_hint <- renderUI({
+      if (!isTRUE(identical(input$drug_name_common, "Combination"))) return(NULL)
+      pt <- viz_selected()
+      if (is.null(pt) || !pt %in% c("clone_kill", "boxplot", "roc")) return(NULL)
+      div(class = "viz-combo-hint",
+        icon("info-circle"),
+        " Combination = ensemble model: clone-level predictions aggregated across all drugs.")
     })
 
     # Parameter changes redraw the current plot automatically (debounced so
@@ -455,31 +509,29 @@ mod_visualize_server <- function(id, shared, main_session) {
         return()
       }
 
-      # Busy guard: another plot is mid-flight; skip silently. A subsequent
-      # parameter change / card click will regenerate anyway, so there is no
-      # need to nag the user while fast-switching plots.
-      if (viz_busy()) return()
+      # Busy guard: another plot is mid-flight — QUEUE the request instead of
+      # dropping it silently (that was what made rapid clicks feel like
+      # "nothing happened"). The queued plot is drawn as soon as this one
+      # finishes (flush_pending below).
+      if (viz_busy()) {
+        pending_plot(pt)
+        showNotification(paste0(plot_label(pt), " queued — it will draw when the current plot finishes"),
+                         type = "message", duration = 2)
+        return()
+      }
       viz_busy(TRUE)
-      w <- Waiter$new(
-        html = tagList(
-          div(class = "spinner-ring"),
-          h4("Generating plot..."),
-          p(class = "text-muted", "Drawing plot...")
-        ),
-        color = "rgba(255,255,255,0.85)"
-      )
-      w$show()
+      viz_waiter$show()
 
       pd <- shared$prepared_data
       if (is_spatial) {
         umap_coords <- pd$umap_coords
         if (is.null(umap_coords)) {
-          viz_busy(FALSE); w$hide()
+          viz_busy(FALSE); viz_waiter$hide()
           showNotification("No 2D embedding available (clustering was skipped or not run). Re-run with Seurat clustering to enable spatial plots.", type = "warning", duration = 8)
           return()
         }
         if (is.null(shared$user_clones)) {
-          viz_busy(FALSE); w$hide()
+          viz_busy(FALSE); viz_waiter$hide()
           showNotification("No clone annotation found. Run Seurat clustering first.", type = "warning")
           return()
         }
@@ -517,7 +569,7 @@ mod_visualize_server <- function(id, shared, main_session) {
               umap_drug = input$umap_drug
             )
           )),
-          error = function(e) { viz_busy(FALSE); w$hide(); NULL }
+          error = function(e) { viz_busy(FALSE); viz_waiter$hide(); NULL }
         )
       } else {
         jobid <- tryCatch(
@@ -540,15 +592,24 @@ mod_visualize_server <- function(id, shared, main_session) {
               roc_group_b = input$roc_group_b
             )
           )),
-          error = function(e) { viz_busy(FALSE); w$hide(); NULL }
+          error = function(e) { viz_busy(FALSE); viz_waiter$hide(); NULL }
         )
       }
       if (is.null(jobid)) return()
 
+      # After this generation settles (success or error), draw the newest
+      # queued request, if any. Only the last queued request is kept.
+      flush_pending <- function() {
+        pt2 <- pending_plot()
+        if (is.null(pt2)) return()
+        pending_plot(NULL)
+        generate_plot(pt2)
+      }
+
       poll_task(shared, session, jobid,
         on_done = function(res) {
           viz_busy(FALSE)
-          w$hide()
+          viz_waiter$hide()
           if (!is.null(res$plot)) {
             assign(ck, list(plot = res$plot, message = res$message), envir = plot_cache)
             current_plot(res$plot)
@@ -560,11 +621,13 @@ mod_visualize_server <- function(id, shared, main_session) {
             if (is.null(msg) || !nzchar(msg)) msg <- "Selected plot type is not available with current data"
             showNotification(msg, type = "warning")
           }
+          flush_pending()
         },
         on_error = function(msg) {
           viz_busy(FALSE)
-          w$hide()
+          viz_waiter$hide()
           showNotification(paste("Plot error:", msg), type = "error", duration = 8)
+          flush_pending()
         })
     }
 
@@ -602,17 +665,16 @@ mod_visualize_server <- function(id, shared, main_session) {
 
     output$main_plot <- ggiraph::renderGirafe({
       req(current_plot())
-      sz <- plot_size()
-      if (identical(current_plot_type(), "clone_kill")) {
-        sz$h <- round(sz$h * 1.3)
-      }
-      wkey <- paste(current_plot_key(), text_scale(), sz$w, sz$h, sep = "\u0001")
+      ps <- preview_size()
+      # Interactive SVG keeps the SAME aspect as the physical export size
+      # (container-width responsive via opts_sizing) — WYSIWYG for downloads.
+      wkey <- paste(current_plot_key(), text_scale(), ps$w, ps$h, sep = "\u0001")
       cached_w <- get0(wkey, envir = widget_cache, inherits = FALSE)
       if (!is.null(cached_w)) return(cached_w)
       w <- ggiraph::girafe(
         ggobj = scaled_plot(),
-        width_svg = max(sz$w / 100, 4),
-        height_svg = max(sz$h / 100, 3),
+        width_svg = max(ps$w / 100, 4),
+        height_svg = max(ps$h / 100, 3),
         options = list(
           ggiraph::opts_sizing(rescale = TRUE, width = 1),
           ggiraph::opts_tooltip(
@@ -632,7 +694,16 @@ mod_visualize_server <- function(id, shared, main_session) {
     })
 
     output$plot_status <- renderUI({
-      if (is.null(current_plot())) {
+      if (isTRUE(viz_busy()) && is.null(current_plot())) {
+        # Instant feedback on the very first draw (before a plot exists the
+        # card body would otherwise sit empty while the background worker runs).
+        target <- pending_plot()
+        if (is.null(target)) target <- viz_selected()
+        div(class = "viz-gen-pending",
+          span(icon("spinner", class = "fa-spin", style = "margin-right: 0.35rem;")),
+          span(" Generating ", strong(if (!is.null(target) && nzchar(target)) plot_label(target) else "plot"), " …")
+        )
+      } else if (is.null(current_plot())) {
         div(class = "text-muted", style = "text-align: center; padding: 3rem;",
           icon("chart-area", style = "font-size: 3rem; opacity: 0.15; display: block; margin-bottom: 0.8rem;"),
           "Click a card in the Plot Gallery to draw it.",
@@ -658,12 +729,12 @@ mod_visualize_server <- function(id, shared, main_session) {
       )
     })
 
-    # Compact "About this plot" — hovering a gallery card previews its
-    # description here; otherwise it follows the selected plot.
+    # ---- About this plot (separate card ABOVE the Output card) ----
+    # Always shown for the currently selected plot, so the user immediately
+    # knows what the figure means. No hover toggling — simple and stable.
     output$plot_explanation <- renderUI({
-      pt <- if (!is.null(hover_plot())) hover_plot() else viz_selected()
+      pt <- viz_selected()
       if (is.null(pt) || !nzchar(pt)) return(NULL)
-      is_preview <- !is.null(hover_plot()) && !identical(hover_plot(), viz_selected())
       item <- gallery_items[[match(pt, vapply(gallery_items, function(x) x$id, ""))]]
       if (is.null(item)) return(NULL)
       info <- list(
@@ -695,9 +766,7 @@ mod_visualize_server <- function(id, shared, main_session) {
       }
       div(class = "card viz-explanation-card",
         div(class = "card-header",
-          icon("circle-info"), " About This Plot",
-          if (is_preview) tags$span(class = "viz-preview-tag",
-            icon("eye"), " preview — click the card to draw")
+          icon("circle-info"), " About This Plot"
         ),
         div(class = "card-body",
           h6(strong(if (item$spatial) spatial_plot_label(pt) else item$title)),
@@ -732,16 +801,23 @@ mod_visualize_server <- function(id, shared, main_session) {
           writeLines("This plot type cannot be exported as PNG.", file)
           return()
         }
-        tryCatch({
-          ragg::agg_png(file, width = sz$w, height = sz$h, res = 100)
+        # Physical size in inches follows the same logical canvas as the
+        # preview (100 % width = 10 in); the DPI (default 300) sets the pixel
+        # density on top of that, e.g. 100 % × 300 dpi → 3000 × 2250 px.
+        w_in <- sz$w / 100
+        h_in <- sz$h / 100
+        ok <- tryCatch({
+          ragg::agg_png(file, width = w_in, height = h_in, units = "in", res = sz$dpi)
           print(p)
           dev.off()
-        }, error = function(e) {
+          TRUE
+        }, error = function(e) FALSE)
+        if (!ok) {
           if (grDevices::dev.cur() > 1) grDevices::dev.off()
-          png(file, width = sz$w, height = sz$h, res = 100)
+          grDevices::png(file, width = w_in, height = h_in, units = "in", res = sz$dpi)
           print(p)
           dev.off()
-        })
+        }
       }
     )
 
@@ -749,12 +825,15 @@ mod_visualize_server <- function(id, shared, main_session) {
       filename = function() paste0("perceptionx_plot_", gsub("[-: ]", "", format(Sys.time(), tz = "UTC")), ".pdf"),
       content = function(file) {
         p <- scaled_plot()
+        sz <- plot_size()
         if (inherits(p, "gtable") || inherits(p, "grob") || inherits(p, "gTree") ||
             inherits(p, "plotly") || inherits(p, "htmlwidget")) {
           writeLines("This plot type cannot be exported as PDF.", file)
           return()
         }
-        grDevices::pdf(file, width = 12, height = 9)
+        # Vector PDF at the same physical size as the preview canvas (fonts are
+        # absolute pt, so they print at their designed size).
+        grDevices::pdf(file, width = sz$w / 100, height = sz$h / 100)
         print(p)
         grDevices::dev.off()
       }
