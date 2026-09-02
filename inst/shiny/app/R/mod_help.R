@@ -156,7 +156,7 @@ mod_help_ui <- function(id) {
           ),
           div(class = "help-viz-grid",
             div(class = "help-viz-card",
-              div(class = "help-viz-icon", icon("chart-bar")),
+              div(class = "help-viz-icon", icon("chart-pie")),
               div(
                 strong("Clone Distribution"),
                 p("Stacked bar chart showing clone proportions per patient."),
@@ -164,7 +164,7 @@ mod_help_ui <- function(id) {
               )
             ),
             div(class = "help-viz-card",
-              div(class = "help-viz-icon", icon("chart-line")),
+              div(class = "help-viz-icon", icon("chart-column")),
               div(
                 strong("Clone Viability Lollipop"),
                 p("Lollipop chart of predicted viability per clone."),
@@ -172,7 +172,7 @@ mod_help_ui <- function(id) {
               )
             ),
             div(class = "help-viz-card",
-              div(class = "help-viz-icon", icon("wave-square")),
+              div(class = "help-viz-icon", icon("chart-line")),
               div(
                 strong("ROC Curve"),
                 p("Receiver Operating Characteristic curve for response prediction."),
@@ -180,7 +180,7 @@ mod_help_ui <- function(id) {
               )
             ),
             div(class = "help-viz-card",
-              div(class = "help-viz-icon", icon("box-open")),
+              div(class = "help-viz-icon", icon("chart-gantt")),
               div(
                 strong("Response Boxplot"),
                 p("Boxplot comparing predicted viability between responders and non-responders."),
@@ -188,19 +188,27 @@ mod_help_ui <- function(id) {
               )
             ),
             div(class = "help-viz-card",
-              div(class = "help-viz-icon", icon("braille")),
+              div(class = "help-viz-icon", icon("map")),
               div(
-                strong("Spatial Gene Expression"),
-                p("2D embedding (UMAP/t-SNE) colored by selected gene expression."),
-                tags$span(class = "status-badge unloaded", "Needs: Predictions + Expression + Embedding")
+                strong("Clone Identity"),
+                p("2D embedding (UMAP/t-SNE) colored by clone membership."),
+                tags$span(class = "status-badge unloaded", "Needs: Clones + Embedding")
               )
             ),
             div(class = "help-viz-card",
-              div(class = "help-viz-icon", icon("arrows-left-right")),
+              div(class = "help-viz-icon", icon("flask")),
               div(
-                strong("Spatial Drug Viability"),
+                strong("Drug Viability"),
                 p("2D embedding (UMAP/t-SNE) colored by predicted drug viability."),
                 tags$span(class = "status-badge unloaded", "Needs: Predictions + Embedding")
+              )
+            ),
+            div(class = "help-viz-card",
+              div(class = "help-viz-icon", icon("dna")),
+              div(
+                strong("Gene Expression"),
+                p("2D embedding (UMAP/t-SNE) colored by selected gene expression."),
+                tags$span(class = "status-badge unloaded", "Needs: Predictions + Expression + Embedding")
               )
             )
           )
@@ -272,7 +280,7 @@ mod_help_ui <- function(id) {
           ),
           div(class = "citation-box",
             strong("Jia Ding."),
-            " PERCEPTIONx: Personalized Drug Response Prediction from Single-Cell Transcriptomics. R package version 0.1.0. ",
+            " PERCEPTIONx: Personalized Drug Response Prediction from Single-Cell Transcriptomics. R package version 0.2.0. ",
             a("https://github.com/WangLabCSU/PERCEPTIONx",
               href = "https://github.com/WangLabCSU/PERCEPTIONx",
               target = "_blank"),
