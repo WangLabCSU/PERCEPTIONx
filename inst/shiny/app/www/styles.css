@@ -305,7 +305,8 @@ div.card > .card-body.seurat-body {
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
-  height: 38px;
+  height: auto;
+  min-height: 38px;
   width: auto;
 }
 
@@ -354,13 +355,15 @@ div.card > .card-body.seurat-body {
 }
 
 .inline-form-row .selectize-input {
-  display: block !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
   width: 100% !important;
-  height: 38px !important;
+  height: auto !important;
   min-height: 38px !important;
-  max-height: 38px !important;
-  line-height: 38px !important;
-  padding: 0 0.75rem !important;
+  max-height: none !important;
+  line-height: 1.4 !important;
+  padding: 0.3rem 0.6rem !important;
   font-size: 0.88rem !important;
   color: var(--text) !important;
   background: #ffffff !important;
@@ -371,6 +374,7 @@ div.card > .card-body.seurat-body {
   flex: 1 1 100% !important;
   min-width: 0 !important;
   max-width: 100% !important;
+  gap: 0.2rem;
   transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
@@ -380,13 +384,16 @@ div.card > .card-body.seurat-body {
 }
 
 .inline-form-row .selectize-input .item {
-  line-height: 38px !important;
-  height: 38px !important;
-  padding: 0 !important;
-  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  line-height: 1.4 !important;
+  height: auto !important;
+  min-height: 24px !important;
+  padding: 0.15rem 0.55rem !important;
+  margin: 0.15rem 0.1rem !important;
   font-weight: 500;
   color: var(--text);
-  vertical-align: top !important;
+  vertical-align: middle !important;
 }
 
 /* CRITICAL: Reset selectize's internal search input — global input[type="text"]
@@ -394,21 +401,21 @@ div.card > .card-body.seurat-body {
 .inline-form-row .selectize-input input[type="text"] {
   display: inline-block !important;
   width: auto !important;
-  min-width: 0 !important;
+  min-width: 2rem !important;
   max-width: 100% !important;
-  height: 38px !important;
+  height: auto !important;
   min-height: 0 !important;
-  max-height: 38px !important;
-  padding: 0 !important;
+  max-height: none !important;
+  padding: 0.2rem 0.2rem !important;
   margin: 0 !important;
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
   outline: none !important;
   border-radius: 0 !important;
-  line-height: 38px !important;
+  line-height: 1.4 !important;
   font-size: 0.88rem !important;
-  vertical-align: top !important;
+  vertical-align: middle !important;
   flex: none !important;
 }
 
@@ -3127,4 +3134,747 @@ table.dataTable thead th {
   color: var(--text-muted, #5a6a8a);
   background: rgba(22, 92, 145, 0.04);
   border-radius: 8px;
+}
+
+/* ============================================================
+   Help — Overview & Workflow (pipeline diagram + task recipes)
+   ============================================================ */
+/* Main row: three step cards joined by arrows (stack vertically on small
+   screens, arrows rotate down). */
+.ov-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 0.3rem;
+}
+.ov-step {
+  --ovc: #165c91;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border, #dfe3ee);
+  border-top: 3px solid var(--ovc);
+  border-radius: var(--radius, 0.7rem);
+  box-shadow: var(--shadow-sm, none);
+  overflow: hidden;
+}
+.ov-step-data    { --ovc: #165c91; }
+.ov-step-predict { --ovc: #0e7490; }
+.ov-step-viz     { --ovc: #2f855a; }
+.ov-step-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.75rem 0.5rem;
+  border-bottom: 1px dashed var(--border-light, #eef0f6);
+}
+.ov-step-ic {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  color: #fff;
+  background: var(--ovc);
+}
+.ov-step-title strong {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--text, #1e2a4a);
+  line-height: 1.25;
+}
+.ov-step-title span {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-muted, #5a6a8a);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ov-step-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-muted, #5a6a8a);
+  line-height: 1.45;
+}
+.ov-step-body > p {
+  margin: 0;
+}
+.ov-route {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  background: rgba(22, 92, 145, 0.03);
+  border: 1px solid var(--border-light, #eef0f6);
+  border-radius: 0.5rem;
+}
+.ov-route-demo {
+  background: var(--primary-alpha, rgba(22, 92, 145, 0.07));
+  border-color: rgba(22, 92, 145, 0.28);
+}
+.ov-route strong {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text, #1e2a4a);
+  margin-bottom: 0.1rem;
+}
+.ov-route p {
+  margin: 0;
+  font-size: 0.76rem;
+}
+.ov-route-ic {
+  flex: 0 0 auto;
+  font-size: 0.95rem;
+  color: var(--text-muted, #5a6a8a);
+  padding-top: 1px;
+}
+.ov-route-demo .ov-route-ic {
+  color: var(--primary, #165c91);
+}
+.ov-flag {
+  margin-top: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--error, #c13232);
+  background: var(--error-alpha, rgba(193, 50, 50, 0.1));
+  border-radius: 0.4rem;
+}
+.ov-arrow {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  font-size: 1.15rem;
+  color: var(--primary, #165c91);
+  opacity: 0.85;
+  padding: 0 0.05rem;
+}
+/* Optional Train branch */
+.ov-optional {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.8rem;
+  color: var(--text-muted, #5a6a8a);
+  background: rgba(217, 119, 6, 0.06);
+  border: 1px dashed rgba(180, 83, 9, 0.45);
+  border-radius: 0.5rem;
+}
+.ov-optional .fa-solid,
+.ov-optional i {
+  color: #b45309;
+}
+.ov-optional-label {
+  font-weight: 700;
+  color: #b45309;
+}
+/* "Demo ≠ done" callout */
+.ov-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text, #1e2a4a);
+  background: var(--error-alpha, rgba(193, 50, 50, 0.1));
+  border: 1px solid rgba(193, 50, 50, 0.25);
+  border-left: 4px solid var(--error, #c13232);
+  border-radius: 0.5rem;
+  line-height: 1.5;
+}
+.ov-callout > i {
+  color: var(--error, #c13232);
+  margin-top: 0.1rem;
+}
+.ov-callout code {
+  background: rgba(193, 50, 50, 0.09);
+  color: var(--error, #c13232);
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+/* Common tasks recipes */
+.ov-recipes-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 1.1rem 0 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text, #1e2a4a);
+}
+.ov-recipes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 0.6rem;
+}
+.ov-recipe {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-light, #eef0f6);
+  border-radius: var(--radius, 0.7rem);
+  box-shadow: var(--shadow-sm, none);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ov-recipe:hover {
+  border-color: var(--primary-light, #2a7eb8);
+  box-shadow: var(--shadow-hover, none);
+}
+.ov-recipe strong {
+  display: block;
+  font-size: 0.83rem;
+  color: var(--text, #1e2a4a);
+  margin-bottom: 0.15rem;
+}
+.ov-recipe p {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-muted, #5a6a8a);
+  line-height: 1.55;
+}
+.ov-recipe-ic {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  font-size: 0.95rem;
+  color: var(--primary, #165c91);
+  background: var(--primary-alpha, rgba(22, 92, 145, 0.07));
+}
+
+/* Small screens: stack the steps, point arrows downward */
+@media (max-width: 991px) {
+  .ov-flow {
+    flex-direction: column;
+  }
+  .ov-arrow {
+    justify-content: center;
+    transform: rotate(90deg);
+    padding: 0.1rem 0;
+  }
+}
+
+/* ============================================================
+   Help — Guided Walkthroughs (Demo / Advanced slide modals)
+   ============================================================ */
+/* Two big entry cards */
+.tw-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.8rem;
+}
+.tw-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border, #dfe3ee);
+  border-radius: var(--radius, 0.7rem);
+  box-shadow: var(--shadow-sm, none);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.tw-entry:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary-light, #2a7eb8);
+  box-shadow: var(--shadow-md, none);
+}
+.tw-entry-top {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.tw-entry-ic {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  color: #fff;
+}
+.tw-entry-ic-demo { background: var(--primary, #165c91); }
+.tw-entry-ic-adv  { background: #0e7490; }
+.tw-entry-title strong {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--text, #1e2a4a);
+}
+.tw-entry-title span {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted, #5a6a8a);
+}
+.tw-entry > p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted, #5a6a8a);
+  line-height: 1.55;
+  flex: 1 1 auto;
+}
+.tw-entry .btn {
+  margin-top: 0.3rem;
+}
+
+/* Modal root */
+.tw-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/* Keep tall walkthrough content inside the viewport */
+.modal-dialog.modal-xl .modal-body {
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.tw-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--border-light, #eef0f6);
+}
+.tw-topbar-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text, #1e2a4a);
+}
+.tw-topbar-title i {
+  color: var(--primary, #165c91);
+}
+.tw-close {
+  cursor: pointer;
+  font-size: 1.15rem;
+  color: var(--text-muted, #5a6a8a);
+  opacity: 0.65;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  line-height: 1;
+}
+.tw-close:hover {
+  opacity: 1;
+  color: var(--error, #c13232);
+}
+.tw-stages {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 340px;
+}
+.tw-count {
+  position: absolute;
+  top: -2px;
+  right: 0;
+  z-index: 2;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted, #5a6a8a);
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border, #dfe3ee);
+  padding: 0.1rem 0.5rem;
+  border-radius: 10px;
+}
+.tw-slide-inner {
+  animation: tw-fade 0.18s ease;
+}
+@keyframes tw-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.tw-slide-kicker {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 0.55rem;
+  padding: 0.22rem 0.65rem;
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--primary-dark, #0d3f6b);
+  background: var(--primary-alpha, rgba(22, 92, 145, 0.07));
+  border: 1px solid rgba(22, 92, 145, 0.16);
+  border-radius: 999px;
+}
+.tw-slide-inner h4 {
+  margin: 0 0 0.85rem;
+  color: var(--text, #1e2a4a);
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+.tw-slide-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 1.1rem;
+  align-items: center;
+}
+/* Text-only slides (no screenshot): single column, centered readable width */
+.tw-slide-body-text {
+  grid-template-columns: minmax(0, 1fr);
+}
+.tw-slide-body-text .tw-slide-text {
+  max-width: 46rem;
+}
+/* Amber highlight used to call out steps users often skip */
+.tw-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0.1rem 0 0.55rem;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #92400e;
+  background: rgba(217, 119, 6, 0.09);
+  border: 1px solid rgba(180, 83, 9, 0.3);
+  border-left: 3px solid #d97706;
+  border-radius: 0.5rem;
+}
+.tw-note i {
+  color: #b45309;
+  margin-top: 0.1rem;
+}
+.tw-slide-text p {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text, #1e2a4a);
+  line-height: 1.6;
+}
+.tw-points {
+  margin: 0.3rem 0 0;
+  padding-left: 1.2rem;
+  font-size: 0.82rem;
+  color: var(--text-muted, #5a6a8a);
+  line-height: 1.65;
+}
+.tw-points li {
+  margin: 0.2rem 0;
+}
+.tw-slide-fig img {
+  width: 100%;
+  border: 1px solid var(--border, #dfe3ee);
+  border-radius: 0.6rem;
+  box-shadow: var(--shadow-md, none);
+}
+
+/* Paging controls */
+.tw-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border-light, #eef0f6);
+}
+.tw-btn {
+  min-width: 92px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.38rem 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text, #1e2a4a);
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border, #dfe3ee);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.tw-btn:hover:not(:disabled) {
+  border-color: var(--primary-light, #2a7eb8);
+  color: var(--primary, #165c91);
+}
+.tw-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.tw-btn-primary {
+  background: var(--primary, #165c91);
+  border-color: var(--primary, #165c91);
+  color: #fff;
+}
+.tw-btn-primary:hover:not(:disabled) {
+  background: var(--primary-dark, #0d3f6b);
+  color: #fff;
+}
+.tw-dots {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.tw-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(22, 92, 145, 0.22);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.tw-dot.active {
+  width: 20px;
+  border-radius: 5px;
+  background: var(--primary, #165c91);
+}
+
+@media (max-width: 767px) {
+  .tw-slide-body {
+    grid-template-columns: 1fr;
+  }
+  .tw-nav {
+    flex-wrap: wrap;
+  }
+}
+
+/* ============================================================
+   Walkthrough modal - restrained polish
+   ============================================================ */
+.modal-dialog.modal-xl .modal-content {
+  border: none;
+  border-radius: 0.9rem;
+  box-shadow: var(--shadow-lg, 0 10px 36px rgba(30, 42, 74, 0.10));
+}
+/* Header icon: quiet tinted tile */
+.tw-topbar-title i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--primary-alpha, rgba(22, 92, 145, 0.1));
+  color: var(--primary, #165c91);
+  font-size: 0.85rem;
+}
+.tw-slide-inner h4 {
+  font-size: 1.12rem;
+  line-height: 1.35;
+  margin: 0 0 0.7rem;
+}
+.tw-slide-text p {
+  font-size: 0.92rem;
+  color: var(--text, #1e2a4a);
+  line-height: 1.6;
+  margin-bottom: 0.45rem;
+}
+.tw-slide-text p:last-of-type {
+  margin-bottom: 0;
+}
+/* Plain bullet list - no cards, no fancy markers */
+.tw-points {
+  margin: 0.6rem 0 0;
+  padding-left: 1.15rem;
+  font-size: 0.85rem;
+  color: var(--text-muted, #5a6a8a);
+  line-height: 1.6;
+}
+.tw-points li {
+  margin: 0.15rem 0;
+}
+/* Screenshot: thin quiet frame */
+.tw-slide-fig {
+  padding: 0.5rem;
+  border: 1px solid var(--border-light, #eef0f6);
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: var(--shadow-sm, none);
+}
+.tw-slide-fig img {
+  border-radius: 0.4rem;
+}
+.tw-btn {
+  border-radius: 0.5rem;
+}
+
+/* ============================================================
+   Walkthrough slides - emphasis, centering, figures, table cards
+   ============================================================ */
+/* Bold / bold-red inline emphasis (red only for the ONE key point) */
+.tw-b {
+  font-weight: 700;
+  color: var(--text, #1e2a4a);
+}
+.tw-r {
+  font-weight: 700;
+  color: var(--error, #c13232);
+}
+/* Red warning note (distinct from the amber note) */
+.tw-note-warn {
+  color: #7f1d1d;
+  background: rgba(193, 50, 50, 0.08);
+  border: 1px solid rgba(193, 50, 50, 0.28);
+  border-left-color: var(--error, #c13232);
+}
+.tw-note-warn i {
+  color: var(--error, #c13232);
+}
+/* Text-only slides: center the text block (bullets stay left-aligned) */
+.tw-slide-body-text {
+  display: flex;
+  justify-content: center;
+}
+.tw-slide-body-text .tw-slide-text {
+  width: 100%;
+  text-align: center;
+}
+.tw-slide-body-text .tw-slide-text > p {
+  text-align: center;
+}
+.tw-slide-body-text .tw-points {
+  text-align: left;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+/* Single or side-by-side screenshots on a thin frame */
+.tw-shot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  background: #fff;
+  border: 1px solid var(--border-light, #eef0f6);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-sm, none);
+}
+.tw-shot img {
+  width: 100%;
+  border-radius: 0.4rem;
+}
+.tw-figs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  align-items: start;
+}
+/* Data-table example cards (Advanced slide 1) */
+.tw-tbl-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+.tw-tbl-card {
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+  border: 1px solid var(--border-light, #eef0f6);
+  border-left: 3px solid var(--primary, #165c91);
+  border-radius: 0.6rem;
+  box-shadow: var(--shadow-sm, none);
+}
+.tw-tbl-card strong {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text, #1e2a4a);
+  margin-bottom: 0.25rem;
+}
+.tw-tbl-card .tw-tbl-note {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.68rem;
+  color: var(--text-muted, #5a6a8a);
+  line-height: 1.4;
+}
+.tw-tbl-card table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.68rem;
+  color: var(--text, #1e2a4a);
+}
+.tw-tbl-card th,
+.tw-tbl-card td {
+  text-align: left;
+  padding: 0.14rem 0.25rem;
+  border-bottom: 1px solid var(--border-light, #eef0f6);
+  white-space: nowrap;
+}
+.tw-tbl-card th {
+  font-weight: 600;
+  color: var(--text-muted, #5a6a8a);
+}
+.tw-tbl-card tr:last-child td {
+  border-bottom: none;
+}
+@media (max-width: 767px) {
+  .tw-figs,
+  .tw-tbl-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   Help - Supported Drugs section
+   ============================================================ */
+.help-drug-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.5rem 0 0.5rem;
+}
+.help-drug-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.help-drug-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.18rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text, #1e2a4a);
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border, #dfe3ee);
+  border-radius: 999px;
+}
+.help-drug-chip-demo {
+  border-color: rgba(22, 92, 145, 0.45);
+  background: var(--primary-alpha, rgba(22, 92, 145, 0.07));
+}
+.help-drug-badge {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--primary-dark, #0d3f6b);
+  background: rgba(22, 92, 145, 0.16);
+  padding: 0 0.35rem;
+  border-radius: 8px;
+}
+/* Center the amber/red notes on text-only slides */
+.tw-slide-body-text .tw-note {
+  text-align: left;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
 }

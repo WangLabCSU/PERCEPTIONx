@@ -61,7 +61,9 @@
     {
       center: true,
       title: '🎉 You\'re all set!',
-      text: 'Click "Load Demo" to start with the demo data, or upload your own. Enjoy!'
+      text: 'Click "Load Demo" to start with the demo data, or upload your own. ' +
+            'For a more detailed, click-by-click walkthrough of the demo or your own data, ' +
+            'open the Help page (top navigation) and choose a tour.'
     }
   ];
 
