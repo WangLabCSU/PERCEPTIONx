@@ -239,7 +239,7 @@ ui <- page_navbar(
     tags$a(
       href = "#",
       id = "tour-start",
-      icon("circle-question", class = "nav-icon"),
+      icon("circle-info", class = "nav-icon"),
       title = "Guided tour"
     )
   )),

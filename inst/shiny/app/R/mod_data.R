@@ -320,21 +320,22 @@ PAT_003    Responder")
                 "the clone abundance table required for prediction."
               ),
               p(class = "text-muted", style = "font-size: 0.8rem; line-height: 1.5; margin-bottom: 0;",
-                strong("Method"), " — UMAP (default) preserves global structure and is faster with large datasets. ",
+                strong("Method"), ": UMAP (default) preserves global structure and is faster with large datasets; ",
                 "t-SNE emphasizes fine local neighborhoods and may reveal finer substructure at the cost of speed.",
                 br(),
-                strong("Resolution"), " controls clustering granularity — higher values produce more clones (finer subclones); ",
+                strong("Resolution"), " controls clustering granularity. Higher values produce more clones (finer subclones); ",
                 "lower values produce fewer, broader clones. Default 0.8 suits most datasets.",
                 br(),
-                strong("PCA Dims"), " sets the number of principal components used for clustering — ",
-                "higher values capture more biological signal but may include noise. Default 10 is standard for scRNA-seq."
+                strong("PCA Dims"), " sets the number of principal components used for clustering. ",
+                "Higher values capture more biological signal but may include noise. Default 10 is standard for scRNA-seq."
               ),
               div(class = "info-box", style = "margin-top: 0.6rem; margin-bottom: 0; font-size: 0.8rem; padding: 0.5rem 0.7rem;",
                 icon("info-circle"),
                 "Requires Expression Matrix and Patient-Cell Mapping loaded first. ",
                 "By default Seurat clusters cells into subclones. ",
-                "Choose \"Clone-level\" in the Expression Matrix card to skip clustering — ",
-                "the data is then prepared automatically after upload."
+                br(),
+                "Choose \"Clone-level\" in the Expression Matrix card to skip clustering. ",
+                "The data is then prepared automatically after upload."
               )
             ),
             # Right: clone-level note (vertically centered) + clustering controls
@@ -560,7 +561,7 @@ mod_data_server <- function(id, shared) {
     observe({
       html <- if (isTRUE(shared$demo_loaded)) {
         as.character(actionButton(ns("load_demo"), "Clear Demo Data",
-                                  class = "btn-danger btn-sm", icon = icon("trash"),
+                                  class = "btn-accent btn-sm", icon = icon("trash"),
                                   onclick = "document.getElementById('demo-overlay').style.display='flex'; this.style.opacity='0.6'; var b=this; setTimeout(function(){b.style.opacity='';},2000);"))
       } else {
         as.character(actionButton(ns("load_demo"), "Load Demo Data",
