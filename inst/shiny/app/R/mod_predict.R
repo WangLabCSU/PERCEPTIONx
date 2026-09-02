@@ -56,29 +56,17 @@ mod_predict_ui <- function(id) {
             icon("cog"), " Configuration"
           ),
           div(class = "card-body",
-            # Model source
+            # Sources — single source of truth: models & expression come from
+            # the Data tab (management-integrated), never uploaded here.
             div(class = "param-section",
-              h6(class = "param-section-title", icon("cube"), " Model Source"),
-              radioButtons(ns("model_source"), NULL,
-                           choices = c("From Training/Demo" = "trained", "Upload .RDS" = "upload"),
-                           selected = "trained", inline = TRUE),
-              conditionalPanel(
-                condition = paste0("input['", ns("model_source"), "'] == 'upload'"),
-                fileInput(ns("model_upload"), "Upload Model (.RDS)",
-                          accept = c(".rds", ".RDS"))
-              )
-            ),
-
-            # Expression source
-            div(class = "param-section",
-              h6(class = "param-section-title", icon("table"), " Expression Data"),
-              radioButtons(ns("expr_source"), NULL,
-                           choices = c("From Data Tab" = "loaded", "Upload New" = "upload"),
-                           selected = "loaded", inline = TRUE),
-              conditionalPanel(
-                condition = paste0("input['", ns("expr_source"), "'] == 'upload'"),
-                fileInput(ns("expr_upload"), "Upload Expression",
-                          accept = c(".csv", ".rds", ".RDS"))
+              h6(class = "param-section-title", icon("link"), " Sources"),
+              div(class = "info-box", style = "margin-top: 0.2rem; font-size: 0.78rem;",
+                icon("circle-info"),
+                " Prediction runs on the ",
+                strong("active models"), " from the Data tab (Loaded Models Management) ",
+                "and the expression data prepared there. Load, upload or train ",
+                "models on the Data / Train tabs - every uploaded .RDS appears ",
+                "in the management list automatically."
               )
             ),
 
@@ -172,41 +160,15 @@ mod_predict_server <- function(id, shared, main_session) {
       bslib::nav_select("navbar", selected = "data", session = main_session)
     })
 
-    # Get model
-    current_model <- reactive({
-      if (input$model_source == "trained") {
-        shared$models
-      } else {
-        if (!is.null(input$model_upload)) {
-          readRDS(input$model_upload$datapath)
-        } else {
-          NULL
-        }
-      }
-    })
+    # Model source: always the models the user loaded/activated on the Data tab
+    # (Pre-trained download, .RDS upload, or models trained on the Train tab).
+    current_model <- reactive(shared$models)
 
-    # Get expression — require prepare_data() output (clone-level, rank-normalized).
-    # Never fall back to the raw cell-level user_expr: it is not rank-normalized
-    # and would produce unreliable predictions.
+    # Expression: always the clone-level, rank-normalized data prepared on the
+    # Data tab. The raw cell-level user_expr is NOT rank-normalized and would
+    # produce unreliable predictions.
     current_expr <- reactive({
-      if (input$expr_source == "loaded") {
-        if (!is.null(shared$prepared_data)) {
-          shared$prepared_data$clone_expression_rnorm
-        } else {
-          NULL
-        }
-      } else {
-        if (!is.null(input$expr_upload)) {
-          file <- input$expr_upload
-          if (grepl("\\.rds$|\\.RDS$|\\.Rds$", file$name)) {
-            readRDS(file$datapath)
-          } else {
-            as.matrix(read.csv(file$datapath, row.names = 1, check.names = FALSE))
-          }
-        } else {
-          NULL
-        }
-      }
+      if (is.null(shared$prepared_data)) NULL else shared$prepared_data$clone_expression_rnorm
     })
 
     # Run prediction — submitted to the background per-session worker. The

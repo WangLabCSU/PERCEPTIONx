@@ -501,8 +501,8 @@ Shiny.addCustomMessageHandler('expr-format-state-", ns("expr_format"), "', funct
             div(style = "margin-top: 0.6rem; border-top: 1px dashed var(--border); padding-top: 0.6rem;",
               tags$small(class = "text-muted", "Or load a pre-downloaded model .RDS:"),
               div(style = "display: flex; gap: 0.5rem; align-items: center; margin-top: 0.3rem;",
-                fileInput(ns("model_file"), NULL, accept = c(".RDS", ".rds"), width = "100%",
-                          placeholder = "Select a .RDS file - loads automatically")
+                fileInput(ns("model_file"), NULL, accept = c(".RDS", ".rds"), width = "100%", multiple = TRUE,
+                          placeholder = "Select one or more .RDS files - loads automatically, each appears in Loaded Models Management")
               )
             ),
             div(style = "margin-top: 0.75rem;",
@@ -1027,35 +1027,48 @@ mod_data_server <- function(id, shared) {
       })
     })
 
-    # --- Load Model (local file) ---
+    # --- Load Model (local file) - one or more, each lands in the cache and
+    # therefore shows up in "Loaded Models Management" with its own toggle. ---
     observeEvent(input$model_file, {
       req(input$model_file)
-      file <- input$model_file
+      files <- input$model_file
       w <- Waiter$new(
         html = tagList(
           div(class = "spinner-ring"),
-          h4("Reading model..."),
+          h4("Reading model file(s)..."),
           p(class = "text-muted", "This may take a few seconds")
         ),
         color = "rgba(255,255,255,0.85)"
       )
       w$show()
-      tryCatch({
-        model_obj <- readRDS(file$datapath)
-        drug_name <- tools::file_path_sans_ext(basename(file$name))
-        if (!is.null(attr(model_obj, "drug_name"))) {
-          drug_name <- attr(model_obj, "drug_name")
-        }
-        if (is.null(shared$models)) shared$models <- list()
-        shared$models[[drug_name]] <- model_obj
-        shared$model_cache[[drug_name]] <- model_obj
-        shared$model_active[[drug_name]] <- TRUE
-        w$hide()
-        showNotification(paste("Model loaded from file:", drug_name), type = "message")
-      }, error = function(e) {
-        w$hide()
-        showNotification(paste("Error reading file:", e$message), type = "error")
-      })
+      ok_names <- character(0)
+      errs <- character(0)
+      for (k in seq_len(nrow(files))) {
+        tryCatch({
+          model_obj <- readRDS(files$datapath[k])
+          drug_name <- tools::file_path_sans_ext(basename(files$name[k]))
+          attr_drug <- attr(model_obj, "drug_name")
+          if (!is.null(attr_drug) && nzchar(attr_drug)) drug_name <- attr_drug
+          if (is.null(shared$models)) shared$models <- list()
+          if (is.null(shared$model_cache)) shared$model_cache <- list()
+          shared$models[[drug_name]] <- model_obj
+          shared$model_cache[[drug_name]] <- model_obj
+          shared$model_active[[drug_name]] <- TRUE
+          ok_names <- c(ok_names, drug_name)
+        }, error = function(e) {
+          errs <<- c(errs, paste0(basename(files$name[k]), ": ", conditionMessage(e)))
+        })
+      }
+      w$hide()
+      if (length(ok_names) > 0) {
+        showNotification(paste("Model(s) loaded:", paste(ok_names, collapse = ", "),
+                               "| now listed in Loaded Models Management"),
+                         type = "message", duration = 6)
+      }
+      if (length(errs) > 0) {
+        showNotification(paste("Failed to read:", paste(errs, collapse = " | ")),
+                         type = "error", duration = 10)
+      }
     })
 
     output$model_status <- renderUI({
