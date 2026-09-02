@@ -3012,14 +3012,17 @@ table.dataTable thead th {
   border-color: var(--primary-alpha-md) !important;
 }
 
+/* Each reference section sits on its own white card for readability */
 .help-ref-section {
-  margin-bottom: 2rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-light, #eef0f6);
+  border-radius: var(--radius, 0.7rem);
+  box-shadow: var(--shadow-sm, none);
+  padding: 0.9rem 1.15rem 1.1rem;
+  margin-bottom: 0.9rem;
 }
 
 .help-ref-section:last-child {
-  border-bottom: none;
   margin-bottom: 0;
 }
 
@@ -3417,8 +3420,16 @@ table.dataTable thead th {
   font-size: 1.15rem;
   color: #fff;
 }
-.tw-entry-ic-demo { background: var(--primary, #165c91); }
-.tw-entry-ic-adv  { background: #0e7490; }
+/* Each entry card: icon tile and button share one gradient so the pair reads
+   as a single unit. Demo = ocean blue, Advanced = escalating blue-violet. */
+.tw-entry-demo .tw-entry-ic {
+  background: linear-gradient(135deg, #165c91, #2a7eb8);
+  box-shadow: 0 2px 6px rgba(22, 92, 145, 0.25);
+}
+.tw-entry-adv .tw-entry-ic {
+  background: linear-gradient(135deg, #1e3a8a, #6d28d9);
+  box-shadow: 0 2px 6px rgba(76, 29, 149, 0.25);
+}
 .tw-entry-title strong {
   display: block;
   font-size: 0.95rem;
@@ -3436,14 +3447,34 @@ table.dataTable thead th {
   line-height: 1.55;
   flex: 1 1 auto;
 }
-.tw-entry .btn {
+.tw-entry .btn-tw {
   margin-top: 0.3rem;
+  border: none;
+  font-weight: 600;
+  color: #fff;
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
+}
+.tw-entry-demo .btn-tw-demo {
+  background: linear-gradient(135deg, #165c91, #2a7eb8);
+}
+.tw-entry-adv .btn-tw-adv {
+  background: linear-gradient(135deg, #1e3a8a, #6d28d9);
+}
+.tw-entry-demo .btn-tw-demo:hover,
+.tw-entry-demo .btn-tw-demo:focus,
+.tw-entry-adv .btn-tw-adv:hover,
+.tw-entry-adv .btn-tw-adv:focus {
+  color: #fff;
+  filter: brightness(1.08);
 }
 
-/* Modal root */
+/* Modal root: a FIXED height shared by every step, so paging between slides
+   never resizes the dialog ("whack-a-mole"). Content taller than this scrolls
+   inside the stage only. */
 .tw-root {
   display: flex;
   flex-direction: column;
+  height: min(74vh, 700px);
   min-height: 0;
 }
 /* Keep tall walkthrough content inside the viewport */
@@ -3486,7 +3517,9 @@ table.dataTable thead th {
 .tw-stages {
   position: relative;
   flex: 1 1 auto;
-  min-height: 340px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .tw-count {
   position: absolute;
@@ -3501,26 +3534,49 @@ table.dataTable thead th {
   padding: 0.1rem 0.5rem;
   border-radius: 10px;
 }
+/* Each slide fills the stage; its body starts right under the fixed header
+   (top-anchored), so sparse pages keep their whitespace at the bottom. */
 .tw-slide-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  box-sizing: border-box;
   animation: tw-fade 0.18s ease;
+}
+/* Header zone: step caption + title pinned top-left on every slide */
+.tw-slide-head {
+  margin-bottom: 0.9rem;
+}
+.tw-slide-head .tw-slide-kicker {
+  margin-bottom: 0.4rem;
+}
+.tw-slide-inner .tw-slide-head h4 {
+  margin: 0;
+  font-size: 1.12rem;
 }
 @keyframes tw-fade {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
 }
+/* Step meta line (e.g. "Step 2 of 3 · Predict tab"). Kept deliberately quiet
+   so the slide shows a single real heading, not a pill + a heading. */
 .tw-slide-kicker {
   display: inline-flex;
   align-items: center;
-  margin-bottom: 0.55rem;
-  padding: 0.22rem 0.65rem;
-  font-size: 0.67rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--primary-dark, #0d3f6b);
-  background: var(--primary-alpha, rgba(22, 92, 145, 0.07));
-  border: 1px solid rgba(22, 92, 145, 0.16);
-  border-radius: 999px;
+  color: var(--text-muted, #5a6a8a);
+}
+.tw-slide-kicker::before {
+  content: "";
+  width: 16px;
+  height: 2px;
+  margin-right: 0.5rem;
+  border-radius: 2px;
+  background: var(--primary, #165c91);
 }
 .tw-slide-inner h4 {
   margin: 0 0 0.85rem;
@@ -3533,6 +3589,10 @@ table.dataTable thead th {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
   gap: 1.1rem;
   align-items: center;
+  /* Fill the area below the fixed header, and centre its own content inside
+     it, so the paragraph block is still vertically centred (not top-clamped) */
+  flex: 1 1 auto;
+  align-content: center;
 }
 /* Text-only slides (no screenshot): single column, centered readable width */
 .tw-slide-body-text {
@@ -3688,16 +3748,19 @@ table.dataTable thead th {
 .tw-slide-text p:last-of-type {
   margin-bottom: 0;
 }
-/* Plain bullet list - no cards, no fancy markers */
+/* Plain bullet list - dark readable text, primary-colored markers */
 .tw-points {
   margin: 0.6rem 0 0;
   padding-left: 1.15rem;
-  font-size: 0.85rem;
-  color: var(--text-muted, #5a6a8a);
+  font-size: 0.86rem;
+  color: var(--text, #1e2a4a);
   line-height: 1.6;
 }
 .tw-points li {
-  margin: 0.15rem 0;
+  margin: 0.18rem 0;
+}
+.tw-points li::marker {
+  color: var(--primary, #165c91);
 }
 /* Screenshot: thin quiet frame */
 .tw-slide-fig {
@@ -3736,25 +3799,31 @@ table.dataTable thead th {
 .tw-note-warn i {
   color: var(--error, #c13232);
 }
-/* Text-only slides: center the text block (bullets stay left-aligned) */
+/* Blue informational strip - used for the simulated-demo disclaimer so it
+   reads as a calm heads-up, not as an alarming red error */
+.tw-note-blue {
+  color: var(--primary-dark, #0d3f6b);
+  background: rgba(22, 92, 145, 0.07);
+  border: 1px solid rgba(22, 92, 145, 0.22);
+  border-left-color: var(--primary, #165c91);
+}
+.tw-note-blue i {
+  color: var(--primary, #165c91);
+}
+/* Text-only slides: centre the text BLOCK both ways (within the area below
+   the fixed header), keep the sentences left-aligned */
 .tw-slide-body-text {
   display: flex;
   justify-content: center;
+  align-items: center;
 }
 .tw-slide-body-text .tw-slide-text {
   width: 100%;
-  text-align: center;
-}
-.tw-slide-body-text .tw-slide-text > p {
-  text-align: center;
-}
-.tw-slide-body-text .tw-points {
   text-align: left;
-  width: fit-content;
-  margin-left: auto;
-  margin-right: auto;
 }
-/* Single or side-by-side screenshots on a thin frame */
+/* Single or side-by-side screenshots on a thin frame. Images are contained
+   (never distorted) and height-capped so a tall screenshot cannot push the
+   whole modal past the viewport. */
 .tw-shot {
   display: flex;
   align-items: center;
@@ -3767,13 +3836,78 @@ table.dataTable thead th {
 }
 .tw-shot img {
   width: 100%;
+  height: auto;
+  max-height: min(56vh, 540px);
+  object-fit: contain;
   border-radius: 0.4rem;
 }
 .tw-figs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.6rem;
   align-items: start;
+}
+/* Stacked two-up figures (Train slide): full column width each, height-capped
+   so the fixed-height dialog never needs to grow. */
+.tw-figs .tw-shot img {
+  max-height: min(34vh, 340px);
+}
+/* Quick-fact chips (Demo slide 1) */
+.tw-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.35rem 0 0.1rem;
+}
+.tw-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.6rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--primary-dark, #0d3f6b);
+  background: rgba(22, 92, 145, 0.07);
+  border: 1px solid rgba(22, 92, 145, 0.18);
+  border-radius: 999px;
+  line-height: 1.3;
+}
+/* Branching choice cards (Models slide) */
+.tw-choice-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+  margin-top: 0.3rem;
+}
+.tw-choice {
+  padding: 0.7rem 0.8rem;
+  background: #fff;
+  border: 1px solid var(--border-light, #eef0f6);
+  border-radius: 0.6rem;
+  box-shadow: var(--shadow-sm, none);
+}
+.tw-choice-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--primary-dark, #0d3f6b);
+  margin-bottom: 0.3rem;
+}
+.tw-choice-title i {
+  color: var(--primary, #165c91);
+}
+.tw-choice p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--text, #1e2a4a);
+}
+@media (max-width: 767px) {
+  .tw-choice-row {
+    grid-template-columns: 1fr;
+  }
 }
 /* Data-table example cards (Advanced slide 1) */
 .tw-tbl-row {
@@ -3824,10 +3958,131 @@ table.dataTable thead th {
   border-bottom: none;
 }
 @media (max-width: 767px) {
-  .tw-figs,
   .tw-tbl-row {
     grid-template-columns: 1fr;
   }
+}
+/* Keep the two Train-slide screenshots side by side down to narrow widths */
+@media (max-width: 560px) {
+  .tw-figs {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   Walkthrough - layout variants & fixed-size tuning
+   ============================================================ */
+/* Fixed dialog height shared by every step (dense slides set the size) */
+.tw-root {
+  height: min(78vh, 720px);
+}
+.modal-dialog.modal-xl .modal-body {
+  max-height: 90vh;
+}
+/* Left-right slides: figure gets clearly more room than the text */
+.tw-slide-body {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.4fr);
+  gap: 1.2rem;
+}
+/* Figure frames stay snug around the image (no dead whitespace) */
+.tw-shot {
+  padding: 0.4rem;
+}
+/* "上图下文字": figure on top, text below, both centred */
+.tw-slide-body.tw-tb {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  justify-content: center;
+}
+.tw-slide-body.tw-tb > .tw-shot {
+  align-self: center;
+  width: min(100%, 700px);
+}
+.tw-slide-body.tw-tb > .tw-slide-text {
+  width: 100%;
+  max-width: 46rem;
+  align-self: center;
+  text-align: left;
+}
+/* LR slides: the figure frame stretches to the full row height, so its
+   container always matches the layout height and the image scales up with
+   the hi-res screenshots instead of sitting in a small box with blank space */
+.tw-slide-body:not(.tw-tb) > .tw-shot {
+  align-self: stretch;
+  min-height: 300px;
+}
+.tw-slide-body:not(.tw-tb) > .tw-shot img {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+}
+/* "上图下文字": height-capped so the whole slide fits without scrolling */
+.tw-slide-body.tw-tb > .tw-shot img {
+  max-height: min(34vh, 330px);
+}
+/* Quiet bottom disclaimer line (no boxed "warning" component) */
+.tw-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin-top: 1rem;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--text-muted, #5a6a8a);
+}
+.tw-warn i {
+  color: var(--primary, #165c91);
+  margin-top: 0.1rem;
+}
+/* Centred action button (Demo step 1) */
+.tw-center-btn {
+  display: flex;
+  justify-content: center;
+  margin: 0.6rem 0 0.2rem;
+}
+.tw-center-btn .btn {
+  min-width: 230px;
+}
+/* Space the play icon off the label (matches the Data-tab button feel) */
+.tw-center-btn .btn i {
+  margin-right: 0.45rem;
+}
+/* "Try it out:" lead-in above the button */
+.tw-try {
+  font-weight: 600;
+  color: var(--text, #1e2a4a);
+  margin: 0.7rem 0 0;
+}
+/* Auto-larger type for word-light text-only slides (tw-big) */
+.tw-slide.tw-big .tw-slide-text p {
+  font-size: 1.14rem;
+  line-height: 1.8;
+  margin-bottom: 0.6rem;
+}
+.tw-slide.tw-big .tw-points {
+  font-size: 1.05rem;
+  line-height: 1.75;
+  margin-top: 0.8rem;
+}
+.tw-slide.tw-big .tw-points li {
+  margin: 0.32rem 0;
+}
+.tw-slide.tw-big .tw-chip {
+  font-size: 0.9rem;
+  padding: 0.3rem 0.8rem;
+}
+.tw-slide.tw-big .tw-try {
+  font-size: 1.1rem;
+  margin-top: 1rem;
+}
+.tw-slide.tw-big .tw-warn {
+  font-size: 0.85rem;
+}
+.tw-slide.tw-big .tw-center-btn .btn {
+  font-size: 1.08rem;
+  padding: 0.62rem 1.5rem;
 }
 
 /* ============================================================
@@ -3839,11 +4094,6 @@ table.dataTable thead th {
   gap: 0.45rem;
   margin: 0.5rem 0 0.5rem;
 }
-.help-drug-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
 .help-drug-chip {
   display: inline-flex;
   align-items: center;
@@ -3851,16 +4101,16 @@ table.dataTable thead th {
   padding: 0.18rem 0.6rem;
   font-size: 0.72rem;
   font-weight: 600;
+  line-height: 1.4;
   color: var(--text, #1e2a4a);
   background: var(--bg-card, #fff);
   border: 1px solid var(--border, #dfe3ee);
   border-radius: 999px;
 }
-.help-drug-chip-demo {
-  border-color: rgba(22, 92, 145, 0.45);
-  background: var(--primary-alpha, rgba(22, 92, 145, 0.07));
-}
 .help-drug-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.58rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -3869,12 +4119,119 @@ table.dataTable thead th {
   background: rgba(22, 92, 145, 0.16);
   padding: 0 0.35rem;
   border-radius: 8px;
+  line-height: 1.6;
+  white-space: nowrap;
 }
-/* Center the amber/red notes on text-only slides */
-.tw-slide-body-text .tw-note {
-  text-align: left;
-  width: fit-content;
-  max-width: 100%;
-  margin-left: auto;
-  margin-right: auto;
+.help-drug-badge-demo {
+  color: #9a1f1f;
+  background: rgba(193, 50, 50, 0.13);
+}
+/* ============================================================
+   Help - Supported Drugs: searchable list
+   ============================================================ */
+.help-drug-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.4rem;
+  align-items: flex-end;
+  margin: 0.5rem 0 0.4rem;
+}
+.help-drug-controls .shiny-input-container {
+  margin: 0 !important;
+}
+.help-drug-controls label.control-label:empty,
+.help-drug-controls .control-label:empty {
+  display: none !important;
+}
+/* Shiny nests the options in a .shiny-options-group wrapper, so the gap must
+   live on BOTH the radiogroup (labels as direct children) and the inner
+   group (labels wrapped) to actually space the three choices apart. */
+.help-drug-controls .shiny-input-radiogroup,
+.help-drug-controls .shiny-options-group {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.3rem 1.8rem !important;
+  margin: 0 !important;
+}
+.help-drug-controls .shiny-input-radiogroup label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin: 0 !important;
+  padding: 0.1rem 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+.help-drug-controls input[type="radio"] {
+  margin-right: 0.25rem;
+}
+.help-drug-controls .form-control {
+  height: 30px;
+  min-height: 30px;
+  font-size: 0.8rem;
+}
+.help-drug-count {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  color: var(--text-muted, #5a6a8a);
+  margin: 0.3rem 0 0.35rem;
+}
+.help-drug-list {
+  background: #fff;
+  border: 1px solid var(--border-light, #eef0f6);
+  border-radius: 0.55rem;
+  overflow: auto;
+  max-height: min(60vh, 620px);
+  box-shadow: var(--shadow-sm, none);
+}
+.help-drug-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+  padding: 0.4rem;
+}
+.help-drug-cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.74rem;
+  color: var(--text, #1e2a4a);
+  background: #fff;
+  border: 1px solid var(--border-light, #eef0f6);
+  border-radius: 0.45rem;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.help-drug-cell:hover {
+  border-color: var(--border, #d5dbe9);
+  background: var(--primary-alpha, rgba(22, 92, 145, 0.05));
+}
+.help-drug-cell-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.help-drug-cell-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex: 0 0 auto;
+}
+@media (max-width: 1200px) {
+  .help-drug-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 992px) {
+  .help-drug-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .help-drug-grid { grid-template-columns: 1fr; }
 }
