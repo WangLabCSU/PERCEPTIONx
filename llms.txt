@@ -205,7 +205,7 @@ If you use this package, please cite both the package and the original
 PERCEPTION study:
 
 - **Jia Ding**. PERCEPTIONx: Personalized Drug Response Prediction from
-  Single-Cell Transcriptomics. R package version 0.1.0.
+  Single-Cell Transcriptomics. R package version 0.3.0.
   <https://github.com/WangLabCSU/PERCEPTIONx>
 - Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts
   patient response and resistance to treatment using single-cell

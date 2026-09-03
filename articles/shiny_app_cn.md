@@ -475,7 +475,7 @@ UMAP Drug Viability 使用 z-score（以 0
 若使用本应用/包，请同时引用包本身与原始方法学论文：
 
 - **Jia Ding**. PERCEPTIONx: Personalized Drug Response Prediction from
-  Single-Cell Transcriptomics. R package version 0.1.0.
+  Single-Cell Transcriptomics. R package version 0.3.0.
   <https://github.com/WangLabCSU/PERCEPTIONx>
 - **Sinha, S., Vegesna, R., Mukherjee, S.** *et al.* PERCEPTION predicts
   patient response and resistance to treatment using single-cell

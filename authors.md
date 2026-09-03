@@ -11,14 +11,14 @@ Source:
 [`inst/CITATION`](https://github.com/WangLabCSU/PERCEPTIONx/blob/main/inst/CITATION)
 
 Jia Ding. (2026). PERCEPTIONx: Personalized Drug Response Prediction
-from Single-Cell Transcriptomics. R package version 0.1.0.
+from Single-Cell Transcriptomics. R package version 0.3.0.
 https://github.com/WangLabCSU/PERCEPTIONx
 
     @Manual{,
       author = {Jia Ding},
       title = {PERCEPTIONx: Personalized Drug Response Prediction from Single-Cell Transcriptomics},
       year = {2026},
-      note = {R package version 0.1.0},
+      note = {R package version 0.3.0},
       url = {https://github.com/WangLabCSU/PERCEPTIONx},
     }
 
