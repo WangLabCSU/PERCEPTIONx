@@ -98,6 +98,18 @@ if (!is.null(pkg_root)) {
   stop("Neither devtools (with repo) nor PERCEPTIONx is available. Please install PERCEPTIONx.")
 }
 
+# Tutorial screenshots are referenced with relative srcs ("figures/x.png").
+# Locally those resolve to <appDir>/www/figures. Under Shiny Server the app is
+# launched through apps/<name>/app.R launchers whose served app directory has
+# NO www/ folder (that is why the stylesheet/script/favicon are inlined above),
+# so every screenshot would 404 and only its alt text would show. Register the
+# package's figures folder as a resource path so the same relative URL serves
+# in every deployment mode.
+figures_dir <- file.path(perception_www_dir, "figures")
+if (dir.exists(figures_dir)) {
+  shiny::addResourcePath("figures", figures_dir)
+}
+
 # Background worker (callr) must load the SAME live repo code — remember where
 # it is so async_jobs.R can hand the path to the worker process.
 options(perception.pkg_root = pkg_root)
