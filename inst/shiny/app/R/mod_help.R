@@ -46,7 +46,7 @@ mod_help_ui <- function(id) {
             div(class = "help-section-icon", icon("graduation-cap")),
             div(
               h5("Guided Walkthroughs"),
-              p(class = "help-subtitle", "New to the app? Pick a tour \u2014 it opens as an interactive slideshow in the center of the screen")
+              p(class = "help-subtitle", "New to the app? Pick a tour below. It opens as an interactive slideshow in the center of the screen.")
             )
           ),
 
@@ -60,7 +60,7 @@ mod_help_ui <- function(id) {
                 )
               ),
               p("Load the built-in demo data, run the predictions, then draw and export the plots - nothing to upload or train."),
-              actionButton(ns("tour_demo"), "Start the demo tour", class = "btn-tw btn-tw-demo", width = "100%")
+              actionButton(ns("tour_demo"), "Start the Demo Tour", class = "btn-tw btn-tw-demo", width = "100%")
             ),
             div(class = "tw-entry tw-entry-adv",
               div(class = "tw-entry-top",
@@ -71,7 +71,7 @@ mod_help_ui <- function(id) {
                 )
               ),
               p("Walk through uploading expression / mapping / response files, (optional) training, prediction and how to read the plots."),
-              actionButton(ns("tour_advanced"), "Start the data tour", class = "btn-tw btn-tw-adv", width = "100%")
+              actionButton(ns("tour_advanced"), "Start the Advanced Tour", class = "btn-tw btn-tw-adv", width = "100%")
             )
           ),
 
@@ -378,7 +378,11 @@ mod_help_server <- function(id, main_session, shared) {
     # Debounce the search box so the (possibly 1,448-entry) grid is only
     # re-rendered after the user pauses typing.
     search_q <- debounce(reactive({
-      trimws(if (is.null(input$drug_search)) "" else input$drug_search)
+      if (is.null(input$drug_search)) {
+        ""
+      } else {
+        trimws(input$drug_search)
+      }
     }), 250)
 
     output$drug_results <- renderUI({
@@ -414,10 +418,13 @@ mod_help_server <- function(id, main_session, shared) {
         # In the Pre-trained (44) view every entry is pre-trained, so a badge
         # per cell would be pure noise; only flag the demo pair there. In the
         # All / search views mark both kinds so the 44 stand out.
-        bd <- c(
-          if (ftype != "pt" && is_pt) list(tags$span(class = "help-drug-badge", "pre-trained")),
-          if (is_demo) list(tags$span(class = "help-drug-badge help-drug-badge-demo", "demo"))
-        )
+        bd <- list()
+        if (ftype != "pt" && is_pt) {
+          bd <- c(bd, list(tags$span(class = "help-drug-badge", "pre-trained")))
+        }
+        if (is_demo) {
+          bd <- c(bd, list(tags$span(class = "help-drug-badge help-drug-badge-demo", "demo")))
+        }
         if (length(bd)) div(class = "help-drug-cell-badges", bd)
       }
 
@@ -430,7 +437,12 @@ mod_help_server <- function(id, main_session, shared) {
         sprintf("%s compounds in the DepMap screen (%d pre-trained).",
                 prettyNum(length(sel), big.mark = ","), sum(tolower(sel) %in% pt_all))
       } else {
-        sprintf("%d match%s.", length(sel), if (length(sel) == 1) "" else "es")
+        if (length(sel) == 1) {
+          plural <- ""
+        } else {
+          plural <- "es"
+        }
+        sprintf("%d match%s.", length(sel), plural)
       }
 
       tagList(
@@ -445,8 +457,20 @@ mod_help_server <- function(id, main_session, shared) {
     # an amber note and/or a red warning. Inline emphasis helpers:
     #   tw_b()   -> bold key term
     #   tw_r()   -> bold + red (only for the single most important point)
-    tw_b <- function(...) tags$span(class = "tw-b", ...)
-    tw_r <- function(...) tags$span(class = "tw-r", ...)
+    # Trim stray leading/trailing whitespace from the highlighted text, so a
+    # span followed by punctuation can never render "word ." with a gap.
+    tw_b <- function(...) {
+      ch <- lapply(list(...), function(x) {
+        if (is.character(x)) trimws(x) else x
+      })
+      tags$span(class = "tw-b", ch)
+    }
+    tw_r <- function(...) {
+      ch <- lapply(list(...), function(x) {
+        if (is.character(x)) trimws(x) else x
+      })
+      tags$span(class = "tw-r", ch)
+    }
     # Small example table card (mimics the Data-tab previews)
     tw_tbl <- function(title, note, headers, rows) {
       div(class = "tw-tbl-card",
@@ -563,6 +587,14 @@ mod_help_server <- function(id, main_session, shared) {
            prev.onclick=function(){ if(i>0){ i--; upd(); } };\n
            next.onclick=function(){ if(i<n-1){ i++; upd(); } else { Shiny.setInputValue('%2$s', 1, {priority:'event'}); } };\n
            upd();\n
+           // htmltools pretty-prints tags with newlines between children; a
+           // browser collapses each newline into a space, which would put a
+           // gap before punctuation ('word .'). Drop whitespace-only text
+           // nodes so inline emphasis sits flush with the following character.\n
+           var walker=document.createTreeWalker(stages,NodeFilter.SHOW_TEXT,null);\n
+           var drop=[], nn;\n
+           while((nn=walker.nextNode())){ if(nn.nodeValue.trim()==='') drop.push(nn); }\n
+           for(var d=0;d<drop.length;d++){ drop[d].parentNode.removeChild(drop[d]); }\n
            })();",
           root_id, close_req
         )))
@@ -575,7 +607,7 @@ mod_help_server <- function(id, main_session, shared) {
 
     demo_pages <- list(
       tw_slide(NULL,
-        "Step 1 of 3 \u00b7 Data tab", "Load the demo data",
+        "Step 1 of 3 \u00b7 Data tab", "Load Demo Data",
         list(p("The demo data is included with the app and needs nothing else to run."),
           tags$ul(class = "tw-points",
             tags$li("49 genes"),
@@ -595,22 +627,22 @@ mod_help_server <- function(id, main_session, shared) {
         big = TRUE,
         warn = "The demo models are SIMULATED to illustrate the workflow. Their predictions must NOT be interpreted as real drug response."),
       tw_slide("figures/predict.png",
-        "Step 2 of 3 \u00b7 Predict tab", "Run Prediction to see the viability scores",
-        list(p("On the Predict tab click ", tw_r("Run Prediction"), ". The right panel fills with the clone-level predictions: a table plus a viability heatmap."),
-             p("These scores are what every plot you draw next reads from.")),
-        list("Clone- and patient-level predictions appear as table + heatmap",
-             "Uses the two demo models (abemaciclib, erlotinib)")),
+        "Step 2 of 3 \u00b7 Predict tab", "Run Prediction: Your Result is Here",
+        list(p("On the Predict tab, click ", tw_r("Run Prediction"), ". You get a clone-level table and heatmap, plus patient-level predictions."),
+             p("Prediction runs on the two active demo models, ", tw_b("abemaciclib"), " and ", tw_b("erlotinib"), "."),
+             p("For the Aggregation Mode, use ", tw_b("Weighted Max (recommended)"), ". The other modes are explained in the Help page."))),
       tw_slide("figures/plot_gallery.png",
         "Step 3 of 3 \u00b7 Visualize tab", "Every plot is now unlocked",
-        list(p("Click any plot card to draw it. Each plot carries an explanation card above it."),
-             p("Below the figure you can adjust canvas size, text and DPI before exporting PNG (300 dpi) or PDF.")),
-        list("Canvas, text and DPI adjustable, with PNG (300 dpi) and PDF export",
-             "For your own data, use the 'Analyze your own data' tour"))
+        list(p("Click any plot card to draw it."),
+             p("Every plot shows its explanation in the ", tw_b("About This Plot"), " card above it."),
+             p("Adjust the figure size, text and DPI before exporting."),
+             p("Plots that compare drugs come with a drug switcher, set to ", tw_r("Combination"),
+               " by default (the ensemble prediction across all drugs).")))
     )
 
     adv_pages <- list(
       tw_slide(NULL,
-        "Step 1 of 7 \u00b7 Files", "The three files you bring",
+        "Step 1 of 7 \u00b7 Files", "The Three Files You Bring",
         list(p("Bring three tables in the shapes shown below: ", tw_r("expression matrix"),
                " and ", tw_r("cell-patient mapping"), " are required; clinical response is optional (needed for ROC curves and boxplots)."),
           div(class = "tw-tbl-row",
@@ -634,15 +666,14 @@ mod_help_server <- function(id, main_session, shared) {
           )),
       tw_slide("figures/seurat.png",
         "Step 2 of 7 \u00b7 Data tab", "Run Seurat Clustering",
-        list(p("Cell-level input: ", tw_r("run Seurat Clustering"),
-               " once, do not forget this step. It detects your clones and builds the 2D map the spatial plots need."),
+        list(p("We support two input types: cell-level and clone-level:"),
+             p(tw_b("Cell-level input: "), " ", tw_r("Run Seurat Clustering"),
+               " once, do not forget this step! It detects your clones and builds the 2D map the spatial plots need."),
              p(tw_b("Clone-level input:"), " Seurat is not required, your clones are already defined."),
-             p("Preview the loaded tables first with the View buttons (Data Review) and fix column names if needed.")),
-        list("Watch the live progress while it runs",
-             "Skip Seurat for clone-level input, unless you also want the 2D map"),
+             p("Check the preview tabs under the tables to confirm your files loaded as expected.")),
         layout = "tb"),
       tw_slide("figures/data_management.png",
-        "Step 3 of 7 \u00b7 Models", "Pre-trained models or train your own",
+        "Step 3 of 7 \u00b7 Models", "Pre-trained Models or Train Your Own",
         list(p("If your drug is one of the ", tw_r("44 pre-trained"),
                " models shipped with the app, it is one click away. Otherwise you train it yourself."),
           div(class = "tw-choice-row",
@@ -651,42 +682,31 @@ mod_help_server <- function(id, main_session, shared) {
               p("Data tab > Pre-trained Models > select drugs (multi-select) > Download & Load.")),
             div(class = "tw-choice",
               div(class = "tw-choice-title", icon("hammer"), "Not in the 44"),
-              p("Download the DepMap data we provide, then train on the next slide. A drug absent from that data cannot be trained."))),
-          p("Every downloaded or trained model lands in Loaded Models Management on the Data tab, where you can tick which ones stay active. The full catalogue, with the 44 marked, is in Supported Drugs below.")),
-        layout = "tb"),
+              p(tw_r("Download & Load DepMap"), " > train it on the Train tab."))),
+          p("Every model you download or train lands in ", tw_r("Loaded Models Management"), " on the Data tab, where you can tick which ones stay active."),
+          p("Supported Drugs on the Help page lists the full catalogue, with the 44 marked.")),
+        layout = "lr"),
       tw_slide("figures/model_roc.png",
-        "Step 4 of 7 \u00b7 Train tab (outside the 44)", "Training a model: the key fields",
-        list(p("Not one of the 44? Then this is where you train it: download the DepMap data we provide first, then fill in the fields below."),
-             p(tw_b("Drug:"), " one or several, separated by commas or newlines."),
-             p(tw_b("Cancer type:"), " PanCan gives the best results, it trains on all cancer types at once, the most data and the most diversity, and usually generalises best. One type, e.g. Breast, makes sense when the drug mainly matters for that indication, but it learns from less data."),
-             p(tw_b("Genes of interest:"), " leave empty to use ALL genes, the best default. Fill it only to restrict feature selection to the genes you care about."),
-             p(tw_b("k_features:"), " how many top-ranked genes the model keeps, default 100."),
-             p(tw_b("Model type:"), " glmnet (elastic net) is the default, the approach the paper validated; random forest is a good alternative when you expect non-linear effects."),
-             p("When training finishes, judge the model from the Validation ROC above. The trained model is added to Loaded Models Management and is ready for Prediction.")),
+        "Step 4 of 7 \u00b7 Train tab (outside the 44)", "Train and Evaluate Your Own Model",
+        list(p("If your drug is not in the 44 pre-trained models, check the Supported Drugs list in the Help page. If it is there, download the DepMap data we provide and train the drug on the Train tab."),
+             p("Training generates a ", tw_b("Validation ROC"), " and a ", tw_b("Model Performance"), " plot, so you can judge how accurate the model is.")),
         layout = "tb"),
       tw_slide("figures/predict.png",
-        "Step 5 of 7 \u00b7 Predict tab", "Run Prediction: this is your result",
-        list(p("On the Predict tab click ", tw_r("Run Prediction"), ". The right panel is the deliverable: a clone-level table and heatmap plus the patient-level predictions."),
-             p("Prediction always uses the active models and prepared expression from the Data tab, so make sure the ones you want are active there first."),
-             p("Then pick an Aggregation Mode, how clone scores collapse into one patient score:")),
-        list(tags$li(tw_b("Weighted Max (recommended):"), " maximum clone viability weighted by clone proportion, the approach validated in the paper"),
-             tags$li(tw_b("Weighted Average:"), " weighted average across all clones"),
-             tags$li(tw_b("Min / Max:"), " only the most sensitive or the most resistant clone"))),
+        "Step 5 of 7 \u00b7 Predict tab", "Run Prediction: Your Result is Here",
+        list(p("On the Predict tab, click ", tw_r("Run Prediction"), ". You get a clone-level table and heatmap, plus patient-level predictions."),
+             p("Prediction uses the active models and prepared expression from the Loaded Models Management."),
+             p("For the Aggregation Mode, use ", tw_b("Weighted Max (recommended)"), ". The other modes are explained in the Help page."))),
       tw_slide("figures/plot_gallery.png",
-        "Step 6 of 7 \u00b7 Visualize tab", "Dive deeper with more plots",
-        list(p("The plots that compare drugs (Clone Viability Lollipop, ROC, Boxplot and the UMAP views) have a drug switcher in the parameter panel, and its default is ",
-               tw_r("Combination"), ", the ensemble prediction across all drugs."),
-             p("The gallery in the tour image shows every plot type that is ready to draw.")),
-        list("Switch the drug to redraw the plot for a single drug",
-             "Every plot explains itself in the About This Plot card above it")),
+        "Step 6 of 7 \u00b7 Visualize tab", "Dive Deeper with More Plots",
+        list(p("Click any plot card to draw it."),
+             p("Every plot shows its explanation in the ", tw_b("About This Plot"), " card above it."),
+             p("Adjust the figure size, text and DPI before exporting."),
+             p("Plots that compare drugs come with a drug switcher, set to ", tw_r("Combination"),
+               " by default (the ensemble prediction across all drugs)."))),
       tw_slide("figures/help.png",
         "Step 7 of 7 \u00b7 Help & resources", "More details live in the Help page",
-        list(p("Terminology (aggregation modes, data formats), every parameter, the full supported-drug list and answers to common issues are all documented below on this page.")),
-        chips = list(
-          tags$span(class = "tw-chip", icon("pills"), "Supported Drugs"),
-          tags$span(class = "tw-chip", icon("database"), "Data Requirements"),
-          tags$span(class = "tw-chip", icon("sliders"), "Training Parameters"),
-          tags$span(class = "tw-chip", icon("circle-question"), "FAQ")),
+        list(p("The Help page still has more for you: aggregation modes, data formats, every parameter, the full drug list and the FAQ."),
+            p("🎉 Explore at your own pace, and have fun with your data!")),
         big = TRUE
       )
     )
