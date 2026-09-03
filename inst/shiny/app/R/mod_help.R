@@ -13,8 +13,7 @@ mod_help_ui <- function(id) {
           h4("Reference Documentation")
         ),
         div(class = "info-box",
-          icon("book"), " Detailed reference for data formats, parameters, and interpretation. ",
-          "For a quick getting-started guide, visit the ", strong("Home"), " page."
+          icon("book"), " Detailed reference for data formats, parameters, and interpretation."
         )
       )
     ),
