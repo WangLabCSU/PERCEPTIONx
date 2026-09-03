@@ -1,6 +1,10 @@
 # Help Module — Reference Documentation
 mod_help_ui <- function(id) {
   ns <- NS(id)
+  # Keep the in-app citation in sync with the installed package version
+  # (falls back to the current release when running from source).
+  pkg_ver <- tryCatch(as.character(utils::packageVersion("PERCEPTIONx")),
+                      error = function(e) "0.3.0")
   tagList(
     fluidRow(
       column(12,
@@ -352,7 +356,8 @@ mod_help_ui <- function(id) {
           ),
           div(class = "citation-box",
             strong("Jia Ding."),
-            " PERCEPTIONx: Personalized Drug Response Prediction from Single-Cell Transcriptomics. R package version 0.2.0. ",
+            " PERCEPTIONx: Personalized Drug Response Prediction from Single-Cell Transcriptomics. R package version ",
+            pkg_ver, ". ",
             a("https://github.com/WangLabCSU/PERCEPTIONx",
               href = "https://github.com/WangLabCSU/PERCEPTIONx",
               target = "_blank"),
