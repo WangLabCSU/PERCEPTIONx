@@ -3420,15 +3420,13 @@ table.dataTable thead th {
   font-size: 1.15rem;
   color: #fff;
 }
-/* Each entry card: icon tile and button share one gradient so the pair reads
-   as a single unit. Demo = ocean blue, Advanced = escalating blue-violet. */
+/* Each entry card: icon tile and button share one SOLID deep color
+   (no gradient). Demo = ocean blue, Advanced = deep violet. */
 .tw-entry-demo .tw-entry-ic {
-  background: linear-gradient(135deg, #165c91, #2a7eb8);
-  box-shadow: 0 2px 6px rgba(22, 92, 145, 0.25);
+  background: #165c91;
 }
 .tw-entry-adv .tw-entry-ic {
-  background: linear-gradient(135deg, #1e3a8a, #6d28d9);
-  box-shadow: 0 2px 6px rgba(76, 29, 149, 0.25);
+  background: #4c1d95;
 }
 .tw-entry-title strong {
   display: block;
@@ -3455,17 +3453,17 @@ table.dataTable thead th {
   transition: filter 0.15s ease, box-shadow 0.15s ease;
 }
 .tw-entry-demo .btn-tw-demo {
-  background: linear-gradient(135deg, #165c91, #2a7eb8);
+  background: #165c91;
 }
 .tw-entry-adv .btn-tw-adv {
-  background: linear-gradient(135deg, #1e3a8a, #6d28d9);
+  background: #4c1d95;
 }
 .tw-entry-demo .btn-tw-demo:hover,
 .tw-entry-demo .btn-tw-demo:focus,
 .tw-entry-adv .btn-tw-adv:hover,
 .tw-entry-adv .btn-tw-adv:focus {
   color: #fff;
-  filter: brightness(1.08);
+  filter: brightness(1.12);
 }
 
 /* Modal root: a FIXED height shared by every step, so paging between slides
@@ -3520,6 +3518,9 @@ table.dataTable thead th {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* Reserve the scrollbar slot so content never jumps sideways when a slide
+     is taller or shorter than its neighbour */
+  scrollbar-gutter: stable;
 }
 .tw-count {
   position: absolute;
@@ -3541,7 +3542,6 @@ table.dataTable thead th {
   flex-direction: column;
   min-height: 100%;
   box-sizing: border-box;
-  animation: tw-fade 0.18s ease;
 }
 /* Header zone: step caption + title pinned top-left on every slide */
 .tw-slide-head {
@@ -3972,23 +3972,52 @@ table.dataTable thead th {
 /* ============================================================
    Walkthrough - layout variants & fixed-size tuning
    ============================================================ */
-/* Fixed dialog height shared by every step (dense slides set the size) */
+/* Fixed dialog height shared by every step. Sized so the tallest slide fits:
+   images are capped below, nothing ever scrolls inside the step card. */
 .tw-root {
-  height: min(78vh, 720px);
+  height: min(86vh, 820px);
 }
 .modal-dialog.modal-xl .modal-body {
-  max-height: 90vh;
+  max-height: 92vh;
 }
-/* Left-right slides: figure gets clearly more room than the text */
+/* Left-right slides: text ~2/5, FIGURE gets the wider ~3/5, clear distance
+   between the paragraph column and the screenshot */
 .tw-slide-body {
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.4fr);
-  gap: 1.2rem;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 2.4rem;
 }
-/* Figure frames stay snug around the image (no dead whitespace) */
-.tw-shot {
+/* LR: text is centred inside its own column (not hugging the left edge);
+   the figure is centred inside its own wider column */
+.tw-slide-body:not(.tw-tb) > .tw-slide-text {
+  justify-self: center;
+  width: fit-content;
+  max-width: 100%;
+  text-align: left;
+}
+/* LR slides with a screenshot: when the copy is long enough to fill its whole
+   column, centring is a no-op and the text visually sticks to the modal's
+   left border. Pull the block right - towards the slide midline - so even
+   full-width paragraphs keep breathing room on the left. */
+.tw-slide-body:not(.tw-tb):not(.tw-slide-body-text) > .tw-slide-text {
+  margin-left: clamp(2rem, 7%, 4.5rem);
+}
+/* Figure frames shrink-wrap each screenshot at ITS OWN aspect ratio - never a
+   shared width/height box. The image decides its size within generous caps,
+   so square shots stay square and wide shots stay wide, with no letterboxing */
+.tw-slide-body > .tw-shot {
+  width: fit-content;
+  max-width: 100%;
+  justify-self: center;
+  align-self: center;
   padding: 0.4rem;
 }
-/* "上图下文字": figure on top, text below, both centred */
+.tw-slide-body > .tw-shot img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(54vh, 540px);
+}
+/* tb: image above text, compact cap so the slide fits without scrolling */
 .tw-slide-body.tw-tb {
   display: flex;
   flex-direction: column;
@@ -3997,30 +4026,29 @@ table.dataTable thead th {
 }
 .tw-slide-body.tw-tb > .tw-shot {
   align-self: center;
-  width: min(100%, 700px);
+}
+.tw-slide-body.tw-tb > .tw-shot img {
+  max-height: min(30vh, 320px);
 }
 .tw-slide-body.tw-tb > .tw-slide-text {
   width: 100%;
-  max-width: 46rem;
+  max-width: 44rem;
   align-self: center;
   text-align: left;
 }
-/* LR slides: the figure frame stretches to the full row height, so its
-   container always matches the layout height and the image scales up with
-   the hi-res screenshots instead of sitting in a small box with blank space */
-.tw-slide-body:not(.tw-tb) > .tw-shot {
-  align-self: stretch;
-  min-height: 300px;
+/* Larger readable type across all slides */
+.tw-slide-text p {
+  font-size: 1.02rem;
+  line-height: 1.7;
+  margin-bottom: 0.5rem;
 }
-.tw-slide-body:not(.tw-tb) > .tw-shot img {
-  width: 100%;
-  height: 100%;
-  max-height: none;
-  object-fit: contain;
+.tw-points {
+  font-size: 0.97rem;
+  line-height: 1.7;
 }
-/* "上图下文字": height-capped so the whole slide fits without scrolling */
-.tw-slide-body.tw-tb > .tw-shot img {
-  max-height: min(34vh, 330px);
+.tw-slide-body.tw-tb > .tw-slide-text p {
+  font-size: 0.96rem;
+  margin-bottom: 0.45rem;
 }
 /* Quiet bottom disclaimer line (no boxed "warning" component) */
 .tw-warn {
@@ -4035,6 +4063,8 @@ table.dataTable thead th {
 .tw-warn i {
   color: var(--primary, #165c91);
   margin-top: 0.1rem;
+  margin-right: 0.4rem;
+  flex: 0 0 auto;
 }
 /* Centred action button (Demo step 1) */
 .tw-center-btn {
@@ -4069,6 +4099,28 @@ table.dataTable thead th {
 .tw-slide.tw-big .tw-points li {
   margin: 0.32rem 0;
 }
+/* Files step: the three example-table cards also get bigger type */
+.tw-slide.tw-big .tw-tbl-row {
+  gap: 0.8rem;
+}
+.tw-slide.tw-big .tw-tbl-card {
+  padding: 0.7rem 0.85rem;
+}
+.tw-slide.tw-big .tw-tbl-card strong {
+  font-size: 0.92rem;
+  margin-bottom: 0.35rem;
+}
+.tw-slide.tw-big .tw-tbl-card table {
+  font-size: 0.8rem;
+}
+.tw-slide.tw-big .tw-tbl-card th,
+.tw-slide.tw-big .tw-tbl-card td {
+  padding: 0.22rem 0.4rem;
+}
+.tw-slide.tw-big .tw-tbl-card .tw-tbl-note {
+  font-size: 0.78rem;
+  margin-top: 0.45rem;
+}
 .tw-slide.tw-big .tw-chip {
   font-size: 0.9rem;
   padding: 0.3rem 0.8rem;
@@ -4083,6 +4135,36 @@ table.dataTable thead th {
 .tw-slide.tw-big .tw-center-btn .btn {
   font-size: 1.08rem;
   padding: 0.62rem 1.5rem;
+}
+/* Files step (text-only page with the three example-table cards):
+   bump every piece of text, including the tables themselves */
+.tw-slide-body-text:has(.tw-tbl-card) .tw-slide-text {
+  max-width: 66rem;
+}
+.tw-slide-body-text .tw-slide-text p {
+  font-size: 1.06rem;
+  line-height: 1.75;
+}
+.tw-slide-body-text .tw-tbl-row {
+  gap: 0.9rem;
+}
+.tw-slide-body-text .tw-tbl-card {
+  padding: 0.7rem 0.8rem;
+}
+.tw-slide-body-text .tw-tbl-card strong {
+  font-size: 0.9rem;
+  margin-bottom: 0.35rem;
+}
+.tw-slide-body-text .tw-tbl-card table {
+  font-size: 0.78rem;
+}
+.tw-slide-body-text .tw-tbl-card th,
+.tw-slide-body-text .tw-tbl-card td {
+  padding: 0.2rem 0.35rem;
+}
+.tw-slide-body-text .tw-tbl-card .tw-tbl-note {
+  font-size: 0.76rem;
+  margin-top: 0.4rem;
 }
 
 /* ============================================================
