@@ -1,3 +1,18 @@
+# PERCEPTIONx 0.3.0
+
+## New features
+- Help tab gained a "Supported Drugs" catalogue: the full ~1,450-compound
+  DepMap screen with the 44 pre-trained models marked, filterable by
+  Pre-trained / Demo / All compounds with debounced search.
+- New guided walkthroughs on the Help tab (Demo and Advanced tours) with
+  retaken, correctly-sized screenshots.
+- Reworked the Advanced tour steps: three input files, Seurat clustering,
+  pre-trained vs. trained models, training output, prediction and
+  visualisation reading order.
+
+## Improvements
+- README, vignettes and tutorial sections rearranged and synced with the app.
+
 # PERCEPTIONx 0.2.0
 
 ## New features

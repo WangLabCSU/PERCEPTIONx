@@ -1,6 +1,6 @@
 Package: PERCEPTIONx
 Title: Personalized Drug Response Prediction from Single-Cell Transcriptomics
-Version: 0.2.0
+Version: 0.3.0
 Authors@R: 
     person("Jia", "Ding", , "jiading682@qq.com", role = c("aut", "cre"),
            comment = c(ORCID = "0009-0002-2530-0897"))
