@@ -6,7 +6,7 @@ Tumor Transcriptomics.**
 PERCEPTIONx trains drug-response models on DepMap cell-line screens and
 applies them to a patient’s single-cell expression profile. It scores
 sensitivity at the clone and patient level, then turns the results into
-publication-ready figures — with a point-and-click Shiny web application
+publication-ready figures, with a point-and-click Shiny web application
 wrapping the whole pipeline. The method is the
 [PERCEPTION](https://doi.org/10.1038/s43018-024-00756-7) approach (Sinha
 et al., *Nat Cancer* 5, 938–952, 2024).
@@ -24,8 +24,8 @@ remotes::install_github("WangLabCSU/PERCEPTIONx")
 ## 2. Quick Start
 
 The core workflow is five steps. Load the reference data, load
-pre-trained models (no training needed), prepare your expression matrix,
-predict, and plot.
+pre-trained models (or train your own models with DepMap data), prepare
+your expression matrix, predict, and plot.
 
 ### 2.1 Load Data
 
@@ -39,7 +39,7 @@ load_depmap(read = TRUE)                  # DepMap reference (~567 MB, first run
 ### 2.2 Train Models (optional)
 
 The 44 pre-trained models cover prediction out of the box. Train your
-own when you need other drugs or settings —
+own when you need other drugs or settings.
 [`train_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/train_models.md)
 has sensible defaults for every argument except the drug list:
 
@@ -99,10 +99,10 @@ library(PERCEPTIONx)
 run_perception_app()          # starts the app in your browser
 ```
 
-The app has six tabs — Home, Data, Train, Predict, Visualize, and Help —
+The app has six tabs: Home, Data, Train, Predict, Visualize, and Help,
 with a Load Demo button that generates a small synthetic dataset (49
-genes x 400 cells x 20 patients) to smoke-test the whole flow. See the
-[Shiny App
+genes x 400 cells x 20 patients) to help you test the whole flow. See
+the [Shiny App
 Guide](https://wanglabcsu.github.io/PERCEPTIONx/articles/shiny_app.html)
 for a full walkthrough.
 
@@ -144,7 +144,7 @@ cp -r .claude/skills/perceptionx-result ~/.codex/skills/
 
 | Function | Description |
 |----|----|
-| [`train_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/train_models.md) | Full training pipeline (main entry point) |
+| [`train_models()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/train_models.md) | Full training pipeline |
 
 ### 5.4 Prediction
 
