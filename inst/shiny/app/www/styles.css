@@ -4208,6 +4208,10 @@ table.dataTable thead th {
   color: #9a1f1f;
   background: rgba(193, 50, 50, 0.13);
 }
+.help-drug-badge-fda {
+  color: #146c43;
+  background: rgba(25, 135, 84, 0.15);
+}
 /* ============================================================
    Help - Supported Drugs: searchable list
    ============================================================ */

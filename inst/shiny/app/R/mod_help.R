@@ -93,18 +93,22 @@ mod_help_ui <- function(id) {
           ),
           p("This is the drug screen shipped with our DepMap data (PRISM): ",
             strong("1448 compounds"), ", most of them research tool molecules rather than clinical drugs. ",
-            "The ", strong("44 pre-trained"), " ones are clinically relevant and come with ready-made models. ",
-            "Any other compound can be trained on the Train tab once DepMap is loaded."),
+            strong("142 are FDA-approved cancer drugs"), " (green), and the ", strong("44 pre-trained"),
+            " ones come with ready-made models. Any other compound can be trained on the Train tab once DepMap is loaded."),
           div(class = "help-drug-legend",
             span(class = "help-drug-chip", "compound in the DepMap screen"),
-            span(class = "help-drug-badge", "pre-trained"),
+            span(class = "help-drug-badge help-drug-badge-fda", "FDA"),
+            span(class = "help-drug-badge", "PRE"),
             span(class = "help-drug-badge help-drug-badge-demo", "demo")
           ),
+          p(class = "text-muted", style = "font-size: 0.72rem; margin: 0.3rem 0 0;",
+            "PRE = pre-trained model available \u00b7 FDA = FDA-approved cancer drug \u00b7 demo = used by the demo dataset."),
           div(class = "help-drug-controls",
             textInput(ns("drug_search"), NULL, placeholder = "Search compounds...",
                       width = "260px"),
             radioButtons(ns("drug_filter"), NULL, inline = TRUE,
                          choices = c("Pre-trained (44)" = "pt",
+                                     "FDA (142)" = "fda",
                                      "Demo" = "demo",
                                      "All compounds" = "all"),
                          selected = "pt")
@@ -126,7 +130,7 @@ mod_help_ui <- function(id) {
               div(class = "help-data-icon", style = "color: var(--primary);", icon("layer-group")),
               strong("DepMap Data"),
               p("Downloaded and loaded via the ", code("Download & Load"), " button on the Data tab (or a pre-downloaded .RDS upload). Includes bulk expression, single-cell expression, and drug response (AUC) data from DepMap."),
-              tags$span(class = "status-badge unloaded", "Manual load")
+              tags$span(class = "status-badge unloaded", click & load")
             ),
             div(class = "help-data-card",
               div(class = "help-data-icon", style = "color: var(--accent);", icon("table")),
@@ -391,6 +395,7 @@ mod_help_server <- function(id, main_session, shared) {
 
     output$drug_results <- renderUI({
       pt_all <- tolower(PERCEPTIONx:::perception_all_drugs)
+      fda_all <- tolower(PERCEPTIONx:::perception_fda_approved_drugs)
       demo <- c("abemaciclib", "erlotinib")
       md <- shared$depmap_meta
       # The full catalogue is shipped in the package; a loaded DepMap refreshes
@@ -407,6 +412,7 @@ mod_help_server <- function(id, main_session, shared) {
       q <- search_q()
       sel <- switch(ftype,
         pt   = all[tolower(all) %in% pt_all],
+        fda  = all[tolower(all) %in% fda_all],
         demo = all[tolower(all) %in% demo],
         all  = all)
       if (nzchar(q)) sel <- sel[grepl(tolower(q), tolower(sel), fixed = TRUE)]
@@ -418,13 +424,16 @@ mod_help_server <- function(id, main_session, shared) {
 
       mk_badges <- function(d) {
         is_pt <- tolower(d) %in% pt_all
+        is_fda <- tolower(d) %in% fda_all
         is_demo <- tolower(d) %in% demo
-        # In the Pre-trained (44) view every entry is pre-trained, so a badge
-        # per cell would be pure noise; only flag the demo pair there. In the
-        # All / search views mark both kinds so the 44 stand out.
+        # Every view shows its own badges as well, so a filtered list still
+        # reads at a glance (e.g. which FDA drugs already have a model).
         bd <- list()
-        if (ftype != "pt" && is_pt) {
-          bd <- c(bd, list(tags$span(class = "help-drug-badge", "pre-trained")))
+        if (is_fda) {
+          bd <- c(bd, list(tags$span(class = "help-drug-badge help-drug-badge-fda", "FDA")))
+        }
+        if (is_pt) {
+          bd <- c(bd, list(tags$span(class = "help-drug-badge", "PRE")))
         }
         if (is_demo) {
           bd <- c(bd, list(tags$span(class = "help-drug-badge help-drug-badge-demo", "demo")))
@@ -710,7 +719,7 @@ mod_help_server <- function(id, main_session, shared) {
       tw_slide("figures/help.png",
         "Step 7 of 7 \u00b7 Help & resources", "More details live in the Help page",
         list(p("The Help page still has more for you: aggregation modes, data formats, every parameter, the full drug list and the FAQ."),
-            p("🎉 Explore at your own pace, and have fun with your data!")),
+            p("Explore at your own pace, and have fun with your data! 🎉")),
         big = TRUE
       )
     )
