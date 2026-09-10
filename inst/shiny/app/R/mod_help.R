@@ -130,7 +130,7 @@ mod_help_ui <- function(id) {
               div(class = "help-data-icon", style = "color: var(--primary);", icon("layer-group")),
               strong("DepMap Data"),
               p("Downloaded and loaded via the ", code("Download & Load"), " button on the Data tab (or a pre-downloaded .RDS upload). Includes bulk expression, single-cell expression, and drug response (AUC) data from DepMap."),
-              tags$span(class = "status-badge unloaded", click & load")
+              tags$span(class = "status-badge unloaded", "Click & load")
             ),
             div(class = "help-data-card",
               div(class = "help-data-icon", style = "color: var(--accent);", icon("table")),
