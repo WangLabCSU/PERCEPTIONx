@@ -104,7 +104,9 @@ as columns. Only needed if <code>prepared_data</code> is not a list from
 
 <dt id="arg-zscore">zscore<a class="anchor" aria-label="anchor" href="#arg-zscore"></a></dt>
 <dd><p>Logical. Whether to z-score scale drug columns across patients
-before aggregation. Default = TRUE. Matches the original PERCEPTION pipeline.</p></dd>
+before aggregation. Default = TRUE. Matches the original PERCEPTION pipeline.
+An already-standardized <code>comb_viability</code> column (the output of the
+IDA combination step) is never scaled again.</p></dd>
 
 </dl></div>
     <div class="section level2">

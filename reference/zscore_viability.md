@@ -9,7 +9,7 @@ original PERCEPTION pipeline.
 ## Usage
 
 ``` r
-zscore_viability(clone_viability_df)
+zscore_viability(clone_viability_df, cols = NULL)
 ```
 
 ## Arguments
@@ -18,6 +18,12 @@ zscore_viability(clone_viability_df)
 
   Data frame. Must have columns 'patient' and 'clone_id', plus one or
   more drug columns with predicted viability values.
+
+- cols:
+
+  Character vector of column names to scale. Default `NULL` scales every
+  drug column. Use this to leave already-standardized columns (e.g. a
+  pre-combined `comb_viability`) untouched.
 
 ## Value
 

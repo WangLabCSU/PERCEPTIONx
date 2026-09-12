@@ -69,6 +69,8 @@ predict_patients(
 
   Logical. Whether to z-score scale drug columns across patients before
   aggregation. Default = TRUE. Matches the original PERCEPTION pipeline.
+  An already-standardized `comb_viability` column (the output of the IDA
+  combination step) is never scaled again.
 
 ## Value
 
