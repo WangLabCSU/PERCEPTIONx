@@ -35,7 +35,9 @@ as columns. Only needed if \code{prepared_data} is not a list from
 }}
 
 \item{zscore}{Logical. Whether to z-score scale drug columns across patients
-before aggregation. Default = TRUE. Matches the original PERCEPTION pipeline.}
+before aggregation. Default = TRUE. Matches the original PERCEPTION pipeline.
+An already-standardized \code{comb_viability} column (the output of the
+IDA combination step) is never scaled again.}
 }
 \value{
 A data frame with patients as rows and drugs as columns,

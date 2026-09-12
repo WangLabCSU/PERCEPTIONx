@@ -225,10 +225,13 @@ clone_mean_expression <- function(expression_matrix, cell_clone_map, patient_ids
 #'
 #' @param clone_viability_df Data frame. Must have columns 'patient' and 'clone_id',
 #'        plus one or more drug columns with predicted viability values.
+#' @param cols Character vector of column names to scale. Default \code{NULL}
+#'        scales every drug column. Use this to leave already-standardized
+#'        columns (e.g. a pre-combined \code{comb_viability}) untouched.
 #'
 #' @return A data frame with the same structure, but drug columns z-score scaled.
 #' @export
-zscore_viability <- function(clone_viability_df) {
+zscore_viability <- function(clone_viability_df, cols = NULL) {
 
   if (!"patient" %in% colnames(clone_viability_df)) {
     stop("clone_viability_df must have a 'patient' column.")
@@ -238,6 +241,16 @@ zscore_viability <- function(clone_viability_df) {
 
   if (length(drug_cols) == 0) {
     stop("No drug columns found (expected columns other than 'patient' and 'clone_id').")
+  }
+
+  if (!is.null(cols)) {
+    missing_cols <- setdiff(cols, drug_cols)
+    if (length(missing_cols) > 0) {
+      stop("Column(s) not found in clone_viability_df: ",
+           paste(missing_cols, collapse = ", "))
+    }
+    drug_cols <- cols
+    if (length(drug_cols) == 0) return(clone_viability_df)
   }
 
   clone_viability_df[drug_cols] <- lapply(clone_viability_df[drug_cols], function(col) {

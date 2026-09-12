@@ -1,3 +1,9 @@
+# Models are fitted with caret::train() (class "train"), so predict() dispatches
+# on predict.train. Importing the method loads caret's namespace and registers
+# its S3 methods; without it, predicting from a *pre-trained* model (loaded via
+# load_model(), i.e. caret never called in the session) fails with
+# "no applicable method for 'predict' applied to an object of class 'train'".
+
 #' PERCEPTIONx Prediction Functions
 #'
 #' Functions for predicting drug response at cell/clone level and patient level.
@@ -5,6 +11,7 @@
 #' @name predict_perception
 #' @keywords internal
 #' @importFrom stats predict setNames
+#' @importFrom caret predict.train
 NULL
 
 
@@ -196,6 +203,8 @@ viability_from_model_internal <- function(drug_name, model, dataset) {
 #'   }
 #' @param zscore Logical. Whether to z-score scale drug columns across patients
 #'        before aggregation. Default = TRUE. Matches the original PERCEPTION pipeline.
+#'        An already-standardized \code{comb_viability} column (the output of the
+#'        IDA combination step) is never scaled again.
 #'
 #' @return A data frame with patients as rows and drugs as columns,
 #'         containing aggregated viability scores.
@@ -288,9 +297,19 @@ predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
   drug_cols <- setdiff(colnames(clone_viability_matrix), c("patient", "clone_id"))
   n_drugs <- length(drug_cols)
 
-  # Z-score scale drug columns across patients before aggregation
+  # Z-score scale drug columns across patients before aggregation.
+  # A pre-combined score (column name "comb_viability", produced by the IDA
+  # step: per-drug z-score -> per-clone minimum) is ALREADY standardized, so
+  # scaling it again would silently change the weighted maximum
+  # (max(z_i * w_i) != max(x_i * w_i) for unequal weights) and therefore the
+  # patient ranking. The original PERCEPTION pipeline only standardizes the raw
+  # per-drug predictions, so pre-combined columns are left as-is.
   if (zscore) {
-    clone_viability_matrix <- zscore_viability(clone_viability_matrix)
+    scale_cols <- setdiff(drug_cols, "comb_viability")
+    if (length(scale_cols) > 0) {
+      clone_viability_matrix <- zscore_viability(clone_viability_matrix,
+                                                 cols = scale_cols)
+    }
   }
 
   # Aggregate for each patient

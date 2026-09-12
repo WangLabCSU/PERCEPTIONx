@@ -369,6 +369,26 @@ prepare_data <- function(method = c("umap", "tsne"),
 
   # --- Convert patient_mapping to list format if data frame ---
   if (is.data.frame(patient_mapping)) {
+    # Optional per-clone abundance column (count / cells / n_cells /
+    # n_cells_per_clone / abundance): expand each row to that many rows so that
+    # clone weights reflect TRUE cell numbers instead of equal 1/n per clone.
+    # The Shiny app performs the same expansion when a mapping is uploaded
+    # (inst/shiny/app/R/mod_data.R); doing it here as well makes the documented
+    # behaviour available to scripted users who call prepare_data() directly.
+    # The abundance column is consumed here and not passed downstream.
+    count_col <- intersect(c("count", "cells", "n_cells", "n_cells_per_clone", "abundance"),
+                           tolower(colnames(patient_mapping)))
+    if (length(count_col) > 0) {
+      cnt_col <- colnames(patient_mapping)[tolower(colnames(patient_mapping)) == count_col[1]][1]
+      cnt <- suppressWarnings(as.numeric(patient_mapping[[cnt_col]]))
+      cnt[is.na(cnt) | cnt < 1] <- 1L
+      patient_mapping <- patient_mapping[rep(seq_len(nrow(patient_mapping)), cnt), , drop = FALSE]
+      patient_mapping[[cnt_col]] <- NULL
+      rownames(patient_mapping) <- NULL
+      message("  Expanded mapping by '", cnt_col, "' to ", nrow(patient_mapping),
+              " rows (true clone abundance).")
+    }
+
     if (!cell_col %in% colnames(patient_mapping)) {
       stop("patient_mapping data frame must have a column named '", cell_col, "'")
     }

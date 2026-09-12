@@ -4,11 +4,15 @@
 \alias{zscore_viability}
 \title{Z-score scale viability values across patients}
 \usage{
-zscore_viability(clone_viability_df)
+zscore_viability(clone_viability_df, cols = NULL)
 }
 \arguments{
 \item{clone_viability_df}{Data frame. Must have columns 'patient' and 'clone_id',
 plus one or more drug columns with predicted viability values.}
+
+\item{cols}{Character vector of column names to scale. Default \code{NULL}
+scales every drug column. Use this to leave already-standardized
+columns (e.g. a pre-combined \code{comb_viability}) untouched.}
 }
 \value{
 A data frame with the same structure, but drug columns z-score scaled.

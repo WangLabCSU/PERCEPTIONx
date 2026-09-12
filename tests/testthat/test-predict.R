@@ -78,3 +78,37 @@ test_that("predict_patients weighted_max mode works", {
   expect_s3_class(result, "data.frame")
   expect_true(nrow(result) == 1)
 })
+
+test_that("predict_patients does not re-scale a pre-combined comb_viability score", {
+  clone_viability_df <- data.frame(
+    patient  = c("P1", "P1", "P2", "P2"),
+    clone_id = c("P1_c1", "P1_c2", "P2_c1", "P2_c2"),
+    comb_viability = c(-1.5, 0.2, 0.6, 1.4),
+    check.names = FALSE
+  )
+  clone_counts_df <- data.frame(
+    P1_c1 = 200, P1_c2 = 300, P2_c1 = 100, P2_c2 = 100,
+    patients = c("P1", "P2")
+  )
+
+  # The IDA combination already standardizes the drugs, so zscore must not
+  # change the aggregated patient scores.
+  with_z <- predict_patients(clone_viability_df, clone_counts_df,
+                             mode = "weighted_max", zscore = TRUE)
+  no_z <- predict_patients(clone_viability_df, clone_counts_df,
+                           mode = "weighted_max", zscore = FALSE)
+  expect_equal(with_z[["comb_viability"]], no_z[["comb_viability"]])
+
+  # Values match the weighted maximum computed by hand on the raw scale.
+  expect_equal(with_z[["comb_viability"]],
+               c(max(c(-1.5, 0.2) * c(0.4, 0.6)), max(c(0.6, 1.4) * c(0.5, 0.5))))
+
+  # A raw per-drug column is still z-scored (original pipeline behaviour).
+  raw_df <- clone_viability_df
+  names(raw_df)[3] <- "erlotinib"
+  raw_z <- predict_patients(raw_df, clone_counts_df,
+                            mode = "weighted_max", zscore = TRUE)
+  raw_nz <- predict_patients(raw_df, clone_counts_df,
+                             mode = "weighted_max", zscore = FALSE)
+  expect_false(isTRUE(all.equal(raw_z[["erlotinib"]], raw_nz[["erlotinib"]])))
+})
