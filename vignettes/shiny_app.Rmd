@@ -331,9 +331,23 @@ The Help tab contains built-in documentation covering every tab, the FAQ, and us
 
 ## 7. FAQ
 
-**Q1: "Maximum upload size exceeded"?**
+**Q1: "Maximum upload size exceeded", or the upload fails with HTTP 413?**
 
-The upload limit is 1 GB. For larger data, preprocess locally first (for example subset genes); for DepMap, prefer the Download & Load button, which downloads on the server side rather than through the browser.
+The app-side limit is 1 GB. An HTTP **413** is different: it is returned by the reverse proxy in front of the app *before* the request reaches R, and is almost always the nginx `client_max_body_size` default of 1 MB — it will therefore hit the expression matrix (tens to hundreds of MB) while the mapping and response tables (well under 1 MB) still upload fine. On a server you administer, raise it in the proxy configuration:
+
+```nginx
+server {
+    client_max_body_size 1024m;   # default is 1m
+    client_body_timeout  600s;
+    location /shinyapps/ {
+        proxy_pass http://127.0.0.1:3838/;
+        proxy_request_buffering off;   # stream large bodies straight through
+        proxy_read_timeout 3600s;
+    }
+}
+```
+
+To reduce what has to travel at all, upload the matrix as `.csv.gz`, `.tsv.gz` or `.txt.gz` (gzip typically cuts a single-cell matrix by 3-5x) or as `.rds`, which is already compressed. For DepMap, prefer the Download & Load button, which downloads on the server side rather than through the browser.
 
 **Q2: Model Performance says performance fields are missing?**
 

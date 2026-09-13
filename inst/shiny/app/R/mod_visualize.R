@@ -427,8 +427,12 @@ mod_visualize_server <- function(id, shared, main_session) {
                                options = list(maxItems = 1, placeholder = "Select a drug"))
               ),
               if (has_gene) column(6,
+                # Only a head of the gene list is shipped with the panel; the
+                # rest is handed over in the background by load_full_gene_list()
+                # so that opening this card never waits on the browser building
+                # a 15-20k-entry widget.
                 selectizeInput(ns("umap_gene"), "Gene",
-                               choices = gene_choices,
+                               choices = utils::head(gene_choices, 1000L),
                                selected = if (!is.null(gene_choices) && length(gene_choices) > 0) gene_choices[1] else NULL,
                                width = "100%",
                                options = list(maxItems = 1, placeholder = "Select a gene"))
@@ -453,6 +457,31 @@ mod_visualize_server <- function(id, shared, main_session) {
         icon("info-circle"),
         " Combination = ensemble model: clone-level predictions aggregated across all drugs.")
     })
+
+    # The Gene dropdown must list every gene so the whole list stays browsable,
+    # but a 15-20k-entry selectize takes a long time for the browser to build —
+    # and the card cannot draw until that widget is ready, which is what made
+    # the FIRST open of Gene Expression feel slow (the Clone and Viability
+    # cards have no such dropdown and were unaffected). So the panel ships only
+    # a head of the list, and the remaining genes are handed over in the
+    # background once the plot is already being computed: the full list is still
+    # there to scroll and search, it just no longer blocks the first render.
+    gene_list_loaded <- reactiveVal(FALSE)
+    observeEvent(shared$user_expr, gene_list_loaded(FALSE), ignoreNULL = FALSE)
+
+    load_full_gene_list <- function() {
+      if (isTRUE(gene_list_loaded())) return(invisible(NULL))
+      genes <- if (!is.null(shared$user_expr)) rownames(shared$user_expr) else NULL
+      if (is.null(genes) || length(genes) == 0) return(invisible(NULL))
+      gene_list_loaded(TRUE)
+      # onFlushed: the selectize has to exist in the browser before it can be
+      # updated. Sent without `server = TRUE`, so the whole list stays client
+      # side and remains fully browsable.
+      session$onFlushed(function() {
+        updateSelectizeInput(session, "umap_gene", choices = genes)
+      }, once = TRUE)
+      invisible(NULL)
+    }
 
     # Parameter changes redraw the current plot automatically (debounced so
     # fast typing/sliding does not fire a plot per keystroke).
@@ -495,6 +524,11 @@ mod_visualize_server <- function(id, shared, main_session) {
           rownames(shared$user_expr)[1]
         } else ""
       } else ""
+
+      # A gene plot is about to be requested either way, so hand the browser the
+      # rest of the gene list now — it builds it while the plot is being
+      # computed instead of blocking the first render. No-op after the first call.
+      if (pt == "umap_gene") load_full_gene_list()
 
       # Cache hit: identical request was generated before — reuse instantly.
       ck <- if (is_spatial) paste(pt, gene_sel, input$umap_drug, sep = "\u0001")
