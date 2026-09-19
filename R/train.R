@@ -24,7 +24,14 @@ get_response_matrix <- function(infunc_drugName) {
     stop("DepMap data not loaded. Please run load_depmap(read = TRUE) first.")
   }
 
-  infunc_drugName_id <- which(stripall2match(DepMap$secondary_screen_drugAnnotation$CommonName) == infunc_drugName)
+  # Strip BOTH sides: stripall2match() removes non-alphanumerics, so comparing
+  # the stripped annotation names against a raw drug name silently failed for
+  # every drug containing a hyphen/space (e.g. "5-fluorouracil" -> "5fluorouracil"
+  # != "5-fluorouracil"). That yielded an empty row index, and colMeans() of the
+  # resulting 0-row matrix returned an all-NaN vector, so training reported
+  # "feature ranking failed" for a drug whose response data was present.
+  infunc_drugName_id <- which(stripall2match(DepMap$secondary_screen_drugAnnotation$CommonName) ==
+                                stripall2match(infunc_drugName))
   infunc_response <- DepMap$secondary_prism[infunc_drugName_id, ]
 
   if (is.matrix(infunc_response)) {
@@ -594,7 +601,10 @@ train_models <- function(drug_list = NULL,
     }
 
     # Check if drug exists in DepMap response data
-    drug_match <- which(stripall2match(DepMap$secondary_screen_drugAnnotation$CommonName) == drug)
+    # Strip both sides here too, for the same reason as get_response_matrix():
+    # a raw comparison rejects every drug name containing a hyphen or space.
+    drug_match <- which(stripall2match(DepMap$secondary_screen_drugAnnotation$CommonName) ==
+                          stripall2match(drug))
     if (length(drug_match) == 0) {
       warning("  Skipping ", drug, " - drug not found in DepMap response data.")
       for_output_lung_Test_vglm[i] <- list(NULL)
