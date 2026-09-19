@@ -383,6 +383,31 @@ div.card > .card-body.seurat-body {
   box-shadow: 0 0 0 3px var(--primary-alpha) !important;
 }
 
+/* Keep a multi-select on ONE line. The selected item tag plus selectize's own
+   (inline-width) search input together exceed the width available in a narrow
+   card (e.g. the "Drug" picker in Pre-trained Models, ~250px of usable width),
+   so the flex container wrapped and the control rendered as a two-row, ~70px
+   tall box that also overlapped the button below it. Pin the height and let
+   extra tags scroll horizontally instead. */
+.inline-form-row .selectize-input {
+  flex-wrap: nowrap !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  max-height: 38px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+}
+
+/* Tags keep their intrinsic width; the search field takes the slack so a single
+   selected tag always leaves room for it on the same line. */
+.inline-form-row .selectize-input > .item {
+  flex: 0 0 auto !important;
+}
+
+.inline-form-row .selectize-input > input[type="text"] {
+  flex: 1 1 2rem !important;
+}
+
 .inline-form-row .selectize-input .item {
   display: inline-flex !important;
   align-items: center !important;
