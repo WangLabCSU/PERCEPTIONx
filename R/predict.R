@@ -2,7 +2,7 @@
 # on predict.train. Importing the method loads caret's namespace and registers
 # its S3 methods; without it, predicting from a *pre-trained* model (loaded via
 # load_model(), i.e. caret never called in the session) fails with
-# "no applicable method for 'predict' applied to an object of class 'train'".
+# "no applicable method for 'predict' applied to an object of class 'train'"
 
 #' PERCEPTIONx Prediction Functions
 #'
@@ -372,5 +372,158 @@ predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
   patient_results <- as.data.frame(patient_results)
 
   patient_results
+}
+
+
+#' Combine multi-drug predictions into a single combination score
+#'
+#' Implements the IDA (Independent Drug Action) combination principle used in
+#' PERCEPTION: each clone-level drug viability is first z-score scaled across
+#' all clones, then the per-clone combined score is derived from the
+#' drug-specific z-scores. The default rule \code{min} means "the most effective
+#' drug in the combination drives the clone-level combined score" — the exact
+#' rule hard-coded in the Shiny app's internal \code{combo_clone_frame()}.
+#'
+#' This function is the missing glue between [predict_drugs()] and downstream
+#' patient-level aggregation / visualisation. Its output feeds directly into
+#' [predict_patients()] (as the app's [predict_patients()] already skips
+#' re-standardising the \code{comb_viability} column) and [plot_clone_viability()].
+#'
+#' @param pred Matrix or data.frame of clone-level drug viability predictions.
+#'   Typically the output of [predict_drugs()]. Rows = clones, columns = drugs.
+#'   Row names must be canonical PERCEPTION clone keys
+#'   (\code{"patient@@clone_id"}). Alternatively, pass a \code{data.frame} with
+#'   an explicit \code{patient} column and a \code{clone_id} column.
+#' @param patient Optional character vector of patient IDs, length equal to
+#'   \code{nrow(pred)}. Required only when \code{pred} row names are NOT
+#'   \code{"patient@@clone_id"} keys.
+#' @param clone_id Optional character vector of clone IDs, length equal to
+#'   \code{nrow(pred)}. Required only when passing \code{patient} explicitly.
+#' @param combine_rule Character scalar, per-clone aggregation after z-scoring.
+#'   Must be one of \code{"min"} (IDA default), \code{"mean"}, \code{"max"}, or
+#'   \code{"median"}.
+#' @param na.rm Logical, passed through to the aggregator. Default \code{TRUE}.
+#' @param include_single_z Logical. If \code{TRUE}, per-drug z-scored columns
+#'   are retained in the output alongside \code{comb_viability}. Default
+#'   \code{FALSE}.
+#'
+#' @return A data.frame with columns:
+#'   \describe{
+#'     \item{patient}{Patient ID.}
+#'     \item{clone_id}{Clone ID.}
+#'     \item{comb_viability}{Combined viability score (already z-scored across
+#'       clones, so [predict_patients()] will not standardise it again).}
+#'     \item{<drug_z>}{(optional, when \code{include_single_z = TRUE}) one
+#'       additional column per input drug, named like \code{<drug>.z},
+#'       containing the per-drug z-scores before combination.}
+#'   }
+#'
+#' @section Pipeline:
+#' \preformatted{
+#'   pred     <- predict_drugs(models, rank_expr)        # clones x drugs matrix
+#'   clone_df <- combine_drugs(pred)                    # patient / clone_id / comb_viability
+#'   pat      <- predict_patients(clone_df, prepared_data)
+#'   plot_clone_viability(clone_df, viability_var = "comb_viability")
+#' }
+#'
+#' The patient-level aggregated score will be identical to the one produced by
+#' the Shiny app for the same drugs / clones.
+#'
+#' @section Caveats:
+#' The default \code{min} rule amplifies noise when individual drug models are
+#' very poor — the "least bad" model can still be quite bad, but \code{min}
+#' picks it as the best combination driver. For exploratory analyses you can
+#' pass \code{combine_rule = "mean"} or \code{combine_rule = "max"} and compare.
+#'
+#' When only one drug is present in \code{pred}, the combined score is simply
+#' that drug's z-score.
+#'
+#' @seealso [predict_drugs()], [predict_patients()], [plot_clone_viability()],
+#'   [zscore_viability()]
+#' @export
+combine_drugs <- function(pred,
+                          patient = NULL,
+                          clone_id = NULL,
+                          combine_rule = c("min", "mean", "max", "median"),
+                          na.rm = TRUE,
+                          include_single_z = FALSE) {
+
+  combine_rule <- match.arg(combine_rule)
+
+  # --- 1. Normalise input to a numeric matrix with row names ----------------
+  if (is.data.frame(pred)) {
+    # If user passes data.frame with patient + clone_id columns, stash them
+    df_cols <- colnames(pred)
+    drop_cols <- intersect(df_cols, c("patient", "clone_id", "comb_viability"))
+    pred_mat <- as.matrix(pred[, setdiff(df_cols, drop_cols), drop = FALSE])
+    if (ncol(pred_mat) == 0) {
+      stop("No drug columns found in pred. A data.frame input must contain ",
+           "drug columns in addition to 'patient' / 'clone_id'.")
+    }
+    if (is.null(patient) && "patient" %in% df_cols) {
+      patient <- as.character(pred$patient)
+    }
+    if (is.null(clone_id) && "clone_id" %in% df_cols) {
+      clone_id <- as.character(pred$clone_id)
+    }
+  } else if (!is.matrix(pred)) {
+    stop("pred must be a matrix or data.frame (from predict_drugs()).")
+  } else {
+    pred_mat <- pred
+  }
+  pred_mat <- as.matrix(pred_mat)
+  storage.mode(pred_mat) <- "double"
+
+  if (ncol(pred_mat) < 1) stop("pred has zero drug columns.")
+
+  # --- 2. Resolve patient / clone_id ---------------------------------------
+  if (is.null(patient) || is.null(clone_id)) {
+    rn <- rownames(pred_mat)
+    if (is.null(rn) || any(!grepl("@@", rn))) {
+      stop("pred row names must be canonical PERCEPTION clone keys ",
+           "(\"patient@@clone_id\"), OR supply both 'patient' and 'clone_id'.")
+    }
+    keys <- parse_clone_keys(rn)
+    if (is.null(patient)) patient <- keys$patient
+    if (is.null(clone_id)) clone_id <- keys$clone_id
+  }
+  if (length(patient) != nrow(pred_mat) || length(clone_id) != nrow(pred_mat)) {
+    stop("patient and clone_id lengths (", length(patient), "/", length(clone_id),
+         ") must equal nrow(pred) (", nrow(pred_mat), ").")
+  }
+
+  # --- 3. Z-score each drug column across all clones ------------------------
+  z_mat <- pred_mat
+  for (j in seq_len(ncol(pred_mat))) {
+    col <- pred_mat[, j]
+    s   <- stats::sd(col, na.rm = TRUE)
+    z_mat[, j] <- if (is.na(s) || s == 0) rep(0, length(col)) else
+      as.numeric(scale(col))
+  }
+
+  # --- 4. Per-clone combination ---------------------------------------------
+  agg <- switch(combine_rule,
+                "min"    = function(x, ...)  apply(x, 1, min,    na.rm = na.rm),
+                "mean"   = function(x, ...)  rowMeans(x,       na.rm = na.rm),
+                "max"    = function(x, ...)  apply(x, 1, max,    na.rm = na.rm),
+                "median" = function(x, ...)  apply(x, 1, stats::median, na.rm = na.rm))
+
+  comb <- agg(z_mat)
+  # Single-row / all-NA edge case: rowMeans returns NaN, min/max/median return NA
+  if (combine_rule == "mean") comb[!is.finite(comb)] <- NA_real_
+
+  # --- 5. Assemble output ---------------------------------------------------
+  out <- data.frame(patient  = as.character(patient),
+                    clone_id = as.character(clone_id),
+                    comb_viability = as.numeric(comb),
+                    stringsAsFactors = FALSE)
+
+  if (include_single_z) {
+    z_df <- as.data.frame(z_mat)
+    colnames(z_df) <- paste0(colnames(z_mat), ".z")
+    out <- cbind(out, z_df)
+  }
+
+  out
 }
 
