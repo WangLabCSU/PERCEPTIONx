@@ -253,6 +253,8 @@ Download and load DepMap reference data and pre-trained models.
 
 - [`predict_drugs()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/predict_drugs.md)
   : Predict drug response for cells or clones
+- [`combine_drugs()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/combine_drugs.md)
+  : Combine multi-drug predictions into a single combination score
 - [`predict_patients()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/predict_patients.md)
   : Predict drug response at patient level
 
