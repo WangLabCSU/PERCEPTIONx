@@ -8,7 +8,8 @@ feature_ranking_bulk(
   infunc_drugName,
   infunc_cancerType = "PanCan",
   exclude_cancer = "PanCan",
-  infunc_GOI
+  infunc_GOI,
+  ncores = 4L
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ feature_ranking_bulk(
 \item{exclude_cancer}{Character. Cancer type to exclude. Default = "PanCan".}
 
 \item{infunc_GOI}{Character vector. Genes of Interest to rank.}
+
+\item{ncores}{Number of cores to use for parallelization. Default = 4.}
 }
 \value{
 Matrix of ranked features with columns: p.value, estimate.cor (sorted by abs(cor) descending)

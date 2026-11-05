@@ -11,14 +11,14 @@ library(ggplot2)
 
 # Allow large uploads: single-cell matrices / RDS reference files can far
 # exceed Shiny's default 5 MB limit.
-options(shiny.maxRequestSize = 1 * 1024^3)  # 1 GB (DepMap.RDS is ~567 MB)
+options(shiny.maxRequestSize = 1 * 1024^3) # 1 GB (DepMap.RDS is ~567 MB)
 
 # Long synchronous tasks (model training, large uploads/parsing) block the
 # single R thread, so the browser heartbeat cannot be answered while they run.
 # The default heartbeat timeout is 60s — multi-drug training can exceed that,
 # the browser drops the WebSocket, and the "hiding" messages (waiter, progress)
 # are lost, leaving spinners stuck on screen. Raise it so sessions survive.
-options(shiny.heartbeat.timeout = 1800)  # 30 minutes, then consider dead
+options(shiny.heartbeat.timeout = 1800) # 30 minutes, then consider dead
 
 # ---------------------------------------------------------------------------
 # sass/bslib compile cache. On hosted deployments (Shiny Server) sass defaults
@@ -43,11 +43,17 @@ options(sass.cache = file.path(tempdir(check = TRUE), "sass-cache"))
 # a data URI (both in <link rel="icon"> and inside styles.css backgrounds).
 # ---------------------------------------------------------------------------
 perception_asset <- function(name) {
-  paste(readLines(file.path(perception_www_dir, name), warn = FALSE), collapse = "\n")
+  paste(
+    readLines(file.path(perception_www_dir, name), warn = FALSE),
+    collapse = "\n"
+  )
 }
 perception_favicon_uri <- function() {
   svg <- perception_asset("favicon.svg")
-  paste0("data:image/svg+xml;charset=utf-8,", utils::URLencode(svg, reserved = TRUE))
+  paste0(
+    "data:image/svg+xml;charset=utf-8,",
+    utils::URLencode(svg, reserved = TRUE)
+  )
 }
 
 # Auto-detect package root robustly, regardless of how the app is launched
@@ -66,10 +72,10 @@ pkg_root <- NULL
 script_dir <- tryCatch(dirname(sys.frame(1)$ofile), error = function(e) NULL)
 candidates <- c(
   if (!is.null(script_dir)) file.path(script_dir, "..", "..", ".."),
-  file.path(getwd(), "..", "..", ".."),  # cwd = inst/shiny/app
-  file.path(getwd(), "..", ".."),        # cwd = inst/shiny
-  file.path(getwd(), ".."),              # cwd = inst
-  file.path(getwd())                     # cwd = repo root
+  file.path(getwd(), "..", "..", ".."), # cwd = inst/shiny/app
+  file.path(getwd(), "..", ".."), # cwd = inst/shiny
+  file.path(getwd(), ".."), # cwd = inst
+  file.path(getwd()) # cwd = repo root
 )
 for (cand in candidates) {
   if (is_src_root(cand)) {
@@ -95,7 +101,9 @@ if (!is.null(pkg_root)) {
   # the normal, expected path for deployments.
   library(PERCEPTIONx)
 } else {
-  stop("Neither devtools (with repo) nor PERCEPTIONx is available. Please install PERCEPTIONx.")
+  stop(
+    "Neither devtools (with repo) nor PERCEPTIONx is available. Please install PERCEPTIONx."
+  )
 }
 
 # Tutorial screenshots are referenced with relative srcs ("figures/x.png").
@@ -147,9 +155,14 @@ perception_theme <- bs_theme(
 ui <- page_navbar(
   theme = perception_theme,
   title = tagList(
-    tags$span(class = "brand-icon",
-      tags$img(src = perception_favicon_uri(), height = "28", alt = "PERCEPTION-shiny",
-               style = "vertical-align: middle; margin-right: 0.3rem;")
+    tags$span(
+      class = "brand-icon",
+      tags$img(
+        src = perception_favicon_uri(),
+        height = "28",
+        alt = "PERCEPTION-shiny",
+        style = "vertical-align: middle; margin-right: 0.3rem;"
+      )
     ),
     tags$span(class = "brand-text", "PERCEPTION-shiny")
   ),
@@ -162,21 +175,34 @@ ui <- page_navbar(
     # buttons show it instantly from their onclick (no ~1s round trip before
     # feedback); the server hides it via 'hide-demo-overlay' when the demo
     # task finishes or fails.
-    div(id = "demo-overlay", class = "demo-overlay", style = "display: none;",
+    div(
+      id = "demo-overlay",
+      class = "demo-overlay",
+      style = "display: none;",
       div(class = "spinner-ring"),
       h4("Preparing demo data..."),
-      p(id = "demo-stage", class = "text-muted", "Running Seurat clustering...")),
+      p(id = "demo-stage", class = "text-muted", "Running Seurat clustering...")
+    ),
     # Assets are inlined (see the perception_asset block above) — no external
     # file requests, so no www/ directory is needed on the server. The
     # favicon.svg references inside styles.css are swapped for the data URI.
     tags$head(tags$style(HTML(
-      gsub("url('favicon.svg')", paste0("url(\"", perception_favicon_uri(), "\")"),
-           perception_asset("styles.css"), fixed = TRUE)))),
+      gsub(
+        "url('favicon.svg')",
+        paste0("url(\"", perception_favicon_uri(), "\")"),
+        perception_asset("styles.css"),
+        fixed = TRUE
+      )
+    ))),
     tags$head(tags$style(HTML(perception_asset("tour.css")))),
     tags$head(tags$script(HTML(perception_asset("tour.js")))),
-    tags$head(tags$link(rel = "icon", href = perception_favicon_uri(),
-                        type = "image/svg+xml")),
-    tags$head(tags$script(HTML("
+    tags$head(tags$link(
+      rel = "icon",
+      href = perception_favicon_uri(),
+      type = "image/svg+xml"
+    )),
+    tags$head(tags$script(HTML(
+      "
       Shiny.addCustomMessageHandler('scroll-to', function(id) {
         var el = document.getElementById(id);
         if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
@@ -244,7 +270,8 @@ ui <- page_navbar(
           setTimeout(function() { window.scrollTo(0, y); }, ms);
         });
       });
-    ")))
+    "
+    )))
   ),
   nav_spacer(),
   nav_item(tagList(
@@ -311,7 +338,7 @@ ui <- page_navbar(
 server <- function(input, output, session) {
   # Shared reactive values
   shared <- reactiveValues(
-    depmap_meta = NULL,        # lightweight DepMap metadata only (genes/drugs/dims)
+    depmap_meta = NULL, # lightweight DepMap metadata only (genes/drugs/dims)
     depmap_path = NULL,
     depmap_is_standard = FALSE,
     models = NULL,
@@ -335,7 +362,9 @@ server <- function(input, output, session) {
   # heavy Seurat / caret / glmnet namespaces are already loaded when the user
   # first runs Seurat clustering / the demo — that ~3-4 s load no longer sits
   # inside the first prepare/demo task.
-  tryCatch(submit_session_task(shared, "warmup", list()), error = function(e) NULL)
+  tryCatch(submit_session_task(shared, "warmup", list()), error = function(e) {
+    NULL
+  })
 
   # Modules — pass main session for cross-module navigation
   mod_home_server("home", shared, session)
@@ -380,8 +409,11 @@ server <- function(input, output, session) {
     # mid-flight has been aborted by the kill above.
     for (dir_key in c("task_jobs_dir", "jobs_dir")) {
       d <- isolate(shared[[dir_key]])
-      if (!is.null(d) && nzchar(d) &&
-          grepl("perception_tasks|perception_jobs_custom", d, fixed = FALSE)) {
+      if (
+        !is.null(d) &&
+          nzchar(d) &&
+          grepl("perception_tasks|perception_jobs_custom", d, fixed = FALSE)
+      ) {
         unlink(d, recursive = TRUE)
       }
     }

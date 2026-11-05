@@ -1,11 +1,12 @@
 # Verify the INSTALLED package (E:/rlibtest): S3 hijack removed, exports OK.
 .libPaths(c('E:/rlibtest', .libPaths()))
 suppressMessages(library(PERCEPTIONx))
-fails <- 0L
+counters <- new.env(parent = emptyenv())
+counters$fails <- 0L
 chk <- function(name, ok, detail = "") {
   cat(sprintf("[%s] %s%s\n", if (ok) "PASS" else "FAIL", name,
               if (nzchar(detail)) paste0(" -> ", detail) else ""))
-  if (!ok) fails <<- fails + 1L
+  if (!ok) counters$fails <- counters$fails + 1L
 }
 set.seed(1); d <- data.frame(x = 1:10, y = 1:10 + rnorm(10))
 
@@ -37,6 +38,6 @@ chk("installed: exports ok",
 dsc <- packageDescription("PERCEPTIONx")
 chk("installed: callr in Imports", grepl("callr", dsc$Imports, fixed = TRUE))
 
-cat(if (fails == 0L) "\nINSTALL VERIFY ALL PASSED\n"
-    else sprintf("\n%d CHECK(S) FAILED\n", fails))
-quit(save = "no", status = if (fails == 0L) 0L else 1L)
+cat(if (counters$fails == 0L) "\nINSTALL VERIFY ALL PASSED\n"
+    else sprintf("\n%d CHECK(S) FAILED\n", counters$fails))
+quit(save = "no", status = if (counters$fails == 0L) 0L else 1L)

@@ -10,7 +10,7 @@ plot_clone_umap(
   title = NULL,
   color_label = "Clone",
   point_size = NULL,
-  base_size = 11,
+  base_size = 11L,
   tooltip = TRUE,
   tooltip_col = NULL
 )

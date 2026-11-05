@@ -10,8 +10,8 @@ load_model(
   read = FALSE,
   mirror = FALSE,
   mirror_url = NULL,
-  timeout_seconds = 30,
-  retries = 0,
+  timeout_seconds = 30L,
+  retries = 0L,
   force = FALSE,
   all = FALSE
 )

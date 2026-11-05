@@ -4,7 +4,7 @@
 \alias{plot_model_roc}
 \title{Plot validation ROC curves for trained models}
 \usage{
-plot_model_roc(performance_list, base_size = 13)
+plot_model_roc(performance_list, base_size = 13L)
 }
 \arguments{
 \item{performance_list}{Named list of model objects from \code{train_models()},

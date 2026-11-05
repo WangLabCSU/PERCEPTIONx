@@ -8,11 +8,12 @@ for (f in list.files("R", pattern = "\\.R$", full.names = TRUE)) {
   suppressMessages(source(f))
 }
 
-fails <- 0L
+counters <- new.env(parent = emptyenv())
+counters$fails <- 0L
 chk <- function(name, ok, detail = "") {
   cat(sprintf("[%s] %s%s\n", if (ok) "PASS" else "FAIL", name,
               if (nzchar(detail)) paste0(" -> ", detail) else ""))
-  if (!ok) fails <<- fails + 1L
+  if (!ok) counters$fails <- counters$fails + 1L
 }
 
 # 1. range01 constant vector -> 0 ("no signal", not the old 0.5 midpoint)
@@ -66,6 +67,6 @@ out <- tryCatch(each_patient_pseudo_bulk(x = 2, comb_viability_df = NULL,
 chk("each_patient_pseudo_bulk empty-clone guard",
     !inherits(out, "error") && all(is.na(out)))
 
-cat(if (fails == 0L) "\nALL CHECKS PASSED\n"
-    else sprintf("\n%d CHECK(S) FAILED\n", fails))
-quit(save = "no", status = if (fails == 0L) 0L else 1L)
+cat(if (counters$fails == 0L) "\nALL CHECKS PASSED\n"
+    else sprintf("\n%d CHECK(S) FAILED\n", counters$fails))
+quit(save = "no", status = if (counters$fails == 0L) 0L else 1L)

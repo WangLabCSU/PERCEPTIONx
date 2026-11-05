@@ -2,7 +2,6 @@
 #'
 #' @name load_perception
 #' @keywords internal
-#' @importFrom utils download.file
 NULL
 
 # Package-level environment for storing DepMap data
@@ -13,7 +12,7 @@ NULL
 # truncated downloads / partial cache files so they are never cached or
 # parsed. Bump this if the release asset is ever regenerated with a
 # different size.
-.depmap_release_size <- 594589700
+.depmap_release_size <- 594589700L
 
 #' Get the DepMap dataset
 #'
@@ -37,7 +36,9 @@ get_depmap <- function() {
   if (exists("DepMap", envir = .GlobalEnv)) {
     return(get("DepMap", envir = .GlobalEnv))
   }
-  stop("DepMap data not loaded. Run load_depmap(read = TRUE) first.")
+  cli::cli_abort(
+    "DepMap data not loaded. Run load_depmap(read = TRUE) first."
+  )
 }
 
 # DepMap is accessed via get_depmap() - declare to suppress R CMD check note
@@ -59,11 +60,15 @@ utils::globalVariables("DepMap")
 #' @return TRUE if successful, FALSE otherwise
 #' @keywords internal
 #' @noRd
-download_with_mirrors <- function(urls, destfile, quiet = FALSE,
-                                  speed_threshold = 10,
-                                  timeout_seconds = 30,
-                                  retries = 0,
-                                  expected_size = NULL) {
+download_with_mirrors <- function(
+  urls,
+  destfile,
+  quiet = FALSE,
+  speed_threshold = 10L,
+  timeout_seconds = 30L,
+  retries = 0L,
+  expected_size = NULL
+) {
   # Save and restore R timeout setting
   old_timeout <- getOption("timeout")
   on.exit(options(timeout = old_timeout), add = TRUE)
@@ -96,36 +101,61 @@ download_with_mirrors <- function(urls, destfile, quiet = FALSE,
   extra_base <- "-L --fail --ssl-no-revoke"
 
   for (i in seq_along(urls)) {
-    if (!quiet) message("Trying mirror ", i, "/", length(urls))
+    if (!quiet) {
+      cli::cli_alert_info("Trying mirror {i}/{length(urls)}")
+    }
 
-    for (attempt in 0:retries) {
-      if (attempt > 0 && !quiet) message("  Retry attempt ", attempt)
+    for (attempt in 0L:retries) {
+      if (attempt > 0L && !quiet) {
+        cli::cli_alert_info("Retry attempt {attempt}")
+      }
 
       start_time <- Sys.time()
       success <- FALSE
-      timeout_occurred <- FALSE
       incomplete <- FALSE
 
-      tryCatch({
-        suppressWarnings({
-          curl_extra <- if (attempt > 0) paste(extra_base, "-C -") else extra_base
-          download.file(urls[i], destfile, mode = "wb", quiet = quiet,
-                        method = download_method, extra = curl_extra)
-        })
-        success <- TRUE
-      }, error = function(e) {
-        if (grepl("Timeout|timed out|reached elapsed time", e$message, ignore.case = TRUE)) {
-          timeout_occurred <<- TRUE
+      download_status <- tryCatch(
+        {
+          suppressWarnings({
+            curl_extra <- if (attempt > 0L) {
+              paste(extra_base, "-C -")
+            } else {
+              extra_base
+            }
+            utils::download.file(
+              urls[i],
+              destfile,
+              mode = "wb",
+              quiet = quiet,
+              method = download_method,
+              extra = curl_extra
+            )
+          })
+          success <- TRUE
+          "success"
+        },
+        error = function(e) {
+          timed_out <- grepl(
+            "Timeout|timed out|reached elapsed time",
+            e$message,
+            ignore.case = TRUE
+          )
           if (!quiet && attempt == retries) {
-            message("  Mirror ", i, " timed out after ", timeout_seconds, " seconds")
+            if (timed_out) {
+              cli::cli_alert_warning(
+                "Mirror {i} timed out after {timeout_seconds} seconds."
+              )
+            } else {
+              cli::cli_alert_warning("Mirror {i} failed: {e$message}")
+            }
           }
-        } else {
-          if (!quiet && attempt == retries) {
-            message("  Mirror ", i, " failed: ", e$message)
+          if (file.exists(destfile)) {
+            file.remove(destfile)
           }
+          if (timed_out) "timeout" else "error"
         }
-        if (file.exists(destfile)) file.remove(destfile)
-      })
+      )
+      timeout_occurred <- identical(download_status, "timeout")
 
       # A "successful" transfer can still be truncated by a flaky connection
       # or a misbehaving proxy: verify the size against the known release
@@ -135,40 +165,45 @@ download_with_mirrors <- function(urls, destfile, quiet = FALSE,
         sz <- file.size(destfile)
         if (!is.null(expected_size) && is.finite(sz) && sz < expected_size) {
           incomplete <- TRUE
-          if (!quiet) message(sprintf(
-            "  Incomplete download: %d of %d bytes (%.1f%%), discarding and retrying",
-            sz, expected_size, 100 * sz / expected_size))
+          if (!quiet) {
+            cli::cli_alert_warning(
+              "Incomplete download: {sz} of {expected_size} rlang::bytes ({round(100 * sz / expected_size, 1)}%), discarding and retrying."
+            )
+          }
           file.remove(destfile)
           success <- FALSE
         }
       }
 
-      if (success && file.exists(destfile) && file.size(destfile) > 0) {
+      if (success && file.exists(destfile) && file.size(destfile) > 0L) {
         end_time <- Sys.time()
         elapsed <- as.numeric(difftime(end_time, start_time, units = "secs"))
-        file_size_mb <- file.size(destfile) / 1024 / 1024
-        speed_kb_s <- (file.size(destfile) / 1024) / elapsed
+        file_size_mb <- file.size(destfile) / 1024L / 1024L
+        speed_kb_s <- (file.size(destfile) / 1024L) / elapsed
 
         if (!quiet) {
-          message(sprintf("Downloaded %.2f MB in %.1f sec (%.0f KB/s)",
-                          file_size_mb, elapsed, speed_kb_s))
+          cli::cli_alert_success(
+            "Downloaded {round(file_size_mb, 2)} MB in {round(elapsed, 1)} sec ({round(speed_kb_s)} KB/s)."
+          )
         }
         if (is.finite(speed_kb_s) && speed_kb_s < speed_threshold) {
-          message(sprintf("  Warning: mirror %d is slow (%.0f KB/s < %.0f KB/s threshold). Consider a different mirror.",
-                          i, speed_kb_s, speed_threshold))
+          cli::cli_alert_warning(
+            "Mirror {i} is slow ({round(speed_kb_s)} KB/s < {round(speed_threshold)} KB/s threshold). Consider a different mirror."
+          )
         }
         return(TRUE)
       }
 
       if ((timeout_occurred || incomplete) && attempt < retries) {
-        if (!quiet) message("  Retrying mirror ", i, "...")
+        if (!quiet) {
+          cli::cli_alert_info("Retrying mirror {i}...")
+        }
         next
       }
     }
   }
   return(FALSE)
 }
-
 
 
 #' Get current download mirrors
@@ -205,7 +240,6 @@ get_default_perception_mirrors <- function() {
 }
 
 
-
 #' Add custom download mirrors
 #'
 #' @param urls Character vector of mirror URLs to add.
@@ -221,33 +255,37 @@ get_default_perception_mirrors <- function() {
 #'               "https://mirror2.com/https://github.com"))
 #' }
 add_mirrors <- function(urls, position = c("first", "last")) {
-  position <- match.arg(position)
+  position <- rlang::arg_match(position)
 
   if (!all(grepl("^https?://", urls))) {
-    stop("All URLs must start with http:// or https://")
+    cli::cli_abort("All URLs must start with {.url http://} or {.url https://}")
   }
 
-  current_mirrors <- getOption("PERCEPTIONx.download_mirrors", get_default_perception_mirrors())
+  current_mirrors <- getOption(
+    "PERCEPTIONx.download_mirrors",
+    get_default_perception_mirrors()
+  )
   urls <- sub("/$", "", urls)
 
   # Remove duplicates (both against current and within input)
   urls <- unique(urls)
   urls <- urls[!urls %in% current_mirrors]
 
-  if (length(urls) == 0) {
-    message("All mirrors already exist")
+  if (length(urls) == 0L) {
+    cli::cli_alert_info("All mirrors already exist.")
     return(invisible(current_mirrors))
   }
 
-  new_mirrors <- switch(position,
-                        "first" = c(urls, current_mirrors),
-                        "last" = c(current_mirrors, urls))
+  new_mirrors <- switch(
+    position,
+    "first" = c(urls, current_mirrors),
+    "last" = c(current_mirrors, urls)
+  )
 
   options(PERCEPTIONx.download_mirrors = new_mirrors)
-  message("Added ", length(urls), " mirror(s)")
+  cli::cli_alert_success("Added {length(urls)} mirror(s).")
   invisible(new_mirrors)
 }
-
 
 
 #' List current download mirrors
@@ -262,32 +300,45 @@ list_mirrors <- function() {
 }
 
 
-
 #' Reset mirrors to default
 #'
 #' @export
 reset_mirrors <- function() {
   options(PERCEPTIONx.download_mirrors = NULL)
-  message("Mirrors reset to default")
+  cli::cli_alert_success("Mirrors reset to default.")
   invisible(get_default_perception_mirrors())
 }
 
 
-
-# The 44 pre-trained model drugs shipped with the package (used by
-# load_model(all = TRUE) to pre-cache the full set on deployment servers).
-# Single source of truth — train_models() defaults and the Shiny app's drug
-# dropdown both read this list.
+#' The 44 pre-trained model drugs shipped with the package (used by
+#' load_model(all = TRUE) to pre-cache the full set on deployment servers).
+#' Single source of truth — train_models() defaults and the Shiny app's drug
+#' dropdown both read this list.
+#' @export
+# fmt:table
 perception_all_drugs <- c(
-  "abemaciclib", "afatinib", "axitinib", "azacitidine", "cladribine",
-  "clofarabine", "cobimetinib", "dabrafenib", "dasatinib", "daunorubicin",
-  "decitabine", "docetaxel", "doxorubicin", "epirubicin", "erlotinib",
-  "etoposide", "gefitinib", "gemcitabine", "homoharringtonine", "ibrutinib",
-  "icotinib", "ixabepilone", "lapatinib", "lenvatinib", "midostaurin",
-  "niraparib", "osimertinib", "paclitaxel", "palbociclib", "ponatinib",
-  "romidepsin", "sunitinib", "temsirolimus", "teniposide", "thioguanine",
-  "topotecan", "trametinib", "vandetanib", "vemurafenib", "vinblastine",
-  "vincristine", "vindesine", "vinflunine", "vinorelbine"
+  "abemaciclib"       , "afatinib"     ,
+  "axitinib"          , "azacitidine"  ,
+  "cladribine"        , "clofarabine"  ,
+  "cobimetinib"       , "dabrafenib"   ,
+  "dasatinib"         , "daunorubicin" ,
+  "decitabine"        , "docetaxel"    ,
+  "doxorubicin"       , "epirubicin"   ,
+  "erlotinib"         , "etoposide"    ,
+  "gefitinib"         , "gemcitabine"  ,
+  "homoharringtonine" , "ibrutinib"    ,
+  "icotinib"          , "ixabepilone"  ,
+  "lapatinib"         , "lenvatinib"   ,
+  "midostaurin"       , "niraparib"    ,
+  "osimertinib"       , "paclitaxel"   ,
+  "palbociclib"       , "ponatinib"    ,
+  "romidepsin"        , "sunitinib"    ,
+  "temsirolimus"      , "teniposide"   ,
+  "thioguanine"       , "topotecan"    ,
+  "trametinib"        , "vandetanib"   ,
+  "vemurafenib"       , "vinblastine"  ,
+  "vincristine"       , "vindesine"    ,
+  "vinflunine"        , "vinorelbine"
 )
 
 #' Load pre-built model of provided drugs
@@ -332,20 +383,31 @@ perception_all_drugs <- c(
 #' models <- load_model("erlotinib", read = TRUE,
 #'                      mirror_url = "https://gh-proxy.com/https://github.com")
 #' }
-load_model <- function(..., dest = perception_default_model_dir(), read = FALSE, mirror = FALSE,
-                       mirror_url = NULL, timeout_seconds = 30, retries = 0, force = FALSE,
-                       all = FALSE) {
+load_model <- function(
+  ...,
+  dest = perception_default_model_dir(),
+  read = FALSE,
+  mirror = FALSE,
+  mirror_url = NULL,
+  timeout_seconds = 30L,
+  retries = 0L,
+  force = FALSE,
+  all = FALSE
+) {
   drugs <- tolower(c(...))
   if (all) {
-    if (length(drugs) > 0) {
-      warning("all = TRUE overrides the drug names given in ...; downloading all 44 models.",
-              call. = FALSE)
+    if (length(drugs) > 0L) {
+      warning(
+        "all = TRUE overrides the drug names given in ...; downloading all 44 models.",
+        call. = FALSE
+      )
     }
     drugs <- perception_all_drugs
   }
-  if (length(drugs) == 0) {
-    stop("Drug list is empty. Pass drug names or set all = TRUE to download all 44 pre-trained models.",
-         call. = FALSE)
+  if (length(drugs) == 0L) {
+    cli::cli_abort(
+      "Drug list is empty. Pass drug names or set {.code all = TRUE} to download all 44 pre-trained models."
+    )
   }
 
   if (!dir.exists(dest)) {
@@ -368,38 +430,49 @@ load_model <- function(..., dest = perception_default_model_dir(), read = FALSE,
     # force: drop a stale/corrupt cached file so the download always restarts
     if (force && file.exists(file_path)) {
       file.remove(file_path)
-      message("force = TRUE: removed cached ", drug, ".RDS, re-downloading...")
+      cli::cli_alert_info(
+        "Force = TRUE: removed cached {.file {drug}.RDS}, re-downloading..."
+      )
     }
 
     if (!file.exists(file_path)) {
-      urls <- paste0(base_urls, "/WangLabCSU/PERCEPTIONx/releases/download/models-v1/", drug, ".RDS")
-      message("Downloading model for: ", drug)
+      urls <- paste0(
+        base_urls,
+        "/WangLabCSU/PERCEPTIONx/releases/download/models-v1/",
+        drug,
+        ".RDS"
+      )
+      cli::cli_progress_step("Downloading model for: {.val {drug}}")
 
-      if(!download_with_mirrors(urls, file_path, quiet = FALSE,
-                                timeout_seconds = timeout_seconds,
-                                retries = retries)){
-        stop("Failed to download model for: ", drug)
+      if (
+        !download_with_mirrors(
+          urls,
+          file_path,
+          quiet = FALSE,
+          timeout_seconds = timeout_seconds,
+          retries = retries
+        )
+      ) {
+        cli::cli_abort("Failed to download model for: {.val {drug}}")
       }
 
-      message("-> Successfully downloaded: ", drug, ".RDS")
-
+      cli::cli_alert_success("Successfully downloaded: {.file {drug}.RDS}")
     } else {
-      message("Found cached model: ", drug)
+      cli::cli_alert_info("Found cached model: {.val {drug}}")
     }
 
     if (read) {
       result[[drug]] <- readRDS(file_path)
-      message("-> Successfully loaded: ", drug)
+      cli::cli_alert_success("Successfully loaded: {.val {drug}}")
     }
   }
 
-  if (read && length(result) > 0) {
+  if (read && length(result) > 0L) {
     return(result)
   }
 
   return(invisible(NULL))
 }
-
 
 
 #' Download filtered DepMap data
@@ -441,8 +514,15 @@ load_model <- function(..., dest = perception_default_model_dir(), read = FALSE,
 #' # Use a specific mirror
 #' load_depmap(read = TRUE, mirror_url = "https://gh-proxy.com/https://github.com")
 #' }
-load_depmap <- function(dest = perception_default_depmap_dir(), read = FALSE, mirror = FALSE, mirror_url = NULL,
-                        timeout_seconds = 300, retries = 1, force = FALSE) {
+load_depmap <- function(
+  dest = perception_default_depmap_dir(),
+  read = FALSE,
+  mirror = FALSE,
+  mirror_url = NULL,
+  timeout_seconds = 300L,
+  retries = 1L,
+  force = FALSE
+) {
   if (!dir.exists(dest)) {
     dir.create(dest, recursive = TRUE)
   }
@@ -452,17 +532,23 @@ load_depmap <- function(dest = perception_default_depmap_dir(), read = FALSE, mi
   # force: drop a stale/corrupt cached file so the download always restarts
   if (force && file.exists(destfile)) {
     file.remove(destfile)
-    message("force = TRUE: removed cached DepMap.RDS, re-downloading...")
+    cli::cli_alert_info(
+      "Force = TRUE: removed cached {.file DepMap.RDS}, re-downloading..."
+    )
   }
 
   # A partial file from an interrupted download must never be treated as a
   # cache hit (it would fail at readRDS). Re-download when the on-disk file is
   # smaller than the official release asset.
-  if (!file.exists(destfile) ||
-      is.finite(file.size(destfile)) && file.size(destfile) < .depmap_release_size) {
+  if (
+    !file.exists(destfile) ||
+      is.finite(file.size(destfile)) &&
+        file.size(destfile) < .depmap_release_size
+  ) {
     if (file.exists(destfile)) {
-      message(sprintf("Existing DepMap.RDS is incomplete (%d bytes < expected %d), re-downloading...",
-                      file.size(destfile), .depmap_release_size))
+      cli::cli_alert_warning(
+        "Existing {.file DepMap.RDS} is incomplete ({format(file.size(destfile), big.mark = ',')} bytes < expected {format(.depmap_release_size, big.mark = ',')}), re-downloading..."
+      )
       file.remove(destfile)
     }
     base_urls <- if (!is.null(mirror_url)) {
@@ -472,34 +558,53 @@ load_depmap <- function(dest = perception_default_depmap_dir(), read = FALSE, mi
     } else {
       "https://github.com"
     }
-    urls <- paste0(base_urls, "/WangLabCSU/PERCEPTIONx/releases/download/depmap/DepMap.RDS")
+    urls <- paste0(
+      base_urls,
+      "/WangLabCSU/PERCEPTIONx/releases/download/depmap/DepMap.RDS"
+    )
 
-    message("Downloading DepMap.RDS (~567 MB). This may take several minutes...")
+    cli::cli_progress_step(
+      "Downloading DepMap.RDS (~567 MB). This may take several minutes..."
+    )
 
-    if (!download_with_mirrors(urls, destfile, quiet = FALSE,
-                               timeout_seconds = timeout_seconds,
-                               retries = retries,
-                               expected_size = .depmap_release_size)) {
-      message("\nAutomatic download failed. Please try manual download:")
-      message("  1. Download from: https://github.com/WangLabCSU/PERCEPTIONx/releases/tag/depmap")
-      message("  2. Save the file to: ", destfile)
-      message("  3. Then run load_depmap(read = TRUE) again")
-      stop("Manual download required", call. = FALSE)
+    if (
+      !download_with_mirrors(
+        urls,
+        destfile,
+        quiet = FALSE,
+        timeout_seconds = timeout_seconds,
+        retries = retries,
+        expected_size = .depmap_release_size
+      )
+    ) {
+      cli::cli_alert_warning(
+        "Automatic download failed. Please try manual download:"
+      )
+      cli::cli_ul(c(
+        "Download from: {.url https://github.com/WangLabCSU/PERCEPTIONx/releases/tag/depmap}",
+        "Save the file to: {.path {destfile}}",
+        "Then run {.code load_depmap(read = TRUE)} again"
+      ))
+      cli::cli_abort("Manual download required.")
     }
-    message("Successfully downloaded DepMap.RDS")
+    cli::cli_alert_success("Successfully downloaded DepMap.RDS.")
   } else {
-    message("File already exists: ", destfile)
+    cli::cli_alert_info("File already exists: {.path {destfile}}")
   }
 
   if (read) {
-    message("Reading DepMap.RDS...")
+    cli::cli_progress_step("Reading DepMap.RDS...")
     DepMap <- readRDS(destfile)
     assign("DepMap", DepMap, envir = .depmap_env)
     # Also assign to .GlobalEnv for backward compatibility with existing scripts
     # that reference DepMap directly
     do.call("assign", list("DepMap", DepMap, envir = .GlobalEnv))
-    message("Assigned 'DepMap' to package cache and global environment.")
-    message("Use get_depmap() or DepMap to access the data.")
+    cli::cli_alert_success(
+      "Assigned {.val DepMap} to package cache and global environment."
+    )
+    cli::cli_alert_info(
+      "Use {.code get_depmap()} or {.code DepMap} to access the data."
+    )
     return(invisible(DepMap))
   }
 

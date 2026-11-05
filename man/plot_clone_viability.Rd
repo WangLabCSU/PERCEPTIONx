@@ -10,8 +10,8 @@ plot_clone_viability(
   weights_var = NULL,
   response_var = NULL,
   drug = NULL,
-  base_size = 11,
-  y_limits = c(-3, 1.2),
+  base_size = 11L,
+  y_limits = c(-3L, 1.2),
   viridis_scale = FALSE,
   tooltip = TRUE,
   tooltip_col = NULL

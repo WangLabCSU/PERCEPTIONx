@@ -14,11 +14,12 @@ combine_drugs(
 )
 }
 \arguments{
-\item{pred}{Matrix or data.frame of clone-level drug viability predictions.
-Typically the output of \code{\link[=predict_drugs]{predict_drugs()}}. Rows = clones, columns = drugs.
-Row names must be canonical PERCEPTION clone keys
-(\code{"patient@clone_id"}). Alternatively, pass a \code{data.frame} with
-an explicit \code{patient} column and a \code{clone_id} column.}
+\item{pred}{Matrix, data.frame, or data.table of clone-level drug viability
+predictions. Typically the output of \code{\link[=predict_drugs]{predict_drugs()}}. Rows = clones,
+columns = drugs. Row names must be canonical PERCEPTION clone keys
+(\code{"patient@clone_id"}). Alternatively, pass a \code{data.frame} /
+\code{data.table} with an explicit \code{patient} column and a
+\code{clone_id} column.}
 
 \item{patient}{Optional character vector of patient IDs, length equal to
 \code{nrow(pred)}. Required only when \code{pred} row names are NOT

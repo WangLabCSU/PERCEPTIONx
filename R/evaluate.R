@@ -4,7 +4,6 @@
 #'
 #' @name evaluate_perception
 #' @keywords internal
-#' @importFrom stats reformulate aggregate median
 NULL
 
 
@@ -16,25 +15,39 @@ NULL
 #   * positional c(pvalue, correlation)                  (fallback)
 # Returns c(pvalue = NA, correlation = NA) when nothing usable is found.
 perf_to_vector <- function(perf) {
-  if (is.null(perf)) return(c(pvalue = NA, correlation = NA))
+  if (is.null(perf)) {
+    return(c(pvalue = NA, correlation = NA))
+  }
 
   if (is.data.frame(perf)) {
-    cor <- if ("estimate.cor" %in% names(perf)) perf$estimate.cor[1] else
-           if ("correlation" %in% names(perf))  perf$correlation[1]  else NA
-    p   <- if ("p.value" %in% names(perf)) perf$p.value[1] else NA
+    cor <- if ("estimate.cor" %in% names(perf)) {
+      perf$estimate.cor[1L]
+    } else if ("correlation" %in% names(perf)) {
+      perf$correlation[1L]
+    } else {
+      NA
+    }
+    p <- if ("p.value" %in% names(perf)) perf$p.value[1L] else NA
     return(c(pvalue = unname(p), correlation = unname(cor)))
   }
 
   if (is.numeric(perf) && !is.null(names(perf))) {
-    cor <- if ("estimate.cor" %in% names(perf)) perf["estimate.cor"] else
-           if ("correlation" %in% names(perf))  perf["correlation"]  else NA
-    p   <- if ("p.value" %in% names(perf)) perf["p.value"] else NA
+    cor <- if ("estimate.cor" %in% names(perf)) {
+      perf["estimate.cor"]
+    } else if ("correlation" %in% names(perf)) {
+      perf["correlation"]
+    } else {
+      NA
+    }
+    p <- if ("p.value" %in% names(perf)) perf["p.value"] else NA
     return(c(pvalue = unname(p), correlation = unname(cor)))
   }
 
-  if (is.numeric(perf) && length(perf) >= 2) {
-    return(c(pvalue = as.numeric(perf[1]), correlation = as.numeric(perf[2])))
+  if (is.numeric(perf) && length(perf) >= 2L) {
+    return(c(pvalue = as.numeric(perf[1L]), correlation = as.numeric(perf[2L])))
   }
+
+  warning("Unable to interpret performance object. Using NA.")
 
   c(pvalue = NA, correlation = NA)
 }
@@ -66,35 +79,59 @@ perf_to_vector <- function(perf) {
 #'
 #' @export
 compare_performance <- function(model_list, threshold = 0.3, verbose = TRUE) {
-
   # Validate input
-  if (!is.list(model_list) || length(model_list) == 0) {
-    stop("model_list must be a non-empty list of trained models.")
+  if (!is.list(model_list) || length(model_list) == 0L) {
+    cli::cli_abort(
+      "`model_list` must be a non-empty {.cls list} of trained models."
+    )
   }
 
   # Extract performance metrics from each model
   # R package uses named elements, not positional indices like original code
 
-  perf_cv <- do.call(rbind, lapply(model_list, function(x) {
-    if (is.null(x) || (length(x) == 1 && is.na(x))) return(c(pvalue = NA, correlation = NA))
-    # CV stores sqrt(R²) = |correlation| only (no p-value available).
-    c(pvalue = NA, correlation = as.numeric(x$model_performance_during_cv)[1])
-  }))
+  perf_cv <- do.call(
+    rbind,
+    lapply(model_list, function(x) {
+      if (is.null(x) || (length(x) == 1L && is.na(x))) {
+        return(c(pvalue = NA, correlation = NA))
+      }
+      # CV stores sqrt(R²) = |correlation| only (no p-value available).
+      c(
+        pvalue = NA,
+        correlation = as.numeric(x$model_performance_during_cv)[1L]
+      )
+    })
+  )
 
-  perf_bulk <- do.call(rbind, lapply(model_list, function(x) {
-    if (is.null(x) || (length(x) == 1 && is.na(x))) return(c(pvalue = NA, correlation = NA))
-    perf_to_vector(x$performance_in_bulk)
-  }))
+  perf_bulk <- do.call(
+    rbind,
+    lapply(model_list, function(x) {
+      if (is.null(x) || (length(x) == 1L && is.na(x))) {
+        return(c(pvalue = NA, correlation = NA))
+      }
+      perf_to_vector(x$performance_in_bulk)
+    })
+  )
 
-  perf_pseudo_bulk <- do.call(rbind, lapply(model_list, function(x) {
-    if (is.null(x) || (length(x) == 1 && is.na(x))) return(c(pvalue = NA, correlation = NA))
-    perf_to_vector(x$performance_in_pseudo_bulk)
-  }))
+  perf_pseudo_bulk <- do.call(
+    rbind,
+    lapply(model_list, function(x) {
+      if (is.null(x) || (length(x) == 1L && is.na(x))) {
+        return(c(pvalue = NA, correlation = NA))
+      }
+      perf_to_vector(x$performance_in_pseudo_bulk)
+    })
+  )
 
-  perf_scRNA <- do.call(rbind, lapply(model_list, function(x) {
-    if (is.null(x) || (length(x) == 1 && is.na(x))) return(c(pvalue = NA, correlation = NA))
-    perf_to_vector(x$performance_in_scRNA)
-  }))
+  perf_scRNA <- do.call(
+    rbind,
+    lapply(model_list, function(x) {
+      if (is.null(x) || (length(x) == 1L && is.na(x))) {
+        return(c(pvalue = NA, correlation = NA))
+      }
+      perf_to_vector(x$performance_in_scRNA)
+    })
+  )
 
   # Set column names and row names
   colnames(perf_cv) <- c("pvalue", "correlation")
@@ -122,28 +159,35 @@ compare_performance <- function(model_list, threshold = 0.3, verbose = TRUE) {
   mean_corrs <- sapply(performance_results, function(x) {
     mean(x[, "correlation"], na.rm = TRUE)
   })
-  passing_drugs <- names(model_list)[which(perf_scRNA[, "correlation"] > threshold)]
+  passing_drugs <- names(model_list)[which(
+    perf_scRNA[, "correlation"] > threshold
+  )]
 
   # Print summary statistics if verbose
   if (verbose) {
-    message("\n=== Model Performance Summary ===")
-    message("Threshold: correlation >", threshold)
+    cli::cli_alert_info(
+      "Model performance summary (threshold: correlation > {threshold})"
+    )
 
-    message("\nModels passing threshold:")
-    message("  CV (|cor|):    ", passing_counts["perf_cv"], " / ", length(model_list))
-    message("  Bulk test:     ", passing_counts["perf_bulk"], " / ", length(model_list))
-    message("  Pseudo-bulk:   ", passing_counts["perf_pseudo_bulk"], " / ", length(model_list))
-    message("  scRNA:         ", passing_counts["perf_scRNA"], " / ", length(model_list))
+    cli::cli_alert_info("Models passing threshold:")
+    cli::cli_ul(c(
+      "CV (|cor|): {passing_counts['perf_cv']} / {length(model_list)}",
+      "Bulk test: {passing_counts['perf_bulk']} / {length(model_list)}",
+      "Pseudo-bulk: {passing_counts['perf_pseudo_bulk']} / {length(model_list)}",
+      "scRNA: {passing_counts['perf_scRNA']} / {length(model_list)}"
+    ))
 
-    message("\nMean correlations:")
-    message("  CV (|cor|):    ", round(mean_corrs["perf_cv"], 3))
-    message("  Bulk test:     ", round(mean_corrs["perf_bulk"], 3))
-    message("  Pseudo-bulk:   ", round(mean_corrs["perf_pseudo_bulk"], 3))
-    message("  scRNA:         ", round(mean_corrs["perf_scRNA"], 3))
+    cli::cli_alert_info("Mean correlations:")
+    cli::cli_ul(c(
+      "CV (|cor|): {round(mean_corrs['perf_cv'], 3)}",
+      "Bulk test: {round(mean_corrs['perf_bulk'], 3)}",
+      "Pseudo-bulk: {round(mean_corrs['perf_pseudo_bulk'], 3)}",
+      "scRNA: {round(mean_corrs['perf_scRNA'], 3)}"
+    ))
 
-    if (length(passing_drugs) > 0) {
-      message("\nDrugs passing threshold in scRNA:")
-      message("  ", paste(passing_drugs, collapse = ", "))
+    if (length(passing_drugs) > 0L) {
+      cli::cli_alert_info("Drugs passing threshold in scRNA:")
+      cli::cli_ul(passing_drugs)
     }
   }
 
@@ -185,10 +229,9 @@ compare_performance <- function(model_list, threshold = 0.3, verbose = TRUE) {
 #'
 #' @export
 get_performance <- function(filepath, drug_names = NULL) {
-
   # Validate filepath
   if (!file.exists(filepath)) {
-    stop("File not found: ", filepath)
+    cli::cli_abort("File not found: {.path {filepath}}")
   }
 
   # Load the model file
@@ -196,21 +239,23 @@ get_performance <- function(filepath, drug_names = NULL) {
 
   # Check if it's a list of models
   if (!is.list(model_data)) {
-    stop("Loaded data is not a list of models.")
+    cli::cli_abort("Loaded data is not a list of models.")
   }
 
   # Filter by drug names if specified
   if (!is.null(drug_names)) {
     available_drugs <- intersect(drug_names, names(model_data))
-    if (length(available_drugs) == 0) {
-      stop("None of the specified drug_names found in the model file.")
+    if (length(available_drugs) == 0L) {
+      cli::cli_abort(
+        "None of the specified {.arg drug_names} found in the model file."
+      )
     }
     model_data <- model_data[available_drugs]
   }
 
   # Extract only performance metrics (memory efficient)
   performance_only <- lapply(model_data, function(x) {
-    if (is.null(x) || length(x) == 1 && is.na(x)) {
+    if (is.null(x) || length(x) == 1L && is.na(x)) {
       return(list(
         model_performance_during_cv = c(NA, NA),
         performance_in_bulk = c(NA, NA),
@@ -250,41 +295,50 @@ get_performance <- function(filepath, drug_names = NULL) {
 #' }
 #'
 #' @export
-get_significant_models <- function(model_list,
-                                   min_correlation = 0.3,
-                                   max_pvalue = 0.05,
-                                   dataset = "scRNA") {
-
+get_significant_models <- function(
+  model_list,
+  min_correlation = 0.3,
+  max_pvalue = 0.05,
+  dataset = "scRNA"
+) {
   # Validate dataset parameter
-  valid_datasets <- c("scRNA", "bulk", "pseudo_bulk", "cv")
-  if (!dataset %in% valid_datasets) {
-    stop("dataset must be one of: ", paste(valid_datasets, collapse = ", "))
-  }
+  dataset <- rlang::arg_match0(dataset, c("scRNA", "bulk", "pseudo_bulk", "cv"))
 
   # Get the appropriate performance element name
-  perf_element <- switch(dataset,
-                         "scRNA" = "performance_in_scRNA",
-                         "bulk" = "performance_in_bulk",
-                         "pseudo_bulk" = "performance_in_pseudo_bulk",
-                         "cv" = "model_performance_during_cv")
+  perf_element <- switch(
+    dataset,
+    "scRNA" = "performance_in_scRNA",
+    "bulk" = "performance_in_bulk",
+    "pseudo_bulk" = "performance_in_pseudo_bulk",
+    "cv" = "model_performance_during_cv"
+  )
 
   # Filter models. "cv" stores sqrt(R²)=|correlation| with no p-value; the other
   # datasets carry a named vector or data.frame with (p-value, correlation).
-  significant_models <- model_list[vapply(model_list, function(x) {
-    if (is.null(x) || (length(x) == 1 && is.na(x))) return(FALSE)
+  significant_models <- model_list[vapply(
+    model_list,
+    function(x) {
+      if (is.null(x) || (length(x) == 1L && is.na(x))) {
+        return(FALSE)
+      }
 
-    if (dataset == "cv") {
-      cv <- x$model_performance_during_cv
-      return(is.numeric(cv) && length(cv) >= 1 && isTRUE(cv[1] > min_correlation))
-    }
+      if (dataset == "cv") {
+        cv <- x$model_performance_during_cv
+        return(
+          is.numeric(cv) && length(cv) >= 1L && isTRUE(cv[1L] > min_correlation)
+        )
+      }
 
-    perf <- perf_to_vector(x[[perf_element]])
-    isTRUE(perf[["correlation"]] > min_correlation) &&
-      isTRUE(perf[["pvalue"]] < max_pvalue)
-  }, logical(1))]
+      perf <- perf_to_vector(x[[perf_element]])
+      isTRUE(perf[["correlation"]] > min_correlation) &&
+        isTRUE(perf[["pvalue"]] < max_pvalue)
+    },
+    logical(1L)
+  )]
 
-  message("Found ", length(significant_models), " models meeting criteria (cor > ",
-          min_correlation, ", p < ", max_pvalue, " in ", dataset, ")")
+  cli::cli_alert_info(
+    "Found {length(significant_models)} models meeting criteria (cor > {min_correlation}, p < {max_pvalue} in {dataset})."
+  )
 
   return(significant_models)
 }
@@ -305,11 +359,12 @@ get_significant_models <- function(model_list,
 #' @return Named numeric vector of pseudo-bulk expression values.
 #'
 #' @export
-each_patient_pseudo_bulk <- function(x = 1,
-                                     comb_viability_df,
-                                     Clone_Counts_per_patients,
-                                     clone_Level_z_expression_df) {
-
+each_patient_pseudo_bulk <- function(
+  x = 1L,
+  comb_viability_df,
+  Clone_Counts_per_patients,
+  clone_Level_z_expression_df
+) {
   patient <- Clone_Counts_per_patients$patients[x]
 
   # Expression columns are named "Patient@@Clone". Select this patient's clones
@@ -320,19 +375,24 @@ each_patient_pseudo_bulk <- function(x = 1,
   cols <- which(parsed$patient == patient)
   col_clone_ids <- parsed$clone_id[cols]
 
-  total_cells <- sum(unlist(Clone_Counts_per_patients[x, col_clone_ids]), na.rm = TRUE)
-  if (!is.finite(total_cells) || total_cells == 0 || length(cols) == 0) {
+  total_cells <- sum(
+    unlist(Clone_Counts_per_patients[x, col_clone_ids]),
+    na.rm = TRUE
+  )
+  if (!is.finite(total_cells) || total_cells == 0L || length(cols) == 0L) {
     # No cells / no clones for this patient: return all-NA pseudo-bulk.
     return(rep(NA_real_, nrow(clone_Level_z_expression_df)))
   }
-  clone_weights <- unlist(Clone_Counts_per_patients[x, col_clone_ids] / total_cells)
+  clone_weights <- unlist(
+    Clone_Counts_per_patients[x, col_clone_ids] / total_cells
+  )
 
   sub <- clone_Level_z_expression_df[, cols, drop = FALSE]
 
-  if (ncol(sub) > 1) {
+  if (ncol(sub) > 1L) {
     pseudo_bulk <- drop(sub %*% clone_weights)
   } else {
-    pseudo_bulk <- sub[, 1]
+    pseudo_bulk <- sub[, 1L]
   }
   pseudo_bulk
 }

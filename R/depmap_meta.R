@@ -15,7 +15,9 @@
 #'   \code{lineages}, \code{components}.
 #' @noRd
 extract_depmap_meta <- function(depmap_path, cache_file = NULL) {
-  if (!is.null(cache_file) && file.exists(cache_file) && file.exists(depmap_path)) {
+  if (
+    !is.null(cache_file) && file.exists(cache_file) && file.exists(depmap_path)
+  ) {
     # Only trust a cache that is newer than the source DepMap.RDS itself:
     # if the RDS was replaced (re-download / different version) the cached
     # genes/drugs would be silently stale. A corrupt cache falls through to
@@ -29,26 +31,40 @@ extract_depmap_meta <- function(depmap_path, cache_file = NULL) {
   }
   DepMap <- readRDS(depmap_path)
   if (!is.list(DepMap)) {
-    stop("The file is not a list. Expected a DepMap.RDS from the PERCEPTIONx release (or an object with the same structure).")
+    cli::cli_abort(c(
+      x = "The file is not a list.",
+      i = "Expected a DepMap.RDS from the PERCEPTIONx release (or an object with the same structure)."
+    ))
   }
-  required_fields <- c("secondary_prism", "secondary_screen_drugAnnotation",
-                       "expression_rnorm", "scRNA_complete", "scRNA_subset_rnorm",
-                       "CPM_scRNA_CCLE_rnorm", "annotation_20Q4",
-                       "metadata_CPM_scRNA", "expression_20Q4")
+  required_fields <- c(
+    "secondary_prism",
+    "secondary_screen_drugAnnotation",
+    "expression_rnorm",
+    "scRNA_complete",
+    "scRNA_subset_rnorm",
+    "CPM_scRNA_CCLE_rnorm",
+    "annotation_20Q4",
+    "metadata_CPM_scRNA",
+    "expression_20Q4"
+  )
   missing_fields <- setdiff(required_fields, names(DepMap))
-  if (length(missing_fields) > 0) {
-    stop("The RDS is missing required components: ",
-         paste(missing_fields, collapse = ", "),
-         ". Re-save it with these components, or use the built-in 'Download & Load' (known-good).")
+  if (length(missing_fields) > 0L) {
+    cli::cli_abort(c(
+      "The RDS is missing required components: {.field {missing_fields}}.",
+      "i" = "Re-save it with these components, or use the built-in 'Download & Load' (known-good)."
+    ))
   }
   nms <- names(DepMap)
   components <- lapply(nms, function(nm) {
     obj <- DepMap[[nm]]
     if (is.matrix(obj) || is.data.frame(obj)) {
-      list(nrow = nrow(obj), ncol = ncol(obj),
-           cols_preview = head(colnames(obj), 12))
+      list(
+        nrow = nrow(obj),
+        ncol = ncol(obj),
+        cols_preview = utils::head(colnames(obj), 12L)
+      )
     } else {
-      list(nrow = NA_integer_, ncol = NA_integer_, cols_preview = character(0))
+      list(nrow = NA_integer_, ncol = NA_integer_, cols_preview = character(0L))
     }
   })
   names(components) <- nms
@@ -56,12 +72,17 @@ extract_depmap_meta <- function(depmap_path, cache_file = NULL) {
   lineages <- lineages[!is.na(lineages) & nzchar(lineages)]
   meta <- list(
     loaded = TRUE,
-    genes  = rownames(DepMap$expression_rnorm),
-    drugs  = unique(as.character(DepMap$secondary_screen_drugAnnotation$CommonName)),
+    genes = rownames(DepMap$expression_rnorm),
+    drugs = unique(as.character(
+      DepMap$secondary_screen_drugAnnotation$CommonName
+    )),
     lineages = lineages,
     components = components
   )
-  if (!is.null(cache_file)) saveRDS(meta, cache_file)
-  rm(DepMap); gc()
+  if (!is.null(cache_file)) {
+    saveRDS(meta, cache_file)
+  }
+  rm(DepMap)
+  gc()
   meta
 }

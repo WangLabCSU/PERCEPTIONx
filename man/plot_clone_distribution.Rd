@@ -7,7 +7,7 @@
 plot_clone_distribution(
   clone_distribution,
   response_var = NULL,
-  base_size = 15,
+  base_size = 15L,
   tooltip = TRUE,
   tooltip_col = NULL
 )

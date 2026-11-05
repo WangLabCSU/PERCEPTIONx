@@ -23,16 +23,16 @@ devtools::load_all(".")
 drug_list <- c("erlotinib", "gefitinib")
 
 # Cancer type
-cancer_type   <- "PanCan"
+cancer_type <- "PanCan"
 exclude_cancer <- "PanCan"
 
 # Feature genes (NULL = use all DepMap genes)
 GOI <- NULL
 
 # Model hyperparameters
-model_type     <- "glmnet"
-k_features_values <- NULL  # NULL = auto-compute
-ncores         <- 1
+model_type <- "glmnet"
+k_features_values <- NULL # NULL = auto-compute
+ncores <- 1
 
 # Output directory
 output_dir <- "./test_pipeline_v2_output"
@@ -55,14 +55,14 @@ message("STEP 2: Training drug response models")
 message(strrep("=", 60))
 
 models <- train_models(
-  drug_list        = drug_list,
-  cancer_type      = cancer_type,
-  exclude_cancer   = exclude_cancer,
-  GOI              = GOI,
+  drug_list = drug_list,
+  cancer_type = cancer_type,
+  exclude_cancer = exclude_cancer,
+  GOI = GOI,
   k_features_values = k_features_values,
-  model_type       = model_type,
-  ncores           = ncores,
-  output_dir       = output_dir
+  model_type = model_type,
+  ncores = ncores,
+  output_dir = output_dir
 )
 
 message("Trained models for: ", paste(names(models), collapse = ", "))
@@ -79,14 +79,15 @@ message(strrep("=", 60))
 # Get test cell lines (excluded from training)
 cellLines_test <- get_cellLine_list(
   infunc_cancerType = cancer_type,
-  infunc_drugName   = drug_list[1],
-  exclude_cancer    = exclude_cancer,
-  infunc_response   = get_response_matrix(drug_list[1])
+  infunc_drugName = drug_list[1],
+  exclude_cancer = exclude_cancer,
+  infunc_response = get_response_matrix(drug_list[1])
 )[[2]]
 
 # Get expression for test cells
 test_cells <- DepMap$metadata_CPM_scRNA$NAME[
-  DepMap$metadata_CPM_scRNA$DepMap_ID %in% cellLines_test]
+  DepMap$metadata_CPM_scRNA$DepMap_ID %in% cellLines_test
+]
 
 # Use first 200 cells to simulate 3 patients (need enough cells for Seurat PCA)
 n_cells <- 200
@@ -122,16 +123,30 @@ metadata_df <- data.frame(
 message("Using metadata data frame format...")
 prepared <- prepare_data(
   expression_matrix = expr_matrix,
-  patient_mapping   = metadata_df,  # Can also use sample_cell_names_list
-  genes_to_use      = NULL
+  patient_mapping = metadata_df, # Can also use sample_cell_names_list
+  genes_to_use = NULL
 )
 
 message("\nPrepared data structure:")
-message("  - clone_expression_rnorm: ", nrow(prepared$clone_expression_rnorm), " genes x ",
-        ncol(prepared$clone_expression_rnorm), " clones")
-message("  - clone_counts: ", nrow(prepared$clone_counts), " patients x ",
-        ncol(prepared$clone_counts) - 1, " clones")
-message("  - cell_clone_map: ", nrow(prepared$cell_clone_map), " cells annotated")
+message(
+  "  - clone_expression_rnorm: ",
+  nrow(prepared$clone_expression_rnorm),
+  " genes x ",
+  ncol(prepared$clone_expression_rnorm),
+  " clones"
+)
+message(
+  "  - clone_counts: ",
+  nrow(prepared$clone_counts),
+  " patients x ",
+  ncol(prepared$clone_counts) - 1,
+  " clones"
+)
+message(
+  "  - cell_clone_map: ",
+  nrow(prepared$cell_clone_map),
+  " cells annotated"
+)
 
 # Show clone distribution
 message("\nClone counts per patient:")
@@ -146,7 +161,13 @@ message(strrep("=", 60))
 
 clone_pred <- predict_drugs(models, prepared$clone_expression_rnorm)
 
-message("Clone-level predictions: ", nrow(clone_pred), " clones x ", ncol(clone_pred), " drugs")
+message(
+  "Clone-level predictions: ",
+  nrow(clone_pred),
+  " clones x ",
+  ncol(clone_pred),
+  " drugs"
+)
 message("\nClone predictions (first 5 clones):")
 print(head(clone_pred, 5))
 
@@ -164,7 +185,11 @@ message("Patient-level predictions (most resistant clone):")
 print(patient_pred)
 
 # Also try weighted_average mode
-patient_pred_weighted <- predict_patients(clone_pred, prepared, mode = "weighted_average")
+patient_pred_weighted <- predict_patients(
+  clone_pred,
+  prepared,
+  mode = "weighted_average"
+)
 message("\nPatient-level predictions (weighted average):")
 print(patient_pred_weighted)
 
@@ -185,8 +210,8 @@ clone_viability_df <- data.frame(
 # Clone distribution plot
 clone_dist_df <- data.frame(
   patients = clone_viability_df$patient,
-  clones   = clone_viability_df$clone_id,
-  weights  = as.numeric(prepared$clone_counts[cbind(
+  clones = clone_viability_df$clone_id,
+  weights = as.numeric(prepared$clone_counts[cbind(
     match(clone_viability_df$patient, prepared$clone_counts$patients),
     match(clone_viability_df$clone_id, colnames(prepared$clone_counts)[-1])
   )])
@@ -194,7 +219,8 @@ clone_dist_df <- data.frame(
 # Normalize weights per patient
 for (pid in unique(clone_dist_df$patients)) {
   idx <- clone_dist_df$patients == pid
-  clone_dist_df$weights[idx] <- clone_dist_df$weights[idx] / sum(clone_dist_df$weights[idx])
+  clone_dist_df$weights[idx] <- clone_dist_df$weights[idx] /
+    sum(clone_dist_df$weights[idx])
 }
 
 pdf(file.path(output_dir, "clone_distribution.pdf"), width = 8, height = 5)
@@ -210,7 +236,11 @@ clone_kill_plot_df$comb_viability <- clone_kill_plot_df[[drug_col]]
 clone_kill_plot_df$weights <- clone_dist_df$weights
 
 pdf(file.path(output_dir, "clone_viability.pdf"), width = 12, height = 5)
-p2 <- plot_clone_viability(clone_kill_plot_df, viability_var = "comb_viability", weights_var = "weights")
+p2 <- plot_clone_viability(
+  clone_kill_plot_df,
+  viability_var = "comb_viability",
+  weights_var = "weights"
+)
 print(p2)
 dev.off()
 message("Saved: clone_viability.pdf")
@@ -225,13 +255,19 @@ message(strrep("=", 60))
 message("\nThe new simplified workflow:")
 message("  1. load_depmap()       -> DepMap reference data")
 message("  2. train_models()      -> Drug response models")
-message("  3. prepare_data()      -> Clone expression + counts (from raw scRNA + metadata)")
+message(
+  "  3. prepare_data()      -> Clone expression + counts (from raw scRNA + metadata)"
+)
 message("  4. predict_drugs()    -> Clone-level predictions")
-message("  5. predict_patients()  -> Patient-level predictions (just pass clone_pred + prepared)")
+message(
+  "  5. predict_patients()  -> Patient-level predictions (just pass clone_pred + prepared)"
+)
 
 message("\nUser inputs needed:")
 message("  - expression_matrix: genes x cells (raw single-cell expression)")
-message("  - patient_mapping: list OR data frame with cell_id + patient_id columns")
+message(
+  "  - patient_mapping: list OR data frame with cell_id + patient_id columns"
+)
 
 message("\nOutput files saved to: ", output_dir)
 for (f in list.files(output_dir, full.names = TRUE)) {

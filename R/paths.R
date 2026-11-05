@@ -26,8 +26,10 @@
 perception_cache_root <- function() {
   root <- getOption("PERCEPTIONx.cache_root")
   if (is.null(root) || !nzchar(root)) {
-    root <- Sys.getenv("PERCEPTIONX_CACHE_ROOT",
-                       Sys.getenv("PERCEPTIONx_CACHE_ROOT", ""))
+    root <- Sys.getenv(
+      "PERCEPTIONX_CACHE_ROOT",
+      Sys.getenv("PERCEPTIONx_CACHE_ROOT", "")
+    )
   }
   if (!is.null(root) && nzchar(root)) root else NULL
 }
@@ -36,12 +38,18 @@ perception_cache_root <- function() {
 perception_depmap_cache_dir <- function() {
   d <- getOption("PERCEPTIONx.depmap_cache_dir")
   if (is.null(d) || !nzchar(d)) {
-    d <- Sys.getenv("PERCEPTIONX_DEPMAP_CACHE_DIR",
-                    Sys.getenv("PERCEPTIONx_DEPMAP_CACHE_DIR", ""))
+    d <- Sys.getenv(
+      "PERCEPTIONX_DEPMAP_CACHE_DIR",
+      Sys.getenv("PERCEPTIONx_DEPMAP_CACHE_DIR", "")
+    )
   }
-  if (!is.null(d) && nzchar(d)) return(d)
+  if (!is.null(d) && nzchar(d)) {
+    return(d)
+  }
   root <- perception_cache_root()
-  if (!is.null(root)) return(file.path(root, "depmap"))
+  if (!is.null(root)) {
+    return(file.path(root, "depmap"))
+  }
   tools::R_user_dir("PERCEPTIONx", "data")
 }
 
@@ -66,5 +74,9 @@ perception_default_model_dir <- function() {
 # Shared master jobs directory: cache_root-derived, else tempdir()/perception_jobs.
 perception_jobs_dir <- function() {
   root <- perception_cache_root()
-  if (is.null(root)) file.path(tempdir(), "perception_jobs") else file.path(root, "jobs")
+  if (is.null(root)) {
+    file.path(tempdir(), "perception_jobs")
+  } else {
+    file.path(root, "jobs")
+  }
 }

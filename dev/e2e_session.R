@@ -12,11 +12,12 @@ options(perception.pkg_root = NULL)
 # environment = reference semantics (reactiveValues stand-in, see e2e_train.R)
 shared <- new.env(parent = emptyenv())
 
-fails <- 0L
+counters <- new.env(parent = emptyenv())
+counters$fails <- 0L
 t <- function(name, ok, detail = '') {
   cat(sprintf('[%s] %s%s\n', if (ok) 'PASS' else 'FAIL', name,
               if (nzchar(detail)) paste0(' -> ', detail) else ''))
-  if (!ok) fails <<- fails + 1L
+  if (!ok) counters$fails <- counters$fails + 1L
 }
 
 ensure_session_worker(shared)
@@ -101,5 +102,5 @@ cat('[e2e-session] bad task submitted:', jid, '\n')
 r <- wait_done(jid)
 t('unknown task errors cleanly', r$status == 'error' && nzchar(r$message), r$message)
 
-cat('\n==== SESSION WORKER TEST SUMMARY: FAIL =', fails, '====\n')
-quit(status = if (fails == 0L) 0L else 1L)
+cat('\n==== SESSION WORKER TEST SUMMARY: FAIL =', counters$fails, '====\n')
+quit(status = if (counters$fails == 0L) 0L else 1L)

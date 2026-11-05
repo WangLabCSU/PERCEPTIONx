@@ -98,6 +98,9 @@ reference:
       - fdrcorr
       - cor.test_trimmed_v0
       - export_plot_cairo
+      - perception_depmap_drugs
+      - perception_fda_approved_drugs
+      - perception_all_drugs
 
 articles:
   - title: Tutorials

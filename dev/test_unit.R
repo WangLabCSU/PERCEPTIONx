@@ -20,13 +20,14 @@ cache_dir <- Sys.getenv('PERCEPTIONX_DEPMAP_CACHE_DIR',
 DepMap <- readRDS(file.path(cache_dir, 'DepMap.RDS'))
 cat('DepMap loaded:', length(DepMap), 'components\n')
 
-fails <- 0L
-skips <- 0L
+counters <- new.env(parent = emptyenv())
+counters$fails <- 0L
+counters$skips <- 0L
 t <- function(name, expr, skip_if = FALSE) {
-  if (skip_if) { cat('[SKIP]', name, '\n'); skips <<- skips + 1L; return(invisible(NULL)) }
+  if (skip_if) { cat('[SKIP]', name, '\n'); counters$skips <- counters$skips + 1L; return(invisible(NULL)) }
   ok <- tryCatch({ r <- force(expr); isTRUE(r) },
                  error = function(e) { cat('   error:', conditionMessage(e), '\n'); FALSE })
-  if (ok) { cat('[PASS]', name, '\n') } else { cat('[FAIL]', name, '\n'); fails <<- fails + 1L }
+  if (ok) { cat('[PASS]', name, '\n') } else { cat('[FAIL]', name, '\n'); counters$fails <- counters$fails + 1L }
   invisible(NULL)
 }
 
@@ -196,5 +197,5 @@ pp2 <- tryCatch(
 t('predict_patients legacy mode', !is.null(pp2))
 
 cat('\n==== UNIT TEST SUMMARY ====\n')
-cat('PASS:', 'see above | FAIL:', fails, '| SKIP:', skips, '\n')
-quit(status = if (fails == 0L) 0L else 1L)
+cat('PASS:', 'see above | FAIL:', counters$fails, '| SKIP:', counters$skips, '\n')
+quit(status = if (counters$fails == 0L) 0L else 1L)

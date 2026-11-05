@@ -25,25 +25,21 @@
 run_perception_app <- function() {
   appDir <- system.file("shiny", "app", package = "PERCEPTIONx")
   if (appDir == "") {
-    stop("Could not find PERCEPTIONx dashboard. Try re-installing the package with: install.packages('PERCEPTIONx', repos = NULL, type = 'source')",
-         call. = FALSE)
+    cli::cli_abort(c(
+      x = "Could not find PERCEPTIONx dashboard. ",
+      i = "Try re-installing the package with: `utils::install.packages('PERCEPTIONx', repos = NULL, type = 'source')`"
+    ))
   }
 
   # The dashboard hard-depends on these packages. They are in Suggests (not
   # Imports) to keep the core pipeline lean, so check them here and fail fast
   # with an actionable message instead of a cryptic library() error.
-  app_deps <- c("bslib", "DT", "plotly", "waiter", "thematic", "callr")
-  missing <- app_deps[!vapply(app_deps, requireNamespace, logical(1), quietly = TRUE)]
-  if (length(missing) > 0) {
-    stop("The PERCEPTIONx dashboard requires these packages, which are not installed: ",
-         paste(missing, collapse = ", "),
-         "\nInstall them with: install.packages(c(",
-         paste(shQuote(missing), collapse = ", "), "))",
-         call. = FALSE)
-  }
-
+  rlang::check_installed(
+    c("bslib", "DT", "plotly", "waiter", "thematic", "callr"),
+    reason = "for PERCEPTIONx dashboard"
+  )
   # Set max upload size to 1 GB (for DepMap ~567MB + models)
-  options(shiny.maxRequestSize = 1024 * 1024^2)
+  options(shiny.maxRequestSize = 1024L * 1024L^2L)
 
   # Shiny Server mode: the server runs app.R and expects a shiny app OBJECT
   # back — a nested runApp() fails there. Detect it via SHINY_PORT (Shiny
@@ -71,10 +67,13 @@ run_perception_app <- function() {
   env <- new.env(parent = globalenv())
   exprs <- parse(app_file)
   obj <- NULL
-  for (e in exprs) obj <- eval(e, envir = env)
+  for (e in exprs) {
+    obj <- eval(e, envir = env)
+  }
   if (!inherits(obj, "shiny.appobj")) {
-    stop("Failed to build the PERCEPTIONx app object (app.R did not yield a shinyApp).",
-         call. = FALSE)
+    rlang::abort(
+      "Failed to build the PERCEPTIONx app object (app.R did not yield a shinyApp)."
+    )
   }
   obj
 }

@@ -46,37 +46,48 @@ cor.test_trimmed_v0 <- function(x, ...) UseMethod("cor.test_trimmed_v0")
 #' @noRd
 #' @export
 cor.test_trimmed_v0.default <-
-  function(x, y, alternative = c("two.sided", "less", "greater"),
-           method = c("pearson"), exact = NULL,
-           # conf.level = 0.95,
-           continuity = FALSE, ...)
-  {
-    alternative <- match.arg(alternative)
-    method <- match.arg(method)
+  function(
+    x,
+    y,
+    alternative = c("two.sided", "less", "greater"),
+    method = c("pearson"),
+    exact = NULL,
+    # conf.level = 0.95,
+    continuity = FALSE,
+    ...
+  ) {
+    alternative <- rlang::arg_match(alternative)
+    method <- rlang::arg_match(method)
     DNAME <- paste(deparse(substitute(x)), "and", deparse(substitute(y)))
 
-    if(length(x) != length(y))
-      stop("'x' and 'y' must have the same length")
-    if(!is.numeric(x)) stop("'x' must be a numeric vector")
-    if(!is.numeric(y)) stop("'y' must be a numeric vector")
-    OK <- complete.cases(x, y)
+    if (length(x) != length(y)) {
+      cli::cli_abort("{.arg x} and {.arg y} must have the same length.")
+    }
+    if (!is.numeric(x)) {
+      cli::cli_abort("{.arg x} must be a numeric vector.")
+    }
+    if (!is.numeric(y)) {
+      cli::cli_abort("{.arg y} must be a numeric vector.")
+    }
+    OK <- stats::complete.cases(x, y)
     x <- x[OK]
     y <- y[OK]
     n <- length(x)
 
-    NVAL <- 0
+    NVAL <- 0L
     # conf.int <- FALSE
 
-    if(method == "pearson") {
-      if(n < 3L)
-        stop("not enough finite observations")
+    if (method == "pearson") {
+      if (n < 3L) {
+        cli::cli_abort("not enough finite observations")
+      }
       method <- "Pearson's product-moment correlation"
       names(NVAL) <- "correlation"
-      r <- cor(x, y)
+      r <- if (rlang::is_installed("WGCNA")) WGCNA::cor(x, y) else stats::cor(x, y)
       df <- n - 2L
       ESTIMATE <- c(cor = r)
       PARAMETER <- c(df = df)
-      STATISTIC <- c(t = sqrt(df) * r / sqrt(1 - r^2))
+      STATISTIC <- c(t = sqrt(df) * r / sqrt(1L - r^2L))
       # Do not compute confidence Int
       # if(n > 3) { ## confidence int.
       #   if(!missing(conf.level) &&
@@ -95,11 +106,13 @@ cor.test_trimmed_v0.default <-
       #   cint <- tanh(cint)
       #   attr(cint, "conf.level") <- conf.level
       # }
-      PVAL <- switch(alternative,
-                     "less" = pt(STATISTIC, df),
-                     "greater" = pt(STATISTIC, df, lower.tail=FALSE),
-                     "two.sided" = 2 * min(pt(STATISTIC, df),
-                                           pt(STATISTIC, df, lower.tail=FALSE)))
+      PVAL <- switch(
+        alternative,
+        "less" = stats::pt(STATISTIC, df),
+        "greater" = stats::pt(STATISTIC, df, lower.tail = FALSE),
+        "two.sided" = 2L *
+          min(stats::pt(STATISTIC, df), stats::pt(STATISTIC, df, lower.tail = FALSE))
+      )
     }
 
     RVAL <- list(
@@ -118,7 +131,6 @@ cor.test_trimmed_v0.default <-
     class(RVAL) <- "htest"
     RVAL
   }
-
 
 
 #' Formula interface for fast correlation test
@@ -141,25 +153,36 @@ cor.test_trimmed_v0.default <-
 #' @keywords internal
 #' @noRd
 #' @export
-cor.test_trimmed_v0.formula <-
-  function(formula, data, subset, na.action, ...)
-  {
-    if(missing(formula)
-       || !inherits(formula, "formula")
-       || length(formula) != 2L)
-      stop("'formula' missing or invalid")
-    m <- match.call(expand.dots = FALSE)
-    if(is.matrix(eval(m$data, parent.frame())))
-      m$data <- as.data.frame(data)
-    ## need stats:: for non-standard evaluation
-    m[[1L]] <- quote(stats::model.frame)
-    m$... <- NULL
-    mf <- eval(m, environment(formula))
-    if(length(mf) != 2L)
-      stop("invalid formula")
-    DNAME <- paste(names(mf), collapse = " and ")
-    names(mf) <- c("x", "y")
-    y <- do.call("cor.test_trimmed_v0", c(mf, list(...)))
-    y$data.name <- DNAME
-    y
+cor.test_trimmed_v0.formula <- function(
+  formula,
+  data,
+  subset,
+  na.action,
+  ...
+) {
+  if (
+    missing(formula) || !inherits(formula, "formula") || length(formula) != 2L
+  ) {
+    cli::cli_abort("{.arg formula} is missing or invalid.")
   }
+  m <- match.call(expand.dots = FALSE)
+  if (is.matrix(eval(m$data, parent.frame()))) {
+    m$data <- as.data.frame(data)
+  }
+  ## need stats::for non-standard evaluation
+  m[[1L]] <- quote(stats::model.frame)
+  m$... <- NULL
+  mf <- eval(m, parent.frame())
+  if (length(mf) != 2L) {
+    cli::cli_abort("Invalid {.arg formula}.")
+  }
+  DNAME <- paste(names(mf), collapse = " and ")
+  names(mf) <- c("x", "y")
+  # Splice the model frame as named `x`/`y` arguments (equivalent to
+  # do.call(..., c(mf, list(...)))); passing `mf` unspliced would dispatch
+  # to the default method with a single data.frame argument.
+  args <- c(as.list(mf), rlang::list2(...))
+  res <- rlang::exec(cor.test_trimmed_v0, !!!args)
+  res$data.name <- DNAME
+  res
+}

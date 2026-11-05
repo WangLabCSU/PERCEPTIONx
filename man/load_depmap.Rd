@@ -9,8 +9,8 @@ load_depmap(
   read = FALSE,
   mirror = FALSE,
   mirror_url = NULL,
-  timeout_seconds = 300,
-  retries = 1,
+  timeout_seconds = 300L,
+  retries = 1L,
   force = FALSE
 )
 }

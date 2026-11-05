@@ -5,18 +5,27 @@
 # round trip). The server just clears — or restores — them via the 'set-html'
 # handler once predictions exist.
 clone_desc_html <- function() {
-  div(class = "card-desc",
-    icon("fire", style = "font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 0.35rem;"),
+  div(
+    class = "card-desc",
+    icon(
+      "fire",
+      style = "font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 0.35rem;"
+    ),
     "Predicted viability of every clone per drug (higher = more resistant).",
     br(),
     "Select model & expression sources, then click ",
-    strong("Run Prediction"), "."
+    strong("Run Prediction"),
+    "."
   )
 }
 
 patient_desc_html <- function() {
-  div(class = "card-desc",
-    icon("user", style = "font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 0.35rem;"),
+  div(
+    class = "card-desc",
+    icon(
+      "user",
+      style = "font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 0.35rem;"
+    ),
     "Clone viabilities aggregated per patient (weighted_max).",
     br(),
     "Appears here after running prediction."
@@ -27,43 +36,54 @@ mod_predict_ui <- function(id) {
   ns <- NS(id)
   tagList(
     fluidRow(
-      column(12,
-        div(class = "section-header",
+      column(
+        12,
+        div(
+          class = "section-header",
           icon("microscope"),
           h4("Drug Response Prediction")
         ),
-        div(class = "info-box",
-          icon("info-circle"), " Predict drug sensitivity at clone level using trained models, ",
+        div(
+          class = "info-box",
+          icon("info-circle"),
+          " Predict drug sensitivity at clone level using trained models, ",
           "then aggregate to patient-level response using weighted averaging strategies. ",
-          strong("Viability semantics:"), " higher viability = more resistant (less sensitive); ",
+          strong("Viability semantics:"),
+          " higher viability = more resistant (less sensitive); ",
           "lower viability = more sensitive (stronger drug killing)."
         )
       )
     ),
 
     # Prerequisites check
-    fluidRow(style = "margin-top: 1rem;",
-      column(12,
-        uiOutput(ns("prereq_check"))
-      )
+    fluidRow(
+      style = "margin-top: 1rem;",
+      column(12, uiOutput(ns("prereq_check")))
     ),
 
-    fluidRow(style = "margin-top: 0.5rem;",
+    fluidRow(
+      style = "margin-top: 0.5rem;",
       # Configuration
-      column(4, class = "predict-config-col",
-        div(class = "card",
-          div(class = "card-header",
-            icon("cog"), " Configuration"
-          ),
-          div(class = "card-body",
+      column(
+        4,
+        class = "predict-config-col",
+        div(
+          class = "card",
+          div(class = "card-header", icon("cog"), " Configuration"),
+          div(
+            class = "card-body",
             # Sources — single source of truth: models & expression come from
             # the Data tab (management-integrated), never uploaded here.
-            div(class = "param-section",
+            div(
+              class = "param-section",
               h6(class = "param-section-title", icon("link"), " Sources"),
-              div(class = "info-box", style = "margin-top: 0.2rem; font-size: 0.78rem;",
+              div(
+                class = "info-box",
+                style = "margin-top: 0.2rem; font-size: 0.78rem;",
                 icon("circle-info"),
                 " Prediction runs on the ",
-                strong("active models"), " from the Data tab (Loaded Models Management) ",
+                strong("active models"),
+                " from the Data tab (Loaded Models Management) ",
                 "and the expression data prepared there. Load, upload or train ",
                 "models on the Data / Train tabs - every uploaded .RDS appears ",
                 "in the management list automatically."
@@ -71,50 +91,76 @@ mod_predict_ui <- function(id) {
             ),
 
             # Aggregation mode
-            div(class = "param-section",
-              h6(class = "param-section-title", icon("layer-group"), " Patient Aggregation"),
-              selectInput(ns("agg_mode"), "Aggregation Mode",
-                          choices = c(
-                            "Weighted Max (recommended)" = "weighted_max",
-                            "Weighted Average" = "weighted_average",
-                            "Min (Most Sensitive)" = "min",
-                            "Max (Most Resistant)" = "max"
-                          ),
-                          selected = "weighted_max"),
-              div(class = "info-box", style = "margin-top: 0.5rem; font-size: 0.78rem;",
-                strong("weighted_max"), ": maximum clone viability weighted by clone proportion (recommended)",
-                br(), strong("weighted_average"), ": weighted average across all clones",
-                br(), strong("min/max"), ": most sensitive/resistant clone"
+            div(
+              class = "param-section",
+              h6(
+                class = "param-section-title",
+                icon("layer-group"),
+                " Patient Aggregation"
+              ),
+              selectInput(
+                ns("agg_mode"),
+                "Aggregation Mode",
+                choices = c(
+                  "Weighted Max (recommended)" = "weighted_max",
+                  "Weighted Average" = "weighted_average",
+                  "Min (Most Sensitive)" = "min",
+                  "Max (Most Resistant)" = "max"
+                ),
+                selected = "weighted_max"
+              ),
+              div(
+                class = "info-box",
+                style = "margin-top: 0.5rem; font-size: 0.78rem;",
+                strong("weighted_max"),
+                ": maximum clone viability weighted by clone proportion (recommended)",
+                br(),
+                strong("weighted_average"),
+                ": weighted average across all clones",
+                br(),
+                strong("min/max"),
+                ": most sensitive/resistant clone"
               )
             ),
 
             hr(),
 
-            actionButton(ns("predict"), "Run Prediction",
-                         class = "btn-primary", icon = icon("play"))
+            actionButton(
+              ns("predict"),
+              "Run Prediction",
+              class = "btn-primary",
+              icon = icon("play")
+            )
           )
         )
       ),
 
       # Results
-      column(8, class = "predict-results-col",
+      column(
+        8,
+        class = "predict-results-col",
         # Clone-level heatmap
-        div(class = "card",
-          div(class = "card-header",
-            icon("fire"), " Clone-Level Predictions"
-          ),
-          div(class = "card-body",
+        div(
+          class = "card",
+          div(class = "card-header", icon("fire"), " Clone-Level Predictions"),
+          div(
+            class = "card-body",
             div(id = ns("clone_desc"), clone_desc_html()),
             uiOutput(ns("clone_heatmap_area"))
           )
         ),
 
         # Patient-level table
-        div(class = "card", style = "margin-top: 1rem;",
-          div(class = "card-header",
-            icon("user"), " Patient-Level Predictions"
+        div(
+          class = "card",
+          style = "margin-top: 1rem;",
+          div(
+            class = "card-header",
+            icon("user"),
+            " Patient-Level Predictions"
           ),
-          div(class = "card-body",
+          div(
+            class = "card-body",
             div(id = ns("patient_desc"), patient_desc_html()),
             uiOutput(ns("patient_table_area")),
             uiOutput(ns("patient_download"))
@@ -135,23 +181,39 @@ mod_predict_server <- function(id, shared, main_session) {
     # Prerequisites check
     output$prereq_check <- renderUI({
       missing <- c()
-      if (is.null(shared$models)) missing <- c(missing, "Trained Model")
+      if (is.null(shared$models)) {
+        missing <- c(missing, "Trained Model")
+      }
       if (is.null(shared$prepared_data) && is.null(shared$user_expr)) {
         missing <- c(missing, "Expression Data")
       }
       if (is.null(shared$prepared_data) && is.null(shared$user_clones)) {
-        missing <- c(missing, "Clone Annotation (run Seurat clustering in Data tab)")
+        missing <- c(
+          missing,
+          "Clone Annotation (run Seurat clustering in Data tab)"
+        )
       }
       if (length(missing) > 0) {
-        div(class = "info-box", style = "border-left-color: var(--accent);",
-          icon("exclamation-triangle"), " Missing prerequisites: ",
+        div(
+          class = "info-box",
+          style = "border-left-color: var(--accent);",
+          icon("exclamation-triangle"),
+          " Missing prerequisites: ",
           strong(paste(missing, collapse = ", ")),
           ". Please load data first (Data tab) or use 'Load Demo Data'.",
-          actionButton(ns("go_data"), "Go to Data", class = "btn-accent btn-sm", style = "margin-left: 0.5rem;")
+          actionButton(
+            ns("go_data"),
+            "Go to Data",
+            class = "btn-accent btn-sm",
+            style = "margin-left: 0.5rem;"
+          )
         )
       } else {
-        div(class = "info-box", style = "border-left-color: var(--success);",
-          icon("check-circle"), " All prerequisites loaded. Ready to predict!"
+        div(
+          class = "info-box",
+          style = "border-left-color: var(--success);",
+          icon("check-circle"),
+          " All prerequisites loaded. Ready to predict!"
         )
       }
     })
@@ -168,7 +230,11 @@ mod_predict_server <- function(id, shared, main_session) {
     # Data tab. The raw cell-level user_expr is NOT rank-normalized and would
     # produce unreliable predictions.
     current_expr <- reactive({
-      if (is.null(shared$prepared_data)) NULL else shared$prepared_data$clone_expression_rnorm
+      if (is.null(shared$prepared_data)) {
+        NULL
+      } else {
+        shared$prepared_data$clone_expression_rnorm
+      }
     })
 
     # Run prediction — submitted to the background per-session worker. The
@@ -184,8 +250,12 @@ mod_predict_server <- function(id, shared, main_session) {
     # or the Predict tab keeps showing stale results that contradict the
     # global state (e.g. "Predictions Not loaded" in the sidebar).
     observe({
-      if (is.null(shared$predictions) && !is.null(clone_pred())) clone_pred(NULL)
-      if (is.null(shared$patient_pred) && !is.null(patient_pred())) patient_pred(NULL)
+      if (is.null(shared$predictions) && !is.null(clone_pred())) {
+        clone_pred(NULL)
+      }
+      if (is.null(shared$patient_pred) && !is.null(patient_pred())) {
+        patient_pred(NULL)
+      }
     })
 
     observeEvent(input$predict, {
@@ -195,20 +265,35 @@ mod_predict_server <- function(id, shared, main_session) {
       # Completely empty state: point the user somewhere actionable instead of
       # a generic "no model" / "no data" pair.
       if (is.null(model) && is.null(expr)) {
-        showNotification("No model or expression data loaded yet — use 'Load Demo Data' or upload your data in the Data tab first.",
-                         type = "warning", duration = 8)
+        showNotification(
+          "No model or expression data loaded yet — use 'Load Demo Data' or upload your data in the Data tab first.",
+          type = "warning",
+          duration = 8
+        )
         return()
       }
       if (is.null(model)) {
-        showNotification("No model available. Train or upload a model first.", type = "error", duration = 8)
+        showNotification(
+          "No model available. Train or upload a model first.",
+          type = "error",
+          duration = 8
+        )
         return()
       }
       if (is.null(expr)) {
-        showNotification("No expression data available. Load or upload data first.", type = "error", duration = 8)
+        showNotification(
+          "No expression data available. Load or upload data first.",
+          type = "error",
+          duration = 8
+        )
         return()
       }
       if (pred_busy()) {
-        showNotification("A prediction is already running", type = "warning", duration = 5)
+        showNotification(
+          "A prediction is already running",
+          type = "warning",
+          duration = 5
+        )
         return()
       }
 
@@ -220,7 +305,9 @@ mod_predict_server <- function(id, shared, main_session) {
       extract_features <- function(m) {
         if (inherits(m, "train")) {
           feats <- setdiff(colnames(m$trainingData), ".outcome")
-          if (length(feats) > 0) return(feats)
+          if (length(feats) > 0) {
+            return(feats)
+          }
           feats <- colnames(m$trainingData)
           if (length(feats) > 1) return(feats[-1])
         }
@@ -248,15 +335,26 @@ mod_predict_server <- function(id, shared, main_session) {
           showModal(modalDialog(
             title = "Data incompatibility — prediction blocked",
             tags$div(
-              div(style = "text-align: center; margin-bottom: 0.6rem;",
-                icon("exclamation-triangle", style = "color: #e08a3c; font-size: 1.8rem;")),
-              p(paste0("None of the model's ", length(all_features),
-                       " features were found in the expression data (",
-                       nrow(expr), " genes available).")),
-              p("The model was trained on the DepMap gene space; the current ",
+              div(
+                style = "text-align: center; margin-bottom: 0.6rem;",
+                icon(
+                  "exclamation-triangle",
+                  style = "color: #e08a3c; font-size: 1.8rem;"
+                )
+              ),
+              p(paste0(
+                "None of the model's ",
+                length(all_features),
+                " features were found in the expression data (",
+                nrow(expr),
+                " genes available)."
+              )),
+              p(
+                "The model was trained on the DepMap gene space; the current ",
                 "expression data shares no genes with it. Check gene name formats ",
                 "(hyphens vs dots, e.g. MIF-1 vs MIF.1) between training and ",
-                "prediction data.")
+                "prediction data."
+              )
             ),
             footer = modalButton("OK"),
             easyClose = TRUE
@@ -265,9 +363,16 @@ mod_predict_server <- function(id, shared, main_session) {
         }
         if (length(overlap) < length(all_features) * 0.5) {
           showNotification(
-            paste0("Note: ", length(overlap), "/", length(all_features),
-                   " model features found in data. Predictions may be less reliable."),
-            type = "warning", duration = 8)
+            paste0(
+              "Note: ",
+              length(overlap),
+              "/",
+              length(all_features),
+              " model features found in data. Predictions may be less reliable."
+            ),
+            type = "warning",
+            duration = 8
+          )
         }
       }
 
@@ -276,8 +381,11 @@ mod_predict_server <- function(id, shared, main_session) {
       pred_busy(TRUE)
 
       w <- Waiter$new(
-        html = tagList(div(class = "spinner-ring"), h4("Predicting..."),
-                       p(class = "text-muted", "Running prediction...")),
+        html = tagList(
+          div(class = "spinner-ring"),
+          h4("Predicting..."),
+          p(class = "text-muted", "Running prediction...")
+        ),
         color = "rgba(255,255,255,0.85)"
       )
       w$show()
@@ -297,18 +405,31 @@ mod_predict_server <- function(id, shared, main_session) {
       }
 
       jobid <- tryCatch(
-        submit_session_task(shared, "predict", list(
-          model_list    = model,
-          expr          = expr,
-          patient_input = patient_input,
-          legacy_clones = legacy_clones,
-          mode          = input$agg_mode
-        )),
-        error = function(e) { pred_busy(FALSE); w$hide(); NULL }
+        submit_session_task(
+          shared,
+          "predict",
+          list(
+            model_list = model,
+            expr = expr,
+            patient_input = patient_input,
+            legacy_clones = legacy_clones,
+            mode = input$agg_mode
+          )
+        ),
+        error = function(e) {
+          pred_busy(FALSE)
+          w$hide()
+          NULL
+        }
       )
-      if (is.null(jobid)) return()
+      if (is.null(jobid)) {
+        return()
+      }
 
-      poll_task(shared, session, jobid,
+      poll_task(
+        shared,
+        session,
+        jobid,
         on_done = function(res) {
           pred_busy(FALSE)
           w$hide()
@@ -321,8 +442,13 @@ mod_predict_server <- function(id, shared, main_session) {
         on_error = function(msg) {
           pred_busy(FALSE)
           w$hide()
-          showNotification(paste("Prediction error:", msg), type = "error", duration = 10)
-        })
+          showNotification(
+            paste("Prediction error:", msg),
+            type = "error",
+            duration = 10
+          )
+        }
+      )
     })
 
     # Patient-level aggregation now happens inside the background worker
@@ -363,25 +489,35 @@ mod_predict_server <- function(id, shared, main_session) {
     # old heatmap survived "Clear Demo Data".
     output$clone_heatmap_area <- renderUI({
       mat <- clone_pred()
-      if (is.null(mat)) return(div())
+      if (is.null(mat)) {
+        return(div())
+      }
       n_rows <- nrow(mat)
-      h <- if (is.null(n_rows) || n_rows <= 0) 400
-           else min(700, max(240, 140 + 16 * n_rows))
+      h <- if (is.null(n_rows) || n_rows <= 0) {
+        400
+      } else {
+        min(700, max(240, 140 + 16 * n_rows))
+      }
       # Demo models are SIMULATED (trained on random noise, not real drug
       # response data) but carry real drug names — the results must carry a
       # visible banner whenever any of them appear in the prediction.
       demo <- intersect(colnames(mat), demo_models(shared$models))
       banner <- if (length(demo) > 0) {
-        div(class = "info-box",
-            style = "border-left-color: var(--warning); margin-bottom: 0.6rem;",
-            icon("exclamation-triangle"),
-            strong("Demo simulation: "),
-            "Demo models are SIMULATED placeholders, not trained on real drug response data. ",
-            "These predictions demonstrate the workflow only and must NOT be interpreted as real drug response.")
+        div(
+          class = "info-box",
+          style = "border-left-color: var(--warning); margin-bottom: 0.6rem;",
+          icon("exclamation-triangle"),
+          strong("Demo simulation: "),
+          "Demo models are SIMULATED placeholders, not trained on real drug response data. ",
+          "These predictions demonstrate the workflow only and must NOT be interpreted as real drug response."
+        )
       } else {
         NULL
       }
-      tagList(banner, plotlyOutput(ns("clone_heatmap"), height = paste0(h, "px")))
+      tagList(
+        banner,
+        plotlyOutput(ns("clone_heatmap"), height = paste0(h, "px"))
+      )
     })
 
     # Card annotations (icon + description + hint) are statically pre-rendered
@@ -389,12 +525,20 @@ mod_predict_server <- function(id, shared, main_session) {
     # and restore them if a later run produces no result again.
     observe({
       has_res <- !is.null(clone_pred())
-      session$sendCustomMessage("set-html",
-        list(id = ns("clone_desc"),
-             html = if (has_res) "" else as.character(clone_desc_html())))
-      session$sendCustomMessage("set-html",
-        list(id = ns("patient_desc"),
-             html = if (has_res) "" else as.character(patient_desc_html())))
+      session$sendCustomMessage(
+        "set-html",
+        list(
+          id = ns("clone_desc"),
+          html = if (has_res) "" else as.character(clone_desc_html())
+        )
+      )
+      session$sendCustomMessage(
+        "set-html",
+        list(
+          id = ns("patient_desc"),
+          html = if (has_res) "" else as.character(patient_desc_html())
+        )
+      )
     })
 
     # Patient table
@@ -404,14 +548,16 @@ mod_predict_server <- function(id, shared, main_session) {
       df$patient <- rownames(df)
       df <- df[, c("patient", setdiff(names(df), "patient"))]
 
-      datatable(df,
-                options = list(
-                  pageLength = 15,
-                  dom = "ftip",
-                  columnDefs = list(list(className = "dt-center", targets = "_all"))
-                ),
-                rownames = FALSE,
-                class = "display") %>%
+      datatable(
+        df,
+        options = list(
+          pageLength = 15,
+          dom = "ftip",
+          columnDefs = list(list(className = "dt-center", targets = "_all"))
+        ),
+        rownames = FALSE,
+        class = "display"
+      ) %>%
         formatRound(names(df)[sapply(df, is.numeric)], 4)
     })
 
@@ -424,9 +570,13 @@ mod_predict_server <- function(id, shared, main_session) {
     # Patient download
     output$patient_download <- renderUI({
       req(patient_pred())
-      div(style = "margin-top: 0.75rem;",
-        downloadButton(ns("download_pred"), "Download Predictions (.csv)",
-                       class = "btn-outline-primary btn-sm")
+      div(
+        style = "margin-top: 0.75rem;",
+        downloadButton(
+          ns("download_pred"),
+          "Download Predictions (.csv)",
+          class = "btn-outline-primary btn-sm"
+        )
       )
     })
 

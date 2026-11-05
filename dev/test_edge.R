@@ -9,11 +9,12 @@ source('/data/home/dingjia/R/library/PERCEPTIONx/shiny/app/R/async_jobs.R')
 options(perception.pkg_root = NULL)
 suppressMessages(library(PERCEPTIONx))
 
-fails <- 0L
+counters <- new.env(parent = emptyenv())
+counters$fails <- 0L
 t <- function(name, ok, detail = '') {
   cat(sprintf('[%s] %s%s\n', if (ok) 'PASS' else 'FAIL', name,
               if (nzchar(detail)) paste0(' -> ', detail) else ''))
-  if (!ok) fails <<- fails + 1L
+  if (!ok) counters$fails <- counters$fails + 1L
 }
 
 # --- 1. corrupt DepMap file -> extract_depmap_meta errors (app deletes it) ---
@@ -57,5 +58,5 @@ t('task stays running (not fake done/error) after worker death', st$status == 'r
 alive <- worker$is_alive()
 t('poll can detect dead worker (alive=FALSE)', isFALSE(alive))
 
-cat('\n==== EDGE TEST SUMMARY: FAIL =', fails, '====\n')
-quit(status = if (fails == 0L) 0L else 1L)
+cat('\n==== EDGE TEST SUMMARY: FAIL =', counters$fails, '====\n')
+quit(status = if (counters$fails == 0L) 0L else 1L)

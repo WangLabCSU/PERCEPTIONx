@@ -1,7 +1,7 @@
 # RowMeans functions considering the boundary case where mat has a single
 # column (one cell / sample) — rowMeans would error on a one-column matrix.
-rowMeans_if_one_row <- function(mat){
-  if(ncol(mat)>1){
+rowMeans_if_one_row <- function(mat) {
+  if (ncol(mat) > 1L) {
     return(rowMeans(mat))
   } else {
     return(mat)
@@ -10,20 +10,23 @@ rowMeans_if_one_row <- function(mat){
 
 
 # Count the number of NAs in each row of a matrix
-count_row_NAs <- function(df){
-  apply(df, 1, function(x) sum(is.na(x)))
+count_row_NAs <- function(df) {
+  rowSums(is.na(df))
 }
 
 
 # Handing a error when a function is run and returning NA in case of error
 # instead of stopping the task.
-err_handle <- function(x){ tryCatch(x, error=function(e){NA}) }
-
+err_handle <- function(x) {
+  tryCatch(x, error = function(e) {
+    NA
+  })
+}
 
 # Lowercase and strip non-alphanumeric characters (keep underscores) — used
 # to make inconsistent drug / gene names comparable (e.g. "Drug-1" vs "Drug_1").
-stripall2match <- function(x){
-  tolower(gsub('[^A-z0-9]', '', x) )
+stripall2match <- function(x) {
+  tolower(gsub('[^A-z0-9]', '', x))
 }
 
 
@@ -40,8 +43,8 @@ stripall2match <- function(x){
 parse_clone_keys <- function(x) {
   parts <- strsplit(as.character(x), "@@")
   data.frame(
-    patient  = sapply(parts, `[`, 1),
-    clone_id = sapply(parts, `[`, 2),
+    patient = sapply(parts, `[`, 1L),
+    clone_id = sapply(parts, `[`, 2L),
     stringsAsFactors = FALSE
   )
 }
@@ -61,4 +64,3 @@ parse_clone_keys <- function(x) {
 build_clone_key <- function(patient, clone_id) {
   paste(as.character(patient), as.character(clone_id), sep = "@@")
 }
-

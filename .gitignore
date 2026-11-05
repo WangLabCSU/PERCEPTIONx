@@ -46,3 +46,6 @@ inst/testdata/
 
 # pkgdown site output (built by CI, deployed to gh-pages)
 docs/
+*.qs2
+test_pipeline_output/
+test_pipeline_v2_output/

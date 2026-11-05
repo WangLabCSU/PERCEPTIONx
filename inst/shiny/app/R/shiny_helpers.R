@@ -9,8 +9,12 @@
 # background job so the full read happens in the worker, never the main
 # Shiny process.
 read_cached_meta <- function(depmap_path, cache_file) {
-  if (!file.exists(cache_file) || !file.exists(depmap_path)) return(NULL)
-  if (file.mtime(cache_file) < file.mtime(depmap_path)) return(NULL)
+  if (!file.exists(cache_file) || !file.exists(depmap_path)) {
+    return(NULL)
+  }
+  if (file.mtime(cache_file) < file.mtime(depmap_path)) {
+    return(NULL)
+  }
   tryCatch(readRDS(cache_file), error = function(e) NULL)
 }
 
@@ -28,15 +32,17 @@ read_cached_meta <- function(depmap_path, cache_file) {
 #               no namespacing is needed).
 # ---------------------------------------------------------------------------
 workflow_stepper_html <- function(shared, ns = identity) {
-  data_ok    <- !is.null(shared$prepared_data) ||
-                (!is.null(shared$user_expr) && !is.null(shared$user_clones))
-  train_ok   <- !is.null(shared$models) && length(shared$models) > 0
+  data_ok <- !is.null(shared$prepared_data) ||
+    (!is.null(shared$user_expr) && !is.null(shared$user_clones))
+  train_ok <- !is.null(shared$models) && length(shared$models) > 0
   predict_ok <- !is.null(shared$predictions)
   done <- c(data_ok, train_ok, predict_ok, FALSE)
 
   # "Active" = the first incomplete step (the user's next action).
   active_idx <- which(!done)[1]
-  if (is.na(active_idx)) active_idx <- 4L
+  if (is.na(active_idx)) {
+    active_idx <- 4L
+  }
 
   # Red "blocked" state — used SPARINGLY (red reads as error). Only for
   # Train when the user has data but no DepMap reference and no models:
@@ -52,35 +58,55 @@ workflow_stepper_html <- function(shared, ns = identity) {
   )
   status_done <- c("Data ready", "Model ready", "Predictions ready", "Complete")
   status_next <- c("Start here", "Next step", "Next step", "Next step")
-  status_todo <- c("Pending",  "Pending",  "Pending",  "Pending")
+  status_todo <- c("Pending", "Pending", "Pending", "Pending")
 
   step_html <- lapply(seq_along(step_defs), function(i) {
-    st <- if (done[i]) "done"
-          else if (i == 2L && blocked2) "blocked"
-          else if (i == active_idx) "active"
-          else "todo"
-    label <- if (done[i]) status_done[i]
-             else if (i == 2L && blocked2) "Needs DepMap"
-             else if (i == active_idx) status_next[i]
-             else status_todo[i]
-    node <- if (done[i]) icon("check", style = "font-size: 1.05rem;")
-            else if (i == 2L && blocked2) icon("triangle-exclamation", style = "font-size: 1rem;")
-            else tags$span(i)
-    tags$div(class = paste("wf-step", st),
+    st <- if (done[i]) {
+      "done"
+    } else if (i == 2L && blocked2) {
+      "blocked"
+    } else if (i == active_idx) {
+      "active"
+    } else {
+      "todo"
+    }
+    label <- if (done[i]) {
+      status_done[i]
+    } else if (i == 2L && blocked2) {
+      "Needs DepMap"
+    } else if (i == active_idx) {
+      status_next[i]
+    } else {
+      status_todo[i]
+    }
+    node <- if (done[i]) {
+      icon("check", style = "font-size: 1.05rem;")
+    } else if (i == 2L && blocked2) {
+      icon("triangle-exclamation", style = "font-size: 1rem;")
+    } else {
+      tags$span(i)
+    }
+    tags$div(
+      class = paste("wf-step", st),
       # NOTE: child divs must go in `label`, NOT in `...` — Shiny >= 1.10
       # validates `...` tag elements as icons (actionLink -> tags$a) and
       # errors with "Invalid icon" when a plain div is passed positionally.
-      actionLink(ns(step_defs[[i]]$id), label = tagList(
-        div(class = "wf-node", node),
-        div(class = "wf-step-title", step_defs[[i]]$title),
-        div(class = "wf-step-status", label)
-      ), class = "wf-step-link")
+      actionLink(
+        ns(step_defs[[i]]$id),
+        label = tagList(
+          div(class = "wf-node", node),
+          div(class = "wf-step-title", step_defs[[i]]$title),
+          div(class = "wf-step-status", label)
+        ),
+        class = "wf-step-link"
+      )
     )
   })
 
   # Connector lines between steps — filled once the NEXT step is done.
-  lines <- lapply(seq_len(length(step_defs) - 1), function(i)
-    div(class = paste("wf-line", if (done[i + 1]) "filled" else "")))
+  lines <- lapply(seq_len(length(step_defs) - 1), function(i) {
+    div(class = paste("wf-line", if (done[i + 1]) "filled" else ""))
+  })
 
   children <- list()
   for (i in seq_along(step_defs)) {
@@ -90,18 +116,24 @@ workflow_stepper_html <- function(shared, ns = identity) {
 
   hint <- if (blocked2) {
     "Data is ready, but training needs the DepMap reference — load it in the Data tab (or load pre-trained models) first."
-  } else switch(active_idx,
-    "1" = "Start: load data — or click Load Demo to try the whole pipeline instantly.",
-    "2" = "Data ready -> next: train (or load) a drug response model.",
-    "3" = "Model ready -> next: run clone- and patient-level prediction.",
-    "4" = "Predictions ready -> go to Visualize to generate plots.",
-    "All steps complete -> everything is ready. Explore the tabs!"
-  )
+  } else {
+    switch(
+      active_idx,
+      "1" = "Start: load data — or click Load Demo to try the whole pipeline instantly.",
+      "2" = "Data ready -> next: train (or load) a drug response model.",
+      "3" = "Model ready -> next: run clone- and patient-level prediction.",
+      "4" = "Predictions ready -> go to Visualize to generate plots.",
+      "All steps complete -> everything is ready. Explore the tabs!"
+    )
+  }
 
   tagList(
     div(class = "wf-steps", children),
-    div(class = if (blocked2) "wf-hint wf-hint-warn" else "wf-hint",
-        icon(if (blocked2) "triangle-exclamation" else "circle-info"), hint)
+    div(
+      class = if (blocked2) "wf-hint wf-hint-warn" else "wf-hint",
+      icon(if (blocked2) "triangle-exclamation" else "circle-info"),
+      hint
+    )
   )
 }
 
@@ -115,61 +147,136 @@ data_dashboard_html <- function(shared) {
   # DepMap stats come from the lightweight metadata (the main process never
   # holds the full multi-GB object; the training master does).
   dm <- shared$depmap_meta
-  depmap_cell_lines <- if (!is.null(dm) && !is.null(dm$components$expression_rnorm))
-    dm$components$expression_rnorm$ncol else NULL
-  depmap_drugs <- if (!is.null(dm) && !is.null(dm$components$secondary_prism))
-    dm$components$secondary_prism$nrow else NULL
-  depmap_sc_models <- if (!is.null(dm) && !is.null(dm$components$scRNA_complete))
-    dm$components$scRNA_complete$ncol else NULL
+  depmap_cell_lines <- if (
+    !is.null(dm) && !is.null(dm$components$expression_rnorm)
+  ) {
+    dm$components$expression_rnorm$ncol
+  } else {
+    NULL
+  }
+  depmap_drugs <- if (!is.null(dm) && !is.null(dm$components$secondary_prism)) {
+    dm$components$secondary_prism$nrow
+  } else {
+    NULL
+  }
+  depmap_sc_models <- if (
+    !is.null(dm) && !is.null(dm$components$scRNA_complete)
+  ) {
+    dm$components$scRNA_complete$ncol
+  } else {
+    NULL
+  }
 
   items <- list(
-    list(name = "DepMap Reference", icon_name = "database",
-         loaded = !is.null(dm),
-         detail = if (!is.null(dm))
-           paste0(if (!is.null(depmap_cell_lines)) paste0(depmap_cell_lines, " cell lines, "),
-                  if (!is.null(depmap_drugs)) paste0(depmap_drugs, " drugs"),
-                  if (!is.null(depmap_sc_models)) paste0(", ", depmap_sc_models, " scRNA-seq profiles"))
-         else "Not loaded"),
-    list(name = "Expression Matrix", icon_name = "table",
-         loaded = !is.null(shared$user_expr),
-         detail = if (!is.null(shared$user_expr))
-           paste0(nrow(shared$user_expr), " genes x ", ncol(shared$user_expr), " clones")
-         else "Not loaded"),
-    list(name = "Clone Map (Seurat)", icon_name = "layer-group",
-         loaded = !is.null(shared$prepared_data),
-         detail = if (!is.null(shared$prepared_data))
-           paste0(ncol(shared$prepared_data$clone_expression_rnorm), " clones, ",
-                  nrow(shared$prepared_data$clone_counts), " patients")
-         else "Not loaded"),
-    list(name = "Clinical Response", icon_name = "heartbeat",
-         loaded = !is.null(shared$user_response),
-         detail = if (!is.null(shared$user_response))
-           paste0(nrow(shared$user_response), " patients")
-         else "Not loaded"),
-    list(name = "Drug Models", icon_name = "cube",
-         loaded = !is.null(shared$models),
-         detail = if (!is.null(shared$models))
-           paste0(length(shared$models), " model(s): ",
-                  paste(names(shared$models), collapse = ", "))
-         else "Not loaded"),
-    list(name = "Predictions", icon_name = "microscope",
-         loaded = !is.null(shared$predictions),
-         detail = if (!is.null(shared$predictions))
-           paste0(nrow(shared$predictions), " clones x ", ncol(shared$predictions), " drugs")
-         else "Not loaded")
+    list(
+      name = "DepMap Reference",
+      icon_name = "database",
+      loaded = !is.null(dm),
+      detail = if (!is.null(dm)) {
+        paste0(
+          if (!is.null(depmap_cell_lines)) {
+            paste0(depmap_cell_lines, " cell lines, ")
+          },
+          if (!is.null(depmap_drugs)) paste0(depmap_drugs, " drugs"),
+          if (!is.null(depmap_sc_models)) {
+            paste0(", ", depmap_sc_models, " scRNA-seq profiles")
+          }
+        )
+      } else {
+        "Not loaded"
+      }
+    ),
+    list(
+      name = "Expression Matrix",
+      icon_name = "table",
+      loaded = !is.null(shared$user_expr),
+      detail = if (!is.null(shared$user_expr)) {
+        paste0(
+          nrow(shared$user_expr),
+          " genes x ",
+          ncol(shared$user_expr),
+          " clones"
+        )
+      } else {
+        "Not loaded"
+      }
+    ),
+    list(
+      name = "Clone Map (Seurat)",
+      icon_name = "layer-group",
+      loaded = !is.null(shared$prepared_data),
+      detail = if (!is.null(shared$prepared_data)) {
+        paste0(
+          ncol(shared$prepared_data$clone_expression_rnorm),
+          " clones, ",
+          nrow(shared$prepared_data$clone_counts),
+          " patients"
+        )
+      } else {
+        "Not loaded"
+      }
+    ),
+    list(
+      name = "Clinical Response",
+      icon_name = "heartbeat",
+      loaded = !is.null(shared$user_response),
+      detail = if (!is.null(shared$user_response)) {
+        paste0(nrow(shared$user_response), " patients")
+      } else {
+        "Not loaded"
+      }
+    ),
+    list(
+      name = "Drug Models",
+      icon_name = "cube",
+      loaded = !is.null(shared$models),
+      detail = if (!is.null(shared$models)) {
+        paste0(
+          length(shared$models),
+          " model(s): ",
+          paste(names(shared$models), collapse = ", ")
+        )
+      } else {
+        "Not loaded"
+      }
+    ),
+    list(
+      name = "Predictions",
+      icon_name = "microscope",
+      loaded = !is.null(shared$predictions),
+      detail = if (!is.null(shared$predictions)) {
+        paste0(
+          nrow(shared$predictions),
+          " clones x ",
+          ncol(shared$predictions),
+          " drugs"
+        )
+      } else {
+        "Not loaded"
+      }
+    )
   )
 
   tagList(
-    div(class = "dashboard-grid",
+    div(
+      class = "dashboard-grid",
       lapply(items, function(item) {
-        div(class = paste("dashboard-card", if (item$loaded) "card-loaded" else "card-empty"),
+        div(
+          class = paste(
+            "dashboard-card",
+            if (item$loaded) "card-loaded" else "card-empty"
+          ),
           div(class = "dashboard-card-icon", icon(item$icon_name)),
-          div(class = "dashboard-card-body",
+          div(
+            class = "dashboard-card-body",
             div(class = "dashboard-card-name", item$name),
             div(class = "dashboard-card-detail", item$detail)
           ),
-          div(class = "dashboard-card-status",
-            span(class = paste("status-dot", if (item$loaded) "green" else "gray"))
+          div(
+            class = "dashboard-card-status",
+            span(
+              class = paste("status-dot", if (item$loaded) "green" else "gray")
+            )
           )
         )
       })
@@ -194,25 +301,32 @@ data_dashboard_html <- function(shared) {
 # Human-readable stage text for the demo overlay, mapping the worker's
 # progress phases (prepare_data / Seurat step callbacks) to short labels.
 stage_text <- function(phase) {
-  switch(phase,
-    "seurat"                 = "Running Seurat clustering...",
-    "seurat-normalizing"     = "Normalizing expression data...",
+  switch(
+    phase,
+    "seurat" = "Running Seurat clustering...",
+    "seurat-normalizing" = "Normalizing expression data...",
     "seurat-variable-features" = "Finding variable genes...",
-    "seurat-scaling"         = "Scaling expression data...",
-    "seurat-pca"             = "Running PCA...",
-    "seurat-neighbors"       = "Building cell graph...",
-    "seurat-clustering"      = "Clustering cells...",
-    "seurat-umap"            = "Computing UMAP embedding...",
-    "seurat-tsne"            = "Computing t-SNE embedding...",
-    "clones"                 = "Reading clone-level input...",
-    "mapping"                = "Mapping cells to patients...",
-    "clone-expression"       = "Computing clone-level expression...",
-    "rank-normalizing"       = "Rank-normalizing expression...",
-    "clone-counts"           = "Building clone abundance table...",
-    "Running Seurat clustering...")
+    "seurat-scaling" = "Scaling expression data...",
+    "seurat-pca" = "Running PCA...",
+    "seurat-neighbors" = "Building cell graph...",
+    "seurat-clustering" = "Clustering cells...",
+    "seurat-umap" = "Computing UMAP embedding...",
+    "seurat-tsne" = "Computing t-SNE embedding...",
+    "clones" = "Reading clone-level input...",
+    "mapping" = "Mapping cells to patients...",
+    "clone-expression" = "Computing clone-level expression...",
+    "rank-normalizing" = "Rank-normalizing expression...",
+    "clone-counts" = "Building clone abundance table...",
+    "Running Seurat clustering..."
+  )
 }
 
-run_demo_pipeline <- function(shared, session, on_success = NULL, on_error = NULL) {
+run_demo_pipeline <- function(
+  shared,
+  session,
+  on_success = NULL,
+  on_error = NULL
+) {
   # The whole demo (structured data + Seurat clustering + 2 demo models) runs
   # in the per-session background worker (task "demo", see async_jobs.R), so
   # the main Shiny thread never blocks other users while it prepares.
@@ -231,40 +345,75 @@ run_demo_pipeline <- function(shared, session, on_success = NULL, on_error = NUL
       # and if it still failed the caller (mod_data / mod_home) would otherwise
       # leave demo_busy = TRUE forever, making every later click report
       # "Demo data is already being prepared..." without ever loading.
-      if (!is.null(on_error)) on_error()
-      showNotification(paste("Demo failed to start:", e$message), type = "error", duration = 12)
+      if (!is.null(on_error)) {
+        on_error()
+      }
+      showNotification(
+        paste("Demo failed to start:", e$message),
+        type = "error",
+        duration = 12
+      )
       NULL
     }
   )
-  if (is.null(jobid)) return(invisible(NULL))
-  poll_task(shared, session, jobid,
+  if (is.null(jobid)) {
+    return(invisible(NULL))
+  }
+  poll_task(
+    shared,
+    session,
+    jobid,
     # Live Seurat stage text in the demo overlay (normalizing / PCA /
     # clustering / UMAP / ...).
     on_progress = function(phase, i, n, drug) {
-      session$sendCustomMessage("set-demo-stage", list(text = stage_text(phase)))
+      session$sendCustomMessage(
+        "set-demo-stage",
+        list(text = stage_text(phase))
+      )
     },
     on_done = function(res) {
       hide_overlay()
       shared$user_response <- res$user_response
-      shared$user_mapping  <- res$user_mapping
-      shared$user_expr     <- res$user_expr       # stays CELL-level for spatial plots
+      shared$user_mapping <- res$user_mapping
+      shared$user_expr <- res$user_expr # stays CELL-level for spatial plots
       shared$prepared_data <- res$prepared_data
-      shared$user_clones   <- res$user_clones
-      shared$models        <- res$models
-      shared$model_cache   <- res$models
-      shared$model_active  <- setNames(rep(TRUE, length(res$models)), names(res$models))
+      shared$user_clones <- res$user_clones
+      shared$models <- res$models
+      shared$model_cache <- res$models
+      shared$model_active <- setNames(
+        rep(TRUE, length(res$models)),
+        names(res$models)
+      )
       n_clones <- ncol(res$prepared_data$clone_expression_rnorm)
-      if (!is.null(on_success)) on_success()
-      showNotification(paste0("Demo data loaded: ", nrow(res$user_expr), " genes x ",
-                              ncol(res$user_expr), " cells, ", nrow(res$user_response),
-                              " patients, ", n_clones, " clones detected. Models ready!"),
-                       type = "message", duration = 6)
+      if (!is.null(on_success)) {
+        on_success()
+      }
+      showNotification(
+        paste0(
+          "Demo data loaded: ",
+          nrow(res$user_expr),
+          " genes x ",
+          ncol(res$user_expr),
+          " cells, ",
+          nrow(res$user_response),
+          " patients, ",
+          n_clones,
+          " clones detected. Models ready!"
+        ),
+        type = "message",
+        duration = 6
+      )
     },
     on_error = function(msg) {
       hide_overlay()
-      showNotification(paste("Demo data preparation error:", msg), type = "error", duration = 10)
+      showNotification(
+        paste("Demo data preparation error:", msg),
+        type = "error",
+        duration = 10
+      )
       if (!is.null(on_error)) on_error()
-    })
+    }
+  )
   invisible(NULL)
 }
 
@@ -284,7 +433,9 @@ run_demo_pipeline <- function(shared, session, on_success = NULL, on_error = NUL
 extract_model_features <- function(m) {
   if (inherits(m, "train")) {
     feats <- setdiff(colnames(m$trainingData), ".outcome")
-    if (length(feats) > 0) return(feats)
+    if (length(feats) > 0) {
+      return(feats)
+    }
     feats <- colnames(m$trainingData)
     if (length(feats) > 1) return(feats[-1])
   }
@@ -304,19 +455,30 @@ extract_model_features <- function(m) {
 #   $overlaps:     named integer vector of overlap counts (NA = no features
 #                  could be extracted from the model).
 check_model_expression_compat <- function(models, expr_genes) {
-  empty <- list(incompatible = character(0), n_genes = 0,
-                overlaps = setNames(integer(0), character(0)))
-  if (is.null(models) || length(models) == 0) return(empty)
+  empty <- list(
+    incompatible = character(0),
+    n_genes = 0,
+    overlaps = setNames(integer(0), character(0))
+  )
+  if (is.null(models) || length(models) == 0) {
+    return(empty)
+  }
   if (is.null(expr_genes) || length(expr_genes) == 0) {
     # No expression data to compare against -> nothing to warn about.
-    return(list(incompatible = character(0), n_genes = 0,
-                overlaps = setNames(rep(NA_integer_, length(models)), names(models))))
+    return(list(
+      incompatible = character(0),
+      n_genes = 0,
+      overlaps = setNames(rep(NA_integer_, length(models)), names(models))
+    ))
   }
   expr_made <- make.names(expr_genes, unique = TRUE)
   overlaps <- setNames(integer(length(models)), names(models))
   for (nm in names(models)) {
     feats <- extract_model_features(models[[nm]]$model)
-    if (length(feats) == 0) { overlaps[[nm]] <- NA_integer_; next }
+    if (length(feats) == 0) {
+      overlaps[[nm]] <- NA_integer_
+      next
+    }
     ov <- intersect(feats, expr_genes)
     # Hyphen-vs-dot fallback (same rule as the prediction pre-check).
     if (length(ov) == 0) {
@@ -324,9 +486,11 @@ check_model_expression_compat <- function(models, expr_genes) {
     }
     overlaps[[nm]] <- length(ov)
   }
-  list(incompatible = names(overlaps)[!is.na(overlaps) & overlaps == 0],
-       n_genes = length(expr_genes),
-       overlaps = overlaps)
+  list(
+    incompatible = names(overlaps)[!is.na(overlaps) & overlaps == 0],
+    n_genes = length(expr_genes),
+    overlaps = overlaps
+  )
 }
 
 # Names of the SIMULATED demo models (attr model_source == "demo") in a model
@@ -334,10 +498,16 @@ check_model_expression_compat <- function(models, expr_genes) {
 # visibly labelled wherever they appear so their output is never mistaken for
 # a real drug-response prediction.
 demo_models <- function(models) {
-  if (is.null(models) || length(models) == 0) return(character(0))
-  src <- vapply(models, function(m) {
-    s <- attr(m, "model_source")
-    if (is.null(s)) NA_character_ else as.character(s)
-  }, character(1))
+  if (is.null(models) || length(models) == 0) {
+    return(character(0))
+  }
+  src <- vapply(
+    models,
+    function(m) {
+      s <- attr(m, "model_source")
+      if (is.null(s)) NA_character_ else as.character(s)
+    },
+    character(1)
+  )
   names(models)[!is.na(src) & src == "demo"]
 }

@@ -7,14 +7,14 @@
 annotate_clones(
   method = c("umap", "tsne"),
   expression_matrix,
-  min_cells = 3,
-  min_features = 200,
-  nfeatures = 2000,
-  dims = 10,
+  min_cells = 3L,
+  min_features = 200L,
+  nfeatures = 2000L,
+  dims = 10L,
   resolution = 0.8,
-  seed = 42,
+  seed = 42L,
   progress_cb = NULL,
-  cluster_algorithm = 1,
+  cluster_algorithm = 1L,
   variable_selection = c("vst", "dispersion", "mvp")
 )
 }

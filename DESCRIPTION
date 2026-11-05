@@ -1,9 +1,12 @@
 Package: PERCEPTIONx
 Title: Personalized Drug Response Prediction from Single-Cell Transcriptomics
-Version: 0.3.0
-Authors@R: 
+Version: 0.4.0
+Authors@R: c(
     person("Jia", "Ding", , "jiading682@qq.com", role = c("aut", "cre"),
-           comment = c(ORCID = "0009-0002-2530-0897"))
+           comment = c(ORCID = "0009-0002-2530-0897")),
+    person("Yuxi", "Yang", , "15364051195@163.com", role = c("ctb"), 
+            comment = c(ORCID = "0009-0006-1329-1224"))
+    )
 Description: An R implementation of the PERCEPTION approach (Sinha et al., 2024)
     for predicting personalized drug response from single-cell tumor
     transcriptomics. It trains drug-response models on large-scale cell-line
@@ -14,7 +17,6 @@ Encoding: UTF-8
 Depends:
     R (>= 4.1.0)
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 8.0.0
 VignetteBuilder: knitr
 Imports:
     ggplot2,
@@ -28,7 +30,10 @@ Imports:
     uwot,
     shiny,
     ggiraph,
-    parallel
+    parallel,
+    cli,
+    lifecycle,
+    data.table
 URL: https://wanglabcsu.github.io/PERCEPTIONx, https://github.com/WangLabCSU/PERCEPTIONx
 BugReports: https://github.com/WangLabCSU/PERCEPTIONx/issues
 Suggests:
@@ -42,5 +47,11 @@ Suggests:
     waiter,
     thematic,
     readxl,
-    callr
+    callr,
+    spelling,
+    WGCNA,
+    matrixStats,
+    kableExtra
 Config/testthat/edition: 3
+Language: en-US
+Config/roxygen2/version: 8.1.0

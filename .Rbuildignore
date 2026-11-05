@@ -16,3 +16,10 @@
 ^docs$
 ^pkgdown$
 ^models$
+^[.]?air[.]toml$
+^\.vscode$
+^jarl\.toml$
+\.qs2$
+^README\.Rmd$
+^test_pipeline_output$
+^test_pipeline_v2_output$

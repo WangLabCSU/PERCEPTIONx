@@ -19,11 +19,12 @@ s1 <- mk_session()
 s2 <- mk_session()
 cat('[e2e-conc] session1 pid:', s1$worker$get_pid(), '| session2 pid:', s2$worker$get_pid(), '\n')
 
-fails <- 0L
+counters <- new.env(parent = emptyenv())
+counters$fails <- 0L
 t <- function(name, ok, detail = '') {
   cat(sprintf('[%s] %s%s\n', if (ok) 'PASS' else 'FAIL', name,
               if (nzchar(detail)) paste0(' -> ', detail) else ''))
-  if (!ok) fails <<- fails + 1L
+  if (!ok) counters$fails <- counters$fails + 1L
 }
 t('two sessions have distinct workers', s1$worker$get_pid() != s2$worker$get_pid())
 t('distinct jobs dirs', !identical(s1$dir, s2$dir))
@@ -64,5 +65,5 @@ pid_before <- s1$worker$get_pid()
 r3 <- submit_wait(s1)
 t('session1 worker reused (same pid)', s1$worker$get_pid() == pid_before && r3$status == 'done')
 
-cat('\n==== CONCURRENCY TEST SUMMARY: FAIL =', fails, '====\n')
-quit(status = if (fails == 0L) 0L else 1L)
+cat('\n==== CONCURRENCY TEST SUMMARY: FAIL =', counters$fails, '====\n')
+quit(status = if (counters$fails == 0L) 0L else 1L)

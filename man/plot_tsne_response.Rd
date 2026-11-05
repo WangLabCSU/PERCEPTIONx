@@ -12,9 +12,9 @@ plot_tsne_response(
   point_size = NULL,
   colors = NULL,
   palette = c("viridis", "diverging"),
-  midpoint = 0,
+  midpoint = 0L,
   limits = NULL,
-  base_size = 11,
+  base_size = 11L,
   tooltip = TRUE,
   tooltip_col = NULL
 )

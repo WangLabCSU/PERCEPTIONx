@@ -19,11 +19,12 @@ and drugs as columns. Row names should match clone column names from
 
 \item{prepared_data}{List from \code{prepare_data()}, containing
 \code{$clone_viability_template} and \code{$clone_counts}. Alternatively,
-you can pass \code{clone_counts} directly as a data frame (legacy mode).}
+you can pass \code{clone_counts} directly as a data frame or data.table
+(legacy mode).}
 
-\item{clone_counts}{Optional. Data frame with patients as rows and clone IDs
-as columns. Only needed if \code{prepared_data} is not a list from
-\code{prepare_data()}.}
+\item{clone_counts}{Optional. Data frame or data.table with patients as rows
+and clone IDs as columns. Only needed if \code{prepared_data} is not a
+list from \code{prepare_data()}.}
 
 \item{mode}{Character. Aggregation method:
 \describe{

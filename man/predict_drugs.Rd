@@ -10,8 +10,10 @@ predict_drugs(model_list, expr)
 \item{model_list}{A named list of model objects (each with a \code{$model} element),
 or a single model object. From \code{train_models()} or \code{load_model()}.}
 
-\item{expr}{Matrix or data frame. Rank-normalized expression matrix with
-genes as rows and cells/samples as columns.}
+\item{expr}{Matrix, data frame, or data.table. Rank-normalized expression with
+genes as rows and cells/samples as columns. A data.table carries no row
+names, so its first column must hold the gene identifiers and the
+remaining columns the cells/samples.}
 }
 \value{
 A matrix with cells/samples as rows and drugs as columns,
