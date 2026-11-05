@@ -12,7 +12,7 @@ plot_response_boxplot(
   response_var = "response",
   predicted_var = "predicted_viability",
   y_label = "Predicted Viability (z-score)",
-  base_size = 15,
+  base_size = 15L,
   compare_method = "wilcox.test",
   alternative = "less",
   tooltip = TRUE

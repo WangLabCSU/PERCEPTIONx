@@ -24,12 +24,13 @@ combine_drugs(
 
 - pred:
 
-  Matrix or data.frame of clone-level drug viability predictions.
-  Typically the output of
+  Matrix, data.frame, or data.table of clone-level drug viability
+  predictions. Typically the output of
   [`predict_drugs()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/predict_drugs.md).
   Rows = clones, columns = drugs. Row names must be canonical PERCEPTION
   clone keys (`"patient@clone_id"`). Alternatively, pass a `data.frame`
-  with an explicit `patient` column and a `clone_id` column.
+  / `data.table` with an explicit `patient` column and a `clone_id`
+  column.
 
 - patient:
 

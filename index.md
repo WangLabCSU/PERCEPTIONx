@@ -18,7 +18,7 @@ Install the development version from GitHub:
 ``` r
 
 # install.packages("remotes")
-remotes::install_github("WangLabCSU/PERCEPTIONx")
+pak::pak("WangLabCSU/PERCEPTIONx")
 ```
 
 ## 2. Quick Start
@@ -177,14 +177,16 @@ cp -r .claude/skills/perceptionx-result ~/.codex/skills/
 
 ## 6. Workflow
 
-    DepMap Data ──► Model Training ──► Clone Prediction ──► Patient Aggregation
-                       │                    │                     │
-                train_models()        predict_drugs()      predict_patients()
-                                                         (weighted_max)
-                                                            │
-    Patient scRNA ──► prepare_data()                Visualization & Evaluation
-                       (clustering +                     │
-                        rank normalization)        plot_*() / compare_performance()
+``` R
+DepMap Data ──► Model Training ──► Clone Prediction ──► Patient Aggregation
+                   │                    │                     │
+            train_models()        predict_drugs()      predict_patients()
+                                                     (weighted_max)
+                                                        │
+Patient scRNA ──► prepare_data()                Visualization & Evaluation
+                   (clustering +                     │
+                    rank normalization)        plot_*() / compare_performance()
+```
 
 ## 7. Data Requirements
 
@@ -213,6 +215,21 @@ PERCEPTION study:
   <https://doi.org/10.1038/s43018-024-00756-7>
 
 Feedback: <jiading682@qq.com>
+
+``` r
+
+citation("PERCEPTIONx")
+#> To cite PERCEPTIONx in publications use:
+#> 
+#>   Jia Ding. (2026). PERCEPTIONx: Personalized Drug Response Prediction from Single-Cell Transcriptomics. R package version
+#>   0.3.0. https://github.com/WangLabCSU/PERCEPTIONx
+#> 
+#>   Sinha, S., Vegesna, R., Mukherjee, S. et al. (2024). PERCEPTION predicts patient response and resistance to treatment
+#>   using single-cell transcriptomics of their tumors. Nature Cancer 5, 938-952. https://doi.org/10.1038/s43018-024-00756-7
+#> 
+#> To see these entries in BibTeX format, use 'print(<citation>, bibtex=TRUE)', 'toBibtex(.)', or set
+#> 'options(citation.bibtex.max=999)'.
+```
 
 ## 9. License
 

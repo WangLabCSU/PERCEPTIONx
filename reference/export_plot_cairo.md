@@ -10,9 +10,9 @@ export_plot_cairo(
   file,
   plot,
   format = "png",
-  width = 7,
-  height = 5,
-  res = 600,
+  width = 7L,
+  height = 5L,
+  res = 600L,
   draw_fun = NULL
 )
 ```

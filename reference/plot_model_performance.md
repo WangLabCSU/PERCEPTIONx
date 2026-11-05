@@ -9,7 +9,7 @@ thresholds across bulk, pseudo-bulk, and single-cell datasets.
 plot_model_performance(
   performance_list,
   threshold_range = NULL,
-  base_size = 20,
+  base_size = 20L,
   highlight_threshold = 0.3,
   tooltip = TRUE
 )

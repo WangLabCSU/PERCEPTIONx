@@ -24,8 +24,10 @@ predict_drugs(model_list, expr)
 
 - expr:
 
-  Matrix or data frame. Rank-normalized expression matrix with genes as
-  rows and cells/samples as columns.
+  Matrix, data frame, or data.table. Rank-normalized expression with
+  genes as rows and cells/samples as columns. A data.table carries no
+  row names, so its first column must hold the gene identifiers and the
+  remaining columns the cells/samples.
 
 ## Value
 

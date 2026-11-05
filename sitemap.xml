@@ -1,7 +1,10 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/404.html</loc></url>
+<url><loc>https://wanglabcsu.github.io/PERCEPTIONx/CODE_OF_CONDUCT.html</loc></url>
+<url><loc>https://wanglabcsu.github.io/PERCEPTIONx/CONTRIBUTING.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/LICENSE-text.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/LICENSE.html</loc></url>
+<url><loc>https://wanglabcsu.github.io/PERCEPTIONx/SUPPORT.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/articles/index.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/articles/pipeline.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/articles/shiny_app.html</loc></url>
@@ -9,6 +12,7 @@
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/authors.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/index.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/news/index.html</loc></url>
+<url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/PERCEPTIONx-package.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/add_mirrors.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/annotate_clones.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/annotate_perception.html</loc></url>
@@ -37,6 +41,9 @@
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/load_model.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/load_perception.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/parse_clone_keys.html</loc></url>
+<url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/perception_all_drugs.html</loc></url>
+<url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/perception_depmap_drugs.html</loc></url>
+<url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/perception_fda_approved_drugs.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_clone_distribution.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_clone_umap.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_clone_viability.html</loc></url>

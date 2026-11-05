@@ -121,3 +121,19 @@ prepare_data(). Most users only need the main entry points above.
   : Fast correlation test (generic)
 - [`export_plot_cairo()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/export_plot_cairo.md)
   : Export plot to file via Cairo device
+- [`perception_depmap_drugs`](https://wanglabcsu.github.io/PERCEPTIONx/reference/perception_depmap_drugs.md)
+  : Drug catalogue inside the DepMap data we provide. Extracted from
+  secondary_screen_drugAnnotation\$CommonName (PRISM secondary screen,
+  sorted). The 44 pre-trained models (perception_all_drugs) are a subset
+  of this list; every other drug here can be trained on the Train tab
+  once DepMap is loaded.
+- [`perception_fda_approved_drugs`](https://wanglabcsu.github.io/PERCEPTIONx/reference/perception_fda_approved_drugs.md)
+  : FDA-approved cancer drugs (Table S2 of Sinha et al., Nat Cancer
+  2024). 142 compounds, all of them present in perception_depmap_drugs;
+  the 44 pre-trained models (perception_all_drugs) are a subset of this
+  list.
+- [`perception_all_drugs`](https://wanglabcsu.github.io/PERCEPTIONx/reference/perception_all_drugs.md)
+  : The 44 pre-trained model drugs shipped with the package (used by
+  load_model(all = TRUE) to pre-cache the full set on deployment
+  servers). Single source of truth — train_models() defaults and the
+  Shiny app's drug dropdown both read this list.

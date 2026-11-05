@@ -13,8 +13,8 @@ plot_tsne_biomarker_viability(
   viability_var = "viability_scaled",
   biomarker_label = "Biomarker Exp",
   viability_label = "Drug Viability",
-  nrow = 1,
-  base_size = 8
+  nrow = 1L,
+  base_size = 8L
 )
 ```
 

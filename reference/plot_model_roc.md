@@ -11,7 +11,7 @@ single-model summary after training.
 ## Usage
 
 ``` r
-plot_model_roc(performance_list, base_size = 13)
+plot_model_roc(performance_list, base_size = 13L)
 ```
 
 ## Arguments

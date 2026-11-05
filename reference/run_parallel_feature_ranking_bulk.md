@@ -10,7 +10,7 @@ run_parallel_feature_ranking_bulk(
   id_cancerType = "PanCan",
   infunc_exclude_cancer = "PanCan",
   infunc_GOI,
-  ncores = 4
+  ncores = 4L
 )
 ```
 

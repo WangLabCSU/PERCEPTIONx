@@ -10,8 +10,8 @@ plot_roc_curve(
   response,
   predictor,
   smooth_curve = TRUE,
-  base_size = 15,
-  auc_digits = 3,
+  base_size = 15L,
+  auc_digits = 3L,
   title = NULL,
   tooltip = TRUE
 )

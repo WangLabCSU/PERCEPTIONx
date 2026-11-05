@@ -8,7 +8,7 @@ evaluating model performance on pseudo-bulk data, not for prediction.
 
 ``` r
 each_patient_pseudo_bulk(
-  x = 1,
+  x = 1L,
   comb_viability_df,
   Clone_Counts_per_patients,
   clone_Level_z_expression_df

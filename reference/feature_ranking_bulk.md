@@ -11,7 +11,8 @@ feature_ranking_bulk(
   infunc_drugName,
   infunc_cancerType = "PanCan",
   exclude_cancer = "PanCan",
-  infunc_GOI
+  infunc_GOI,
+  ncores = 4L
 )
 ```
 
@@ -32,6 +33,10 @@ feature_ranking_bulk(
 - infunc_GOI:
 
   Character vector. Genes of Interest to rank.
+
+- ncores:
+
+  Number of cores to use for parallelization. Default = 4.
 
 ## Value
 

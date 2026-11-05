@@ -32,13 +32,13 @@ predict_patients(
   List from
   [`prepare_data()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/prepare_data.md),
   containing `$clone_viability_template` and `$clone_counts`.
-  Alternatively, you can pass `clone_counts` directly as a data frame
-  (legacy mode).
+  Alternatively, you can pass `clone_counts` directly as a data frame or
+  data.table (legacy mode).
 
 - clone_counts:
 
-  Optional. Data frame with patients as rows and clone IDs as columns.
-  Only needed if `prepared_data` is not a list from
+  Optional. Data frame or data.table with patients as rows and clone IDs
+  as columns. Only needed if `prepared_data` is not a list from
   [`prepare_data()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/prepare_data.md).
 
 - mode:

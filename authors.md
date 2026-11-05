@@ -5,6 +5,8 @@
 - **Jia Ding**. Author, maintainer.
   [](https://orcid.org/0009-0002-2530-0897)
 
+- **Yuxi Yang**. Contributor. [](https://orcid.org/0009-0006-1329-1224)
+
 ## Citation
 
 Source:
