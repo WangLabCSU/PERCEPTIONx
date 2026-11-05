@@ -401,11 +401,25 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 #' @param progress_cb Optional function called as \code{progress_cb(phase, i, n,
 #'   drug)} with the current pipeline stage (e.g. \code{"seurat-pca"},
 #'   \code{"mapping"}). Used to show live progress in the Shiny app.
+#' @param data Optional \code{Seurat} object. When supplied, the expression
+#'   matrix is read from \code{assay}/\code{layer}, clone labels from
+#'   \code{clone_col} (or \code{Idents()}), and patient IDs from
+#'   \code{patient_col}. Use this instead of \code{expression_matrix} plus
+#'   \code{patient_mapping}.
+#' @param clone_labels Optional data frame with \code{cell_id} and
+#'   \code{clone_id} columns mapping every cell to a clone. Skips clustering.
+#'   This is the \code{cell_labels} element returned by \code{preprocess_sc()}.
+#' @param assay Character. Assay to read when \code{data} is a Seurat object.
+#'   Default = \code{Seurat::DefaultAssay(data)}.
+#' @param layer Character. Layer (Seurat v5) or slot (Seurat v4) to read.
+#'   Default = \code{"data"}.
+#' @param clone_col Character. Metadata column in \code{data} holding clone
+#'   labels. When \code{NULL}, \code{Seurat::Idents(data)} is used.
 #'
 #' @export
 prepare_data <- function(
   method = c("umap", "tsne"),
-  expression_matrix,
+  expression_matrix = NULL,
   patient_mapping = NULL,
   cell_col = "cell_id",
   patient_col = "patient_id",
@@ -420,7 +434,12 @@ prepare_data <- function(
   seurat_min_features = 200L,
   seurat_seed = 42L,
   skip_clustering = FALSE,
-  progress_cb = NULL
+  progress_cb = NULL,
+  data = NULL,
+  clone_labels = NULL,
+  assay = NULL,
+  layer = "data",
+  clone_col = NULL
 ) {
   method <- rlang::arg_match(method)
   notify_stage <- function(phase, i, n) {
@@ -428,6 +447,86 @@ prepare_data <- function(
   }
   cli::cli_h2("PERCEPTIONx Patient Data Preparation")
   cli::cli_ul("Reduction method: {.val {toupper(method)}}")
+
+  # --- Seurat object input: unpack matrix + labels -------------------------
+  # Keeps the rest of this function unchanged: a Seurat object is only a
+  # structured container for an expression matrix plus cell labels, so it is
+  # reduced to exactly the two inputs the pipeline already understands.
+  label_source <- if (isTRUE(skip_clustering)) {
+    "provided_matrix_columns"
+  } else {
+    "auto_cluster"
+  }
+
+  if (!is.null(data)) {
+    if (!is.null(expression_matrix)) {
+      cli::cli_abort(
+        "Supply only one of {.arg data} and {.arg expression_matrix}."
+      )
+    }
+    if (!inherits(data, "Seurat")) {
+      cli::cli_abort(
+        "{.arg data} must be a {.cls Seurat} object, not {.cls {class(data)}}."
+      )
+    }
+
+    if (is.null(assay)) {
+      assay <- Seurat::DefaultAssay(data)
+    }
+    expression_matrix <- tryCatch(
+      Seurat::GetAssayData(data, assay = assay, layer = layer),
+      error = function(e) {
+        Seurat::GetAssayData(data, assay = assay, slot = layer)
+      }
+    )
+
+    metadata <- data[[]]
+
+    if (is.null(clone_col)) {
+      clone_ids <- as.character(Seurat::Idents(data))
+      label_source <- "seurat_idents"
+      if (all(grepl("^[0-9]+$", clone_ids))) {
+        cli::cli_warn(c(
+          "Clone labels are Seurat cluster numbers ({.val {head(unique(clone_ids), 3)}}), not validated clones.",
+          "i" = "Pass {.arg clone_col} to use a curated label column instead."
+        ))
+      }
+    } else {
+      if (!clone_col %in% colnames(metadata)) {
+        cli::cli_abort(c(
+          "Column {.val {clone_col}} not found in the Seurat object metadata.",
+          "i" = "Available columns: {.val {colnames(metadata)}}."
+        ))
+      }
+      clone_ids <- as.character(metadata[[clone_col]])
+      label_source <- "seurat_metadata"
+    }
+
+    if (!patient_col %in% colnames(metadata)) {
+      cli::cli_abort(c(
+        "Column {.val {patient_col}} not found in the Seurat object metadata.",
+        "i" = "Use {.arg patient_col} to name the column that holds patient IDs.",
+        "i" = "Available columns: {.val {colnames(metadata)}}."
+      ))
+    }
+
+    clone_labels <- data.frame(
+      cell_id = colnames(expression_matrix),
+      clone_id = clone_ids,
+      stringsAsFactors = FALSE
+    )
+    # Name the patient column exactly as `patient_col` so the downstream
+    # split() below finds it without a second lookup table.
+    clone_labels[[patient_col]] <- as.character(metadata[[patient_col]])
+    patient_mapping <- clone_labels[, c("cell_id", patient_col)]
+    skip_clustering <- TRUE
+  }
+
+  if (is.null(expression_matrix)) {
+    cli::cli_abort(
+      "Supply either {.arg data} (a Seurat object) or {.arg expression_matrix}."
+    )
+  }
 
   # --- Auto-enable parse_patient if patient_sep or patient_pos is provided ---
   if (!parse_patient) {
@@ -550,8 +649,45 @@ prepare_data <- function(
     sample_cell_names <- patient_mapping
   }
 
-  # --- Step 1: Define clones (Seurat clustering OR clone-level input) ---
-  if (isTRUE(skip_clustering)) {
+  # --- Step 1: Define clones ------------------------------------------------
+  if (!is.null(clone_labels)) {
+    notify_stage("clones", 1L, 5L)
+    cli::cli_progress_step("[1/5] Using supplied cell-to-clone labels...")
+
+    if (is.null(data)) {
+      label_source <- "user_labels"
+    }
+
+    if (!all(c("cell_id", "clone_id") %in% colnames(clone_labels))) {
+      cli::cli_abort(c(
+        "{.arg clone_labels} must have columns {.val cell_id} and {.val clone_id}.",
+        "x" = "Got columns: {.val {colnames(clone_labels)}}."
+      ))
+    }
+
+    cell_clone_map <- data.table::data.table(
+      cell_id = as.character(clone_labels$cell_id),
+      clone_id = as.character(clone_labels$clone_id)
+    )
+
+    labelled <- cell_clone_map$cell_id %chin% colnames(expression_matrix)
+    if (!all(labelled)) {
+      cli::cli_warn(
+        "{sum(!labelled)} labelled cell{?s} are absent from the expression matrix and will be dropped."
+      )
+      cell_clone_map <- cell_clone_map[labelled, ]
+    }
+    unlabelled <- setdiff(colnames(expression_matrix), cell_clone_map$cell_id)
+    if (length(unlabelled) > 0L) {
+      cli::cli_warn(
+        "{length(unlabelled)} cell{?s} have no clone label and will be dropped."
+      )
+    }
+
+    cli::cli_progress_step(
+      "Using {nrow(cell_clone_map)} labelled cells across {length(unique(cell_clone_map$clone_id))} clones"
+    )
+  } else if (isTRUE(skip_clustering)) {
     notify_stage("clones", 1L, 5L)
     cli::cli_progress_step(
       "[1/5] Skipping Seurat clustering -- each column is treated as one clone..."
@@ -756,6 +892,7 @@ prepare_data <- function(
     } else {
       cell_clone_map[, c("cell_id", "dim_1", "dim_2")]
     },
-    reduction_method = if (isTRUE(skip_clustering)) "none" else method
+    reduction_method = if (isTRUE(skip_clustering)) "none" else method,
+    label_source = label_source
   ))
 }

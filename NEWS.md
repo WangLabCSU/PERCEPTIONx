@@ -1,3 +1,39 @@
+# PERCEPTIONx 0.4.0
+
+## New features
+
+- `preprocess_sc()` implements the full raw-counts to clone-label workflow:
+  MAD-based per-patient quality control, normalisation, variable-feature
+  selection, a shared PCA embedding, and clustering **inside each patient**, so
+  a clone can never span two patients. When a patient has more than one sample
+  (e.g. longitudinal biopsies), harmony is applied within that patient so a
+  batch effect cannot split one clone in two. `harmony` is an optional
+  dependency and the step is skipped with a warning when it is absent.
+- `plot_qc_report()` draws the per-patient QC fences, so the automatic
+  filtering can be audited without knowing the MAD rule.
+- `prepare_data()` gains two alternative inputs. `data = <Seurat object>` reads
+  the matrix from `assay`/`layer` and labels from `clone_col` or `Idents()`;
+  `clone_labels = <data.frame>` takes a pre-computed cell-to-clone table. Both
+  skip clustering.
+- `prepare_data()` now records where the clone labels came from in
+  `$label_source`: `auto_cluster`, `user_labels`, `seurat_idents`,
+  `seurat_metadata`, or `provided_matrix_columns`.
+
+## Improvements
+
+- Internal code migrated to `data.table`; user-facing results remain
+  `data.frame`.
+- Messages and errors use `cli`; `run_seurat_pipeline()` is marked
+  `lifecycle::deprecate_soft()`.
+- Drug catalogues are exported as documented objects:
+  `perception_depmap_drugs`, `perception_fda_approved_drugs`,
+  `perception_all_drugs`.
+- `glmnet` and `randomForest` remain in `Imports`: `caret::train(method =
+  "glmnet")` is the default path and loads them at runtime.
+- `Matrix` added to `Imports`; `harmony` added to `Suggests`.
+- Added `air` formatting, `jarl` linting, spelling checks, and repository
+  templates (CONTRIBUTING / SUPPORT / CODE_OF_CONDUCT).
+
 # PERCEPTIONx 0.3.0
 
 ## New features

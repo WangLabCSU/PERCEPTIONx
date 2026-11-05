@@ -6,7 +6,7 @@
 \usage{
 prepare_data(
   method = c("umap", "tsne"),
-  expression_matrix,
+  expression_matrix = NULL,
   patient_mapping = NULL,
   cell_col = "cell_id",
   patient_col = "patient_id",
@@ -21,7 +21,12 @@ prepare_data(
   seurat_min_features = 200L,
   seurat_seed = 42L,
   skip_clustering = FALSE,
-  progress_cb = NULL
+  progress_cb = NULL,
+  data = NULL,
+  clone_labels = NULL,
+  assay = NULL,
+  layer = "data",
+  clone_col = NULL
 )
 }
 \arguments{
@@ -85,6 +90,25 @@ No UMAP/t-SNE embedding is produced in this mode.}
 \item{progress_cb}{Optional function called as \code{progress_cb(phase, i, n,
 drug)} with the current pipeline stage (e.g. \code{"seurat-pca"},
 \code{"mapping"}). Used to show live progress in the Shiny app.}
+
+\item{data}{Optional \code{Seurat} object. When supplied, the expression
+matrix is read from \code{assay}/\code{layer}, clone labels from
+\code{clone_col} (or \code{Idents()}), and patient IDs from
+\code{patient_col}. Use this instead of \code{expression_matrix} plus
+\code{patient_mapping}.}
+
+\item{clone_labels}{Optional data frame with \code{cell_id} and
+\code{clone_id} columns mapping every cell to a clone. Skips clustering.
+This is the \code{cell_labels} element returned by \code{preprocess_sc()}.}
+
+\item{assay}{Character. Assay to read when \code{data} is a Seurat object.
+Default = \code{Seurat::DefaultAssay(data)}.}
+
+\item{layer}{Character. Layer (Seurat v5) or slot (Seurat v4) to read.
+Default = \code{"data"}.}
+
+\item{clone_col}{Character. Metadata column in \code{data} holding clone
+labels. When \code{NULL}, \code{Seurat::Idents(data)} is used.}
 }
 \value{
 A named list with:

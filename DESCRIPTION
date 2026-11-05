@@ -33,7 +33,8 @@ Imports:
     parallel,
     cli,
     lifecycle,
-    data.table
+    data.table,
+    Matrix
 URL: https://wanglabcsu.github.io/PERCEPTIONx, https://github.com/WangLabCSU/PERCEPTIONx
 BugReports: https://github.com/WangLabCSU/PERCEPTIONx/issues
 Suggests:
@@ -51,7 +52,8 @@ Suggests:
     spelling,
     WGCNA,
     matrixStats,
-    kableExtra
+    kableExtra,
+    harmony
 Config/testthat/edition: 3
 Language: en-US
 Config/roxygen2/version: 8.1.0
