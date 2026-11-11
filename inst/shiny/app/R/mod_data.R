@@ -336,7 +336,7 @@ EGFR      4.7       2.1       0.0"
               ns("expr_format"),
               "Data format",
               choices = c(
-                "Cell-level — run Seurat clustering to detect clones" = "cell",
+                "Cell-level — quality-control and cluster cells into clones" = "cell",
                 "Clone-level — each column is one clone, skip clustering" = "clone"
               ),
               selected = "cell",
@@ -511,9 +511,10 @@ PAT_003    Responder"
               p(
                 class = "text-muted",
                 style = "font-size: 0.85rem; line-height: 1.5; margin-bottom: 0.6rem;",
-                "Run Seurat clustering to automatically detect transcriptional subclones, ",
-                "compute clone-level mean expression, rank-normalize the data, and build ",
-                "the clone abundance table required for prediction."
+                "Quality-control each patient's cells, cluster them into transcriptional ",
+                "subclones, compute clone-level mean expression, rank-normalize the data, ",
+                "and build the clone abundance table required for prediction. QC thresholds ",
+                "adapt to each patient automatically."
               ),
               p(
                 class = "text-muted",
@@ -535,7 +536,7 @@ PAT_003    Responder"
                 style = "margin-top: 0.6rem; margin-bottom: 0; font-size: 0.8rem; padding: 0.5rem 0.7rem;",
                 icon("info-circle"),
                 "Requires Expression Matrix and Patient-Cell Mapping loaded first. ",
-                "By default Seurat clusters cells into subclones. ",
+                "By default cells are quality-controlled and then clustered per patient. ",
                 br(),
                 "Choose \"Clone-level\" in the Expression Matrix card to skip clustering. ",
                 "The data is then prepared automatically after upload."
@@ -586,7 +587,7 @@ PAT_003    Responder"
                 ),
                 actionButton(
                   ns("run_seurat"),
-                  "Run Seurat Clustering",
+                  "Preprocess & Cluster",
                   class = "btn-primary seurat-run-btn",
                   icon = icon("wand-magic-sparkles"),
                   disabled = "disabled",
@@ -626,7 +627,8 @@ Shiny.addCustomMessageHandler('expr-format-state-",
               )))
             )
           ),
-          div(class = "seurat-status-bar", uiOutput(ns("seurat_status")))
+          div(class = "seurat-status-bar", uiOutput(ns("seurat_status"))),
+          uiOutput(ns("qc_summary"))
         )
       )
     ),
@@ -956,6 +958,7 @@ mod_data_server <- function(id, shared) {
           w$hide()
           shared$prepared_data <- prepared
           shared$user_clones <- prepared$cell_clone_map
+          shared$qc_report <- prepared$qc
           showNotification(
             paste0(
               "Data ready (clone-level): ",
@@ -1012,6 +1015,7 @@ mod_data_server <- function(id, shared) {
         shared$user_expr <- NULL
         shared$prepared_data <- NULL
         shared$user_clones <- NULL
+        shared$qc_report <- NULL
         shared$predictions <- NULL
         shared$patient_pred <- NULL
         shared$models <- NULL
@@ -1853,6 +1857,7 @@ mod_data_server <- function(id, shared) {
           }
           shared$user_expr <- mat
           shared$prepared_data <- NULL # Reset prepared data when expression changes
+          shared$qc_report <- NULL
           list(
             ok = TRUE,
             msg = paste0(
@@ -1942,6 +1947,7 @@ mod_data_server <- function(id, shared) {
 
           shared$user_mapping <- df
           shared$prepared_data <- NULL # Reset prepared data when mapping changes
+          shared$qc_report <- NULL
           showNotification(
             paste0(
               "Patient-cell mapping loaded: ",
@@ -2005,6 +2011,7 @@ mod_data_server <- function(id, shared) {
       # the data is re-prepared automatically.
       shared$prepared_data <- NULL
       shared$user_clones <- NULL
+      shared$qc_report <- NULL
       if (clone_mode) auto_prepare_if_clone()
     })
 
@@ -2023,7 +2030,7 @@ mod_data_server <- function(id, shared) {
       w <- Waiter$new(
         html = tagList(
           div(class = "spinner-ring"),
-          h4("Running Seurat clustering..."),
+          h4("Preprocessing and clustering..."),
           p(class = "text-muted", "Detecting subclones and preparing data")
         ),
         color = "rgba(255,255,255,0.85)"
@@ -2066,6 +2073,7 @@ mod_data_server <- function(id, shared) {
           w$hide()
           shared$prepared_data <- res
           shared$user_clones <- res$cell_clone_map
+          shared$qc_report <- res$qc
           # Keep shared$user_expr as cell-level expression for biomarker plots
           showNotification(
             paste0(
@@ -2103,7 +2111,7 @@ mod_data_server <- function(id, shared) {
           tags$span(
             class = "status-badge unloaded",
             span(class = "status-dot gray"),
-            "Not run yet. Upload expression and mapping, then click Run Seurat Clustering"
+            "Not run yet. Upload expression and mapping, then click Preprocess & Cluster"
           )
         }
       } else {
@@ -2132,6 +2140,54 @@ mod_data_server <- function(id, shared) {
           )
         )
       }
+    })
+
+    # --- QC summary (cell-level mode, produced by preprocess_sc()) ---
+    output$qc_summary <- renderUI({
+      qc <- shared$qc_report
+      if (is.null(qc) || nrow(qc) == 0L) {
+        return(NULL)
+      }
+      rows <- lapply(seq_len(nrow(qc)), function(i) {
+        tags$tr(
+          tags$td(qc$patient[i]),
+          tags$td(qc$n_input[i]),
+          tags$td(qc$n_kept[i]),
+          tags$td(paste0(qc$pct_removed[i], "%")),
+          tags$td(qc$main_reason[i]),
+          tags$td(qc$mito_threshold[i]),
+          tags$td(qc$n_clones[i])
+        )
+      })
+      div(
+        class = "card animate-fade-in-up",
+        style = "margin-top: 1rem;",
+        div(class = "card-header", icon("filter"), " Quality Control Summary"),
+        div(
+          class = "card-body",
+          p(
+            class = "text-muted",
+            "Cells were filtered with a per-patient MAD rule, so thresholds ",
+            "adapt to each sample instead of using one fixed percentage. ",
+            "Review this table before trusting the inferred clones."
+          ),
+          tags$table(
+            class = "table table-sm",
+            tags$thead(
+              tags$tr(
+                tags$th("Patient"),
+                tags$th("Input"),
+                tags$th("Kept"),
+                tags$th("Removed"),
+                tags$th("Main reason"),
+                tags$th("Mito %"),
+                tags$th("Clones")
+              )
+            ),
+            tags$tbody(rows)
+          )
+        )
+      )
     })
 
     # --- Upload Clinical Response ---

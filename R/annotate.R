@@ -670,6 +670,13 @@ prepare_data <- function(
       clone_id = as.character(clone_labels$clone_id)
     )
 
+    # Carry precomputed 2D coordinates (e.g. from preprocess_sc()) through to
+    # umap_coords, so the app can still draw an embedding in clone-label mode.
+    if (all(c("dim_1", "dim_2") %in% colnames(clone_labels))) {
+      cell_clone_map$dim_1 <- as.numeric(clone_labels$dim_1)
+      cell_clone_map$dim_2 <- as.numeric(clone_labels$dim_2)
+    }
+
     labelled <- cell_clone_map$cell_id %chin% colnames(expression_matrix)
     if (!all(labelled)) {
       cli::cli_warn(
@@ -887,10 +894,10 @@ prepare_data <- function(
     clone_counts = clone_counts,
     cell_clone_map = cell_clone_map,
     clone_viability_template = clone_viability_template,
-    umap_coords = if (isTRUE(skip_clustering)) {
-      NULL
-    } else {
+    umap_coords = if (all(c("dim_1", "dim_2") %in% names(cell_clone_map))) {
       cell_clone_map[, c("cell_id", "dim_1", "dim_2")]
+    } else {
+      NULL
     },
     reduction_method = if (isTRUE(skip_clustering)) "none" else method,
     label_source = label_source

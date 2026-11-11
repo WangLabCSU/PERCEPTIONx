@@ -725,21 +725,78 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
   }
 
   run_prepare <- function(a, progress_cb = NULL) {
-    PERCEPTIONx::prepare_data(
+    # Clone-level: the matrix already has one column per clone.
+    if (isTRUE(a$skip_clustering)) {
+      return(PERCEPTIONx::prepare_data(
+        method = a$method,
+        expression_matrix = a$expression_matrix,
+        patient_mapping = a$patient_mapping,
+        skip_clustering = TRUE,
+        progress_cb = progress_cb
+      ))
+    }
+
+    # Cell-level: quality control + per-patient clustering first, then the
+    # usual downstream pipeline. preprocess_sc() needs one patient label per
+    # cell; without an uploaded mapping everything is one patient.
+    cells <- colnames(a$expression_matrix)
+    patient <- rep("patient1", length(cells))
+    names(patient) <- cells
+    mapping <- a$patient_mapping
+    if (is.data.frame(mapping)) {
+      if (all(c("cell_id", "patient_id") %in% colnames(mapping))) {
+        hit <- match(cells, mapping$cell_id)
+        ok <- !is.na(hit)
+        patient[ok] <- as.character(mapping$patient_id[hit[ok]])
+      }
+    } else if (is.list(mapping)) {
+      for (p in names(mapping)) {
+        patient[intersect(cells, mapping[[p]])] <- p
+      }
+    } else if (is.atomic(mapping) && !is.null(names(mapping))) {
+      hit <- match(cells, names(mapping))
+      ok <- !is.na(hit)
+      patient[ok] <- as.character(mapping[hit[ok]])
+    }
+
+    labels <- PERCEPTIONx::preprocess_sc(
+      counts = a$expression_matrix,
+      patient_labels = patient,
+      dims = if (is.null(a$seurat_dims)) 20L else a$seurat_dims,
+      method = if (is.null(a$method)) "umap" else a$method,
+      resolution = if (is.null(a$seurat_resolution)) {
+        0.8
+      } else {
+        a$seurat_resolution
+      },
+      nfeatures = if (is.null(a$seurat_nfeatures)) {
+        2000L
+      } else {
+        a$seurat_nfeatures
+      },
+      progress_cb = if (is.function(progress_cb)) {
+        function(phase, i, n) progress_cb(phase, i, n, "")
+      } else {
+        NULL
+      }
+    )
+
+    prepared <- PERCEPTIONx::prepare_data(
       method = a$method,
       expression_matrix = a$expression_matrix,
-      patient_mapping = a$patient_mapping,
-      seurat_resolution = a$seurat_resolution,
-      seurat_dims = a$seurat_dims,
-      seurat_nfeatures = if (!is.null(a$seurat_nfeatures)) {
-        a$seurat_nfeatures
-      } else {
-        2000
-      },
-      seurat_seed = 42,
-      skip_clustering = isTRUE(a$skip_clustering),
+      patient_mapping = data.frame(
+        cell_id = labels$cell_labels$cell_id,
+        patient_id = labels$cell_labels$patient,
+        stringsAsFactors = FALSE
+      ),
+      clone_labels = labels$cell_labels,
       progress_cb = progress_cb
     )
+
+    prepared$qc <- labels$qc
+    prepared$qc_metrics <- labels$qc_metrics
+    prepared$used_harmony <- labels$used_harmony
+    prepared
   }
 
   run_demo <- function(a, progress_cb = NULL) {

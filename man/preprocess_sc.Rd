@@ -13,6 +13,7 @@ preprocess_sc(
   max_mito = 25,
   nfeatures = 2000,
   dims = 20,
+  method = c("umap", "tsne"),
   resolution = 0.8,
   min_clone_cells = 10,
   integrate = c("auto", "none", "harmony"),
@@ -46,6 +47,11 @@ Default = 2000.}
 
 \item{dims}{Integer. Number of principal components. Capped automatically
 for small datasets. Default = 20.}
+
+\item{method}{Character. 2D embedding for visualisation: \code{"umap"}
+(default) or \code{"tsne"}. Clustering itself always runs on the PCA
+embedding; this only changes the coordinates returned in
+\code{cell_labels}.}
 
 \item{resolution}{Numeric. Clustering resolution. Default = 0.8.}
 

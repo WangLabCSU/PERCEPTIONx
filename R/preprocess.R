@@ -166,6 +166,20 @@ detect_input_type <- function(counts) {
 }
 
 
+# t-SNE counterpart of umap_from_pca(), used when method = "tsne".
+tsne_from_pca <- function(so, dims, seed = 42) {
+  so <- Seurat::RunTSNE(
+    so,
+    dims = seq_len(dims),
+    check_duplicates = FALSE,
+    seed.use = seed
+  )
+  emb <- Seurat::Embeddings(so, "tsne")[, c(1, 2), drop = FALSE]
+  colnames(emb) <- c("TSNE_1", "TSNE_2")
+  emb
+}
+
+
 # Copy the uwot UMAP settings used by run_seurat_pipeline(): the default
 # RunUMAP settings cost seconds of fixed overhead on small datasets, and this
 # embedding is only used for visualisation.
@@ -310,6 +324,10 @@ cluster_within_patient <- function(so,
 #'        Default = 2000.
 #' @param dims Integer. Number of principal components. Capped automatically
 #'        for small datasets. Default = 20.
+#' @param method Character. 2D embedding for visualisation: \code{"umap"}
+#'        (default) or \code{"tsne"}. Clustering itself always runs on the PCA
+#'        embedding; this only changes the coordinates returned in
+#'        \code{cell_labels}.
 #' @param resolution Numeric. Clustering resolution. Default = 0.8.
 #' @param min_clone_cells Integer. Clones with fewer cells are kept but marked
 #'        with \code{confidence = "low"}. Default = 10.
@@ -353,12 +371,14 @@ preprocess_sc <- function(counts,
                           max_mito = 25,
                           nfeatures = 2000,
                           dims = 20,
+                          method = c("umap", "tsne"),
                           resolution = 0.8,
                           min_clone_cells = 10,
                           integrate = c("auto", "none", "harmony"),
                           seed = 42,
                           progress_cb = NULL) {
   integrate <- match.arg(integrate)
+  method <- match.arg(method)
   set.seed(seed)
 
   notify <- function(phase, i = NULL, n = NULL) {
@@ -486,7 +506,11 @@ preprocess_sc <- function(counts,
   # --- 5. Shared 2D embedding for visualisation ----------------------------
   notify("embedding")
   n_threads <- max(1L, min(4L, as.integer(parallel::detectCores()), na.rm = TRUE))
-  coords <- umap_from_pca(so, npcs, seed = seed, n_threads = n_threads)
+  coords <- if (method == "umap") {
+    umap_from_pca(so, npcs, seed = seed, n_threads = n_threads)
+  } else {
+    tsne_from_pca(so, npcs, seed = seed)
+  }
 
   # --- 6. Assemble labels --------------------------------------------------
   notify("assembling")

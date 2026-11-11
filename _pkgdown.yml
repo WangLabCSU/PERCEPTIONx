@@ -45,6 +45,7 @@ reference:
       - reset_mirrors
   - title: Preprocessing
     contents:
+      - preprocess_sc
       - prepare_data
   - title: Model Training
     contents:
@@ -72,6 +73,7 @@ reference:
       - plot_response_boxplot
       - plot_seurat_clustering
       - plot_patient_response_panel
+      - plot_qc_report
   - title: Shiny Application
     contents:
       - run_perception_app
@@ -107,6 +109,7 @@ articles:
     desc: Step-by-step guides for R package.
     contents:
       - pipeline
+      - preprocess_from_raw_counts
   - title: Shiny App Guide
     desc: Full walkthrough of the interactive web dashboard.
     contents:
