@@ -134,10 +134,25 @@ clone_palette <- function(n) {
   unname(grDevices::hcl(h = hues, c = 65L, l = 70L))
 }
 
-# Diverging scale for z-score / 0-1 style values: the two ends are pinned to
-# the app's THEME colors (--primary #165C91 = low, --accent #c13232 = high),
-# white at the midpoint -- red/blue is more intuitive than viridis.
-diverging_colors <- c("#165C91", "#F7F7F7", "#c13232")
+# Diverging scale for z-scores: the two ends are pinned to the app's THEME
+# colors (--primary #165C91 = low, --accent #c13232 = high), near-white at the
+# midpoint -- red/blue is more intuitive than viridis.
+#
+# z-scores pile up between -1 and +1, so a plain blue -> white -> red ramp
+# paints the bulk of the data in near-white tints. The extra light-but-visible
+# stops below saturate the mid-range instead: it is a nonlinear ramp, so a
+# value one SD from neutral already reads as blue or rose. Endpoints and the
+# neutral centre are unchanged.
+diverging_ramp <- c(
+  "#165C91",
+  "#3D77A7",
+  "#93B5D0",
+  "#E9EEF5",
+  "#DFB0B0",
+  "#C96E6E",
+  "#c13232"
+)
+diverging_stops <- c(0, 0.20, 0.38, 0.5, 0.62, 0.80, 1)
 # Sequential scale for percentile/rank values (viridis family)
 sequential_colors <- c("#440154", "#3B528B", "#21908C", "#5DC863", "#FDE725")
 
@@ -325,13 +340,23 @@ plot_tsne_response <- function(
     )
 
   if (palette == "diverging") {
+    # The ramp places `midpoint` at 50% of its span, so give the scale limits
+    # symmetric around it; otherwise a one-sided value range would shift the
+    # neutral colour away from the midpoint value.
+    div_limits <- limits
+    if (is.null(div_limits)) {
+      rng <- range(tsne_data[[color_var]], na.rm = TRUE)
+      half <- max(abs(rng - midpoint))
+      if (!is.finite(half) || half == 0L) {
+        half <- 1L
+      }
+      div_limits <- midpoint + c(-half, half)
+    }
     p <- p +
-      ggplot2::scale_colour_gradient2(
-        low = diverging_colors[1L],
-        mid = diverging_colors[2L],
-        high = diverging_colors[3L],
-        midpoint = midpoint,
-        limits = limits
+      ggplot2::scale_colour_gradientn(
+        colours = diverging_ramp,
+        values = diverging_stops,
+        limits = div_limits
       )
   } else {
     cols <- if (is.null(colors)) sequential_colors else colors
@@ -967,10 +992,11 @@ plot_clone_viability <- function(
 
   # Color scale: red-blue diverging by default (blue = low/sensitive, white =
   # neutral, red = high/resistant), the same ramp as the Gene Expression /
-  # Drug Viability UMAPs. Limits are DATA-DRIVEN (not pinned): a z-score of
-  # -2.2 (or any value outside a fixed window) still gets a real color
-  # instead of being clipped to grey/NA. The viridis sequential ramp remains
-  # available via viridis_scale = TRUE.
+  # Drug Viability UMAPs. Limits are DATA-DRIVEN (not pinned) and kept
+  # symmetric around 0 so the neutral colour stays on z = 0; a z-score of -2.2
+  # (or any value outside a fixed window) still gets a real color instead of
+  # being clipped to grey/NA. The viridis sequential ramp remains available
+  # via viridis_scale = TRUE.
   if (viridis_scale) {
     p <- p +
       ggplot2::scale_colour_gradientn(
@@ -978,12 +1004,15 @@ plot_clone_viability <- function(
         breaks = function(limits) pretty(limits, n = 4L)
       )
   } else {
+    half <- max(abs(clone_viability[[viability_var]]), na.rm = TRUE)
+    if (!is.finite(half) || half == 0L) {
+      half <- 1L
+    }
     p <- p +
-      ggplot2::scale_colour_gradient2(
-        low = diverging_colors[1L],
-        mid = diverging_colors[2L],
-        high = diverging_colors[3L],
-        midpoint = 0L,
+      ggplot2::scale_colour_gradientn(
+        colours = diverging_ramp,
+        values = diverging_stops,
+        limits = c(-half, half),
         breaks = function(limits) pretty(limits, n = 4L)
       )
   }
