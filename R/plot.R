@@ -101,25 +101,27 @@ theme_perception <- function(base_size = 11L, base_family = "") {
 }
 
 # Qualitative palette for many clones, zero extra dependencies.
-# Base of 15 curated colors (blue -> purple -> pink -> coral -> orange ->
-# yellow -> green -> teal -> indigo -> slate), kept at moderate saturation
-# so neighboring clones stay distinguishable without clashing.
+# 15 curated colors, ordered so that the FIRST few are the ones a typical
+# dataset actually uses (2-6 clones) and neighbouring entries are far apart on
+# the hue wheel: deep blue -> coral -> green -> magenta -> amber -> teal -> ...
+# Clones get colors by factor level, so an unlucky order here is what makes a
+# small bar chart look washed out (two greens in a row, then two blues).
 clone_palette_base <- c(
-  "#c1dc55ff",
-  "#20bb3dff",
-  "#28a5dfff",
   "#2c6a9dff",
-  "#5C6BC0",
-  "#764BA2",
-  "#AB47BC",
-  "#c977d2ff",
-  "#910013ff",
-  "#d42e2bff",
   "#FF7043",
-  "#FFCA28",
   "#18861dff",
+  "#AB47BC",
+  "#FFCA28",
   "#23acbeff",
-  "#7e645bff"
+  "#910013ff",
+  "#5C6BC0",
+  "#c1dc55ff",
+  "#764BA2",
+  "#28a5dfff",
+  "#d42e2bff",
+  "#c977d2ff",
+  "#7e645bff",
+  "#20bb3dff"
 )
 clone_palette <- function(n) {
   if (n <= length(clone_palette_base)) {
