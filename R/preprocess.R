@@ -18,7 +18,6 @@
 #     technical batch effects split a real clone in two.
 # ===========================================================================
 
-
 # Upper fence of a robust (MAD-based) filter: median + nmads * MAD.
 # Returns Inf when MAD is zero (all values identical) so the filter keeps
 # everything instead of discarding half the cells on a degenerate sample.
@@ -62,12 +61,14 @@ compute_qc_metrics <- function(counts) {
 # Thresholds are derived from each patient's own distribution
 # (median +/- nmads * MAD) and then capped by absolute limits, so a sample
 # with >50% bad cells cannot silently widen the fence.
-qc_filter_cells <- function(counts,
-                            patient,
-                            nmads = 3,
-                            min_genes = 200,
-                            max_mito = 25,
-                            max_genes = NULL) {
+qc_filter_cells <- function(
+  counts,
+  patient,
+  nmads = 3,
+  min_genes = 200,
+  max_mito = 25,
+  max_genes = NULL
+) {
   metrics <- compute_qc_metrics(counts)
   metrics$patient <- as.character(patient)
 
@@ -122,6 +123,73 @@ qc_filter_cells <- function(counts,
     report = do.call(rbind, rows),
     metrics = metrics
   )
+}
+
+
+# Score each cell against user-supplied marker sets and drop the cells whose
+# strongest set exceeds `min_expr`.
+#
+# This is an EXCLUSION rule, not a tumour-cell classifier: "epithelial" is not
+# the same as "malignant", and no marker rule can establish malignancy. The
+# only promise is that a cell strongly expressing an excluded programme is left
+# out of the clustering, so immune or stromal populations do not form clusters
+# that later get read as resistance clones.
+filter_marker_sets <- function(log_counts, exclude_markers, min_expr = 1) {
+  empty <- list(
+    keep = colnames(log_counts),
+    removed = data.frame(
+      cell_id = character(0),
+      set = character(0),
+      score = numeric(0),
+      stringsAsFactors = FALSE
+    )
+  )
+
+  if (is.null(exclude_markers) || length(exclude_markers) == 0L) {
+    return(empty)
+  }
+  if (!is.list(exclude_markers) || is.null(names(exclude_markers))) {
+    cli::cli_abort(
+      "{.arg exclude_markers} must be a named list of gene vectors."
+    )
+  }
+
+  sets <- lapply(exclude_markers, function(g) {
+    intersect(g, rownames(log_counts))
+  })
+  sets <- sets[lengths(sets) > 0L]
+  if (length(sets) == 0L) {
+    cli::cli_warn(
+      "None of the genes in {.arg exclude_markers} were found in the matrix."
+    )
+    return(empty)
+  }
+
+  scores <- vapply(
+    sets,
+    function(g) Matrix::colMeans(log_counts[g, , drop = FALSE]),
+    numeric(ncol(log_counts))
+  )
+  if (is.null(dim(scores))) {
+    scores <- matrix(
+      scores,
+      ncol = 1L,
+      dimnames = list(colnames(log_counts), names(sets))
+    )
+  }
+
+  best <- max.col(scores, ties.method = "first")
+  best_score <- scores[cbind(seq_len(nrow(scores)), best)]
+  hit <- best_score >= min_expr
+
+  removed <- data.frame(
+    cell_id = colnames(log_counts)[hit],
+    set = names(sets)[best[hit]],
+    score = round(best_score[hit], 3),
+    stringsAsFactors = FALSE
+  )
+
+  list(keep = colnames(log_counts)[!hit], removed = removed)
 }
 
 
@@ -216,14 +284,16 @@ umap_from_pca <- function(so, dims, seed = 42, n_threads = 1L) {
 # The embedding comes from all cells (so distances mean the same thing
 # everywhere), but neighbours are only searched within a patient, which makes
 # it impossible for a clone to span two patients.
-cluster_within_patient <- function(so,
-                                   patient_col = "patient",
-                                   sample_col = NULL,
-                                   dims = 20,
-                                   resolution = 0.8,
-                                   integrate = c("auto", "none", "harmony"),
-                                   seed = 42,
-                                   progress_cb = NULL) {
+cluster_within_patient <- function(
+  so,
+  patient_col = "patient",
+  sample_col = NULL,
+  dims = 20,
+  resolution = 0.8,
+  integrate = c("auto", "none", "harmony"),
+  seed = 42,
+  progress_cb = NULL
+) {
   integrate <- match.arg(integrate)
   set.seed(seed)
 
@@ -330,7 +400,16 @@ cluster_within_patient <- function(so,
 #'        \code{cell_labels}.
 #' @param resolution Numeric. Clustering resolution. Default = 0.8.
 #' @param min_clone_cells Integer. Clones with fewer cells are kept but marked
-#'        with \code{confidence = "low"}. Default = 10.
+#'        \code{cluster_size_class = "small"}. Default = 10.
+#' @param exclude_markers Optional named list of gene vectors, e.g.
+#'        \code{list(immune = c("PTPRC", "CD3D"), stromal = c("COL1A1"))}.
+#'        Cells whose strongest marker-set score reaches \code{exclude_min_expr}
+#'        are removed before clustering. This is an **exclusion** rule for
+#'        reducing non-target cells, not a tumour-cell classifier: epithelial
+#'        markers do not imply malignancy. Default = \code{NULL} (keep all
+#'        cells).
+#' @param exclude_min_expr Numeric. Mean log-normalised expression a cell must
+#'        reach in a marker set to be excluded. Default = 1.
 #' @param integrate Character. Sample integration strategy within a patient:
 #'        \code{"auto"} (default) applies harmony when a patient has multiple
 #'        samples, \code{"none"} never integrates, \code{"harmony"} behaves
@@ -339,15 +418,28 @@ cluster_within_patient <- function(so,
 #' @param progress_cb Optional function called as \code{progress_cb(phase, i, n)}
 #'        between stages. Used to drive progress bars in the Shiny app.
 #'
+#' @section What "clone" means here:
+#' In the cell-level workflow, clone labels are **operationally defined** by
+#' transcriptomic clustering. Cells are grouped by transcriptional similarity
+#' within each patient, and the resulting cluster assignments are used as
+#' surrogate clone labels for downstream analysis. These labels do not
+#' necessarily represent genetically validated clonal populations and should not
+#' be interpreted as evidence of shared genomic ancestry. CNV- or genotype-based
+#' evidence is required to call true clones.
+#'
 #' @return A list with:
 #' \describe{
 #'   \item{cell_labels}{Data frame with \code{cell_id}, \code{clone_id},
 #'         \code{clone_key} (unique \code{"patient@@clone"} key),
-#'         \code{patient}, \code{confidence}, and \code{dim_1}/\code{dim_2}
-#'         (UMAP coordinates). This is the \code{clone_labels} argument of
-#'         \code{prepare_data()}.}
+#'         \code{patient}, \code{cluster_size_class} (\code{"large"} /
+#'         \code{"small"}, a cell-count category and nothing more), and
+#'         \code{dim_1}/\code{dim_2}. This is the \code{clone_labels} argument
+#'         of \code{prepare_data()}.}
 #'   \item{qc}{Data frame. Per-patient QC summary.}
 #'   \item{qc_metrics}{Data frame. Per-cell QC metrics before filtering.}
+#'   \item{excluded_cells}{Data frame. Cells removed by \code{exclude_markers}
+#'         (columns \code{cell_id}, \code{set}, \code{score}); empty when no
+#'         marker filtering was requested.}
 #'   \item{used_harmony}{Logical. Whether harmony was applied.}
 #'   \item{label_source}{Character. Always \code{"auto_cluster"}.}
 #' }
@@ -363,20 +455,24 @@ cluster_within_patient <- function(so,
 #' }
 #'
 #' @export
-preprocess_sc <- function(counts,
-                          patient_labels,
-                          sample_labels = NULL,
-                          nmads = 3,
-                          min_genes = 200,
-                          max_mito = 25,
-                          nfeatures = 2000,
-                          dims = 20,
-                          method = c("umap", "tsne"),
-                          resolution = 0.8,
-                          min_clone_cells = 10,
-                          integrate = c("auto", "none", "harmony"),
-                          seed = 42,
-                          progress_cb = NULL) {
+preprocess_sc <- function(
+  counts,
+  patient_labels,
+  sample_labels = NULL,
+  nmads = 3,
+  min_genes = 200,
+  max_mito = 25,
+  exclude_markers = NULL,
+  exclude_min_expr = 1,
+  nfeatures = 2000,
+  dims = 20,
+  method = c("umap", "tsne"),
+  resolution = 0.8,
+  min_clone_cells = 10,
+  integrate = c("auto", "none", "harmony"),
+  seed = 42,
+  progress_cb = NULL
+) {
   integrate <- match.arg(integrate)
   method <- match.arg(method)
   set.seed(seed)
@@ -465,6 +561,35 @@ preprocess_sc <- function(counts,
     scale.factor = 10000
   )
 
+  # --- 3b. Optional exclusion of non-target cells --------------------------
+  # Runs on normalised values so the marker scores are comparable across cells.
+  # Excluding (rather than keeping only) is deliberate: "epithelial" is not the
+  # same as "malignant" and no marker rule can establish malignancy.
+  excluded_cells <- data.frame(
+    cell_id = character(0),
+    set = character(0),
+    score = numeric(0),
+    stringsAsFactors = FALSE
+  )
+  if (!is.null(exclude_markers)) {
+    notify("filtering")
+    logdata <- Seurat::GetAssayData(so, assay = "RNA", layer = "data")
+    filtered <- filter_marker_sets(logdata, exclude_markers, exclude_min_expr)
+    if (nrow(filtered$removed) > 0L) {
+      so <- subset(so, cells = filtered$keep)
+      excluded_cells <- filtered$removed
+      cli::cli_alert_info(
+        "Excluded {nrow(excluded_cells)} cell{?s} expressing non-target marker sets."
+      )
+    }
+    if (ncol(so) < 10L) {
+      cli::cli_abort(c(
+        "Only {ncol(so)} cell{?s} left after marker filtering.",
+        "i" = "Relax {.arg exclude_min_expr} or drop {.arg exclude_markers}."
+      ))
+    }
+  }
+
   notify("variable-features")
   nfeatures <- min(nfeatures, nrow(so))
   so <- Seurat::FindVariableFeatures(
@@ -505,7 +630,10 @@ preprocess_sc <- function(counts,
 
   # --- 5. Shared 2D embedding for visualisation ----------------------------
   notify("embedding")
-  n_threads <- max(1L, min(4L, as.integer(parallel::detectCores()), na.rm = TRUE))
+  n_threads <- max(
+    1L,
+    min(4L, as.integer(parallel::detectCores()), na.rm = TRUE)
+  )
   coords <- if (method == "umap") {
     umap_from_pca(so, npcs, seed = seed, n_threads = n_threads)
   } else {
@@ -523,10 +651,12 @@ preprocess_sc <- function(counts,
   labels$clone_key <- paste(labels$patient, labels$clone_id, sep = "@@")
 
   clone_size <- table(labels$clone_key)[labels$clone_key]
-  labels$confidence <- ifelse(
+  # "large"/"small" rather than "high"/"low" on purpose: this only reflects how
+  # many cells the cluster contains, NOT how credible the clone is.
+  labels$cluster_size_class <- ifelse(
     as.integer(clone_size) >= min_clone_cells,
-    "high",
-    "low"
+    "large",
+    "small"
   )
   rownames(labels) <- NULL
 
@@ -540,6 +670,7 @@ preprocess_sc <- function(counts,
     cell_labels = labels,
     qc = qc$report,
     qc_metrics = qc$metrics,
+    excluded_cells = excluded_cells,
     used_harmony = clustered$used_harmony,
     label_source = "auto_cluster"
   )
@@ -563,8 +694,7 @@ preprocess_sc <- function(counts,
 #' @return A \code{ggplot} object, faceted by metric.
 #'
 #' @export
-plot_qc_report <- function(qc_metrics, kept_cells, qc_report,
-                           base_size = 12) {
+plot_qc_report <- function(qc_metrics, kept_cells, qc_report, base_size = 12) {
   metrics <- qc_metrics
   metrics$status <- ifelse(
     metrics$cell_id %in% kept_cells,
@@ -607,14 +737,22 @@ plot_qc_report <- function(qc_metrics, kept_cells, qc_report,
       linewidth = 0.3
     ) +
     ggplot2::facet_grid(metric ~ patient, scales = "free_y") +
-    ggplot2::scale_fill_manual(values = c(kept = "#009E73", removed = "#D55E00")) +
+    ggplot2::scale_fill_manual(
+      values = c(kept = "#009E73", removed = "#D55E00")
+    ) +
     ggplot2::labs(x = NULL, y = NULL, fill = NULL) +
     ggplot2::theme_bw(base_size = base_size) +
     ggplot2::theme(
       panel.grid.minor = ggplot2::element_blank(),
-      panel.grid.major = ggplot2::element_line(linewidth = 0.22, colour = "grey91"),
+      panel.grid.major = ggplot2::element_line(
+        linewidth = 0.22,
+        colour = "grey91"
+      ),
       panel.border = ggplot2::element_rect(linewidth = 0.4, colour = "grey35"),
-      strip.background = ggplot2::element_rect(fill = "grey95", linewidth = 0.3),
+      strip.background = ggplot2::element_rect(
+        fill = "grey95",
+        linewidth = 0.3
+      ),
       legend.position = "top"
     )
 }

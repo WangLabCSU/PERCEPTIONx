@@ -77,15 +77,17 @@ you to use `t(counts)` instead of silently producing nonsense.
    `median ± nmads × MAD`. A hard cap (`max_mito`, default 25%) prevents the
    fence from widening on a mostly-bad sample.
 2. **Normalisation.** `LogNormalize` with a scale factor of 10,000.
-3. **Variable features and PCA.** Computed on all cells together, so distances
+3. **Optional exclusion of non-target cells.** Only when `exclude_markers` is
+   supplied; see section 8.
+4. **Variable features and PCA.** Computed on all cells together, so distances
    mean the same thing for every patient.
-4. **Clustering.** Neighbours are searched **inside each patient only**, so a
+5. **Clustering.** Neighbours are searched **inside each patient only**, so a
    clone can never span two patients.
-5. **Sample integration (conditional).** If a patient has more than one
+6. **Sample integration (conditional).** If a patient has more than one
    sample, harmony is applied inside that patient only. A batch effect would
    otherwise split one biological clone into two. This requires the optional
    `harmony` package; without it you get a warning and the step is skipped.
-6. **UMAP.** For visualisation only.
+7. **UMAP.** For visualisation only.
 
 # 4. Reading the QC report
 
@@ -147,20 +149,67 @@ its clones were defined.
 Nothing is inferred silently: `prepare_data()` aborts if the assay, the layer,
 or the patient column cannot be resolved, and lists the available options.
 
-# 7. What this pipeline does not decide
+# 7. What "clone" means here
 
-Automatic clustering groups cells by transcriptional similarity. Whether a
-group is a true biological clone is a separate question that usually needs
-copy-number or genotype evidence.
+In the cell-level workflow, clone labels are **operationally defined** by
+transcriptomic clustering. Cells are grouped according to transcriptional
+similarity within each patient, and the resulting cluster assignments are used
+as surrogate clone labels for the downstream model.
 
-`preprocess_sc()` therefore marks every clone with `confidence`:
+These labels do not necessarily represent genetically validated clonal
+populations, and should not be interpreted as evidence of shared genomic
+ancestry. CNV or genotype evidence is required to call true clones.
 
-- `"high"`: at least `min_clone_cells` cells (default 10)
-- `"low"`: fewer cells; the clone is kept, not dropped
+`preprocess_sc()` marks every cluster with `cluster_size_class`, which reflects
+**only how many cells it contains**:
 
-Clones are never removed automatically. Restricting to high-confidence clones
-is your decision:
+- `"large"`: at least `min_clone_cells` cells (default 10)
+- `"small"`: fewer cells; the cluster is kept, not dropped
+
+The name is deliberately not `confidence`: a cluster with 50 cells is not more
+likely to be a real clone than one with 8 cells, it is just larger.
+
+Clusters are never removed automatically:
 
 ```r
-high_conf <- labels$cell_labels[labels$cell_labels$confidence == "high", ]
+large_only <- labels$cell_labels[labels$cell_labels$cluster_size_class == "large", ]
 ```
+
+# 8. Reducing non-target cells (optional)
+
+Tumour tissue contains immune and stromal cells that cluster on their own. Those
+clusters are not resistance clones, and keeping them dilutes the abundance of
+real tumour clones. `exclude_markers` removes cells that strongly express a
+programme you want out of the analysis:
+
+```r
+labels <- preprocess_sc(
+  counts = my_counts,
+  patient_labels = cell_to_patient,
+  exclude_markers = list(
+    immune      = c("PTPRC", "CD3D", "CD3E", "NKG7"),
+    myeloid     = c("LYZ", "CD68", "CD14"),
+    fibroblast  = c("COL1A1", "DCN", "LUM"),
+    endothelial = c("PECAM1", "VWF")
+  ),
+  exclude_min_expr = 1
+)
+```
+
+Each cell is scored by the mean log-normalised expression of every set; if the
+highest score reaches `exclude_min_expr`, the cell is removed. The removed cells
+are returned so the decision stays auditable:
+
+```r
+table(labels$excluded_cells$set)
+```
+
+Two warnings about interpretation:
+
+- This is an **exclusion** rule, not a tumour-cell classifier. Epithelial
+  markers (`EPCAM`, `KRT8`) do **not** imply malignancy, and some tumours are
+  not epithelial at all.
+- A single marker is weak evidence. Use several genes per set, and inspect the
+  scores in `labels$excluded_cells` before trusting the filter.
+
+Leaving `exclude_markers = NULL` (the default) keeps every cell that passed QC.

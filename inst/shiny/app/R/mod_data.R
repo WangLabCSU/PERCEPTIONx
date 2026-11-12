@@ -2122,6 +2122,19 @@ mod_data_server <- function(id, shared) {
             span(class = "status-dot green"),
             "Complete"
           ),
+          if (!is.null(pd$label_source)) {
+            tags$small(
+              class = "text-muted",
+              style = "margin-left: 0.5rem;",
+              title = paste(
+                "Where clone labels came from. auto_cluster means they were",
+                "inferred by unsupervised clustering and are not genetically",
+                "validated clones."
+              ),
+              "Labels: ",
+              tags$code(pd$label_source)
+            )
+          },
           tags$small(
             class = "text-muted",
             if (identical(pd$reduction_method, "none")) {

@@ -49,7 +49,11 @@ test_that("qc_filter_cells reports one row per patient", {
   expect_true(
     all(
       c(
-        "patient", "n_input", "n_kept", "pct_removed", "main_reason",
+        "patient",
+        "n_input",
+        "n_kept",
+        "pct_removed",
+        "main_reason",
         "mito_threshold"
       ) %in%
         names(res$report)
@@ -66,8 +70,11 @@ test_that("detect_input_type aborts on a transposed matrix", {
     ncol = 3,
     dimnames = list(
       c(
-        "AAACCTGAGCGTCTAT", "AAACCTGAGTACGTTC", "AAACCTGGTCAGAGCC",
-        "AAACCTGGTCTTGTCC", "AAACCTGTCTCGATGA"
+        "AAACCTGAGCGTCTAT",
+        "AAACCTGAGTACGTTC",
+        "AAACCTGGTCAGAGCC",
+        "AAACCTGGTCTTGTCC",
+        "AAACCTGTCTCGATGA"
       ),
       c("G1", "G2", "G3")
     )
@@ -117,14 +124,26 @@ test_that("preprocess_sc returns patient-local clones", {
 
   expect_named(
     res,
-    c("cell_labels", "qc", "qc_metrics", "used_harmony", "label_source")
+    c(
+      "cell_labels",
+      "qc",
+      "qc_metrics",
+      "excluded_cells",
+      "used_harmony",
+      "label_source"
+    )
   )
   expect_equal(res$label_source, "auto_cluster")
   expect_true(
     all(
       c(
-        "cell_id", "clone_id", "clone_key", "patient", "confidence",
-        "dim_1", "dim_2"
+        "cell_id",
+        "clone_id",
+        "clone_key",
+        "patient",
+        "cluster_size_class",
+        "dim_1",
+        "dim_2"
       ) %in%
         names(res$cell_labels)
     )
@@ -135,8 +154,64 @@ test_that("preprocess_sc returns patient-local clones", {
   pairs <- unique(res$cell_labels[, c("patient", "clone_id")])
   expect_equal(nrow(pairs), length(unique(res$cell_labels$clone_key)))
 
-  expect_true(all(res$cell_labels$confidence %in% c("high", "low")))
+  expect_true(all(res$cell_labels$cluster_size_class %in% c("large", "small")))
   expect_true(all(res$cell_labels$patient %in% c("P1", "P2")))
+  expect_equal(nrow(res$excluded_cells), 0L)
+})
+
+
+test_that("exclude_markers removes cells that score high for a marker set", {
+  skip_if_not_installed("Seurat")
+  skip_if_not_installed("uwot")
+
+  sim <- make_mock_counts(n_genes = 300, n_cells = 60)
+  rownames(sim$counts)[1] <- "PTPRC"
+  sim$counts[1, ] <- 0
+  sim$counts[1, seq_len(20)] <- 200
+
+  res <- preprocess_sc(
+    sim$counts,
+    sim$patient,
+    nmads = 5,
+    dims = 10,
+    resolution = 0.5,
+    exclude_markers = list(immune = "PTPRC"),
+    exclude_min_expr = 1
+  )
+
+  expect_gt(nrow(res$excluded_cells), 0L)
+  expect_equal(unique(res$excluded_cells$set), "immune")
+  expect_false(
+    any(res$excluded_cells$cell_id %in% res$cell_labels$cell_id)
+  )
+})
+
+
+test_that("filter_marker_sets keeps every cell when markers are absent", {
+  mat <- matrix(
+    1,
+    nrow = 3,
+    ncol = 4,
+    dimnames = list(c("A", "B", "C"), c("c1", "c2", "c3", "c4"))
+  )
+  res <- filter_marker_sets(mat, list(immune = c("NOT_A_GENE")))
+
+  expect_equal(res$keep, colnames(mat))
+  expect_equal(nrow(res$removed), 0L)
+})
+
+
+test_that("filter_marker_sets requires a named list", {
+  mat <- matrix(
+    1,
+    nrow = 2,
+    ncol = 2,
+    dimnames = list(c("A", "B"), c("c1", "c2"))
+  )
+  expect_error(
+    filter_marker_sets(mat, c("A")),
+    "named list"
+  )
 })
 
 

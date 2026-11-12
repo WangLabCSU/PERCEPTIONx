@@ -18,6 +18,15 @@
 - `prepare_data()` now records where the clone labels came from in
   `$label_source`: `auto_cluster`, `user_labels`, `seurat_idents`,
   `seurat_metadata`, or `provided_matrix_columns`.
+- `preprocess_sc()` gains `exclude_markers` / `exclude_min_expr`: cells that
+  strongly express a user-supplied marker set are removed before clustering, so
+  immune and stromal populations do not form clusters that later read as
+  resistance clones. This is an exclusion rule, not a tumour-cell classifier.
+  Default `NULL` keeps every cell. Removed cells are returned in
+  `$excluded_cells`.
+- `confidence` in `preprocess_sc()` output is renamed `cluster_size_class`
+  (`large` / `small`), because it only describes cluster size and says nothing
+  about how credible a clone is.
 
 ## Improvements
 

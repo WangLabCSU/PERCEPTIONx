@@ -11,6 +11,8 @@ preprocess_sc(
   nmads = 3,
   min_genes = 200,
   max_mito = 25,
+  exclude_markers = NULL,
+  exclude_min_expr = 1,
   nfeatures = 2000,
   dims = 20,
   method = c("umap", "tsne"),
@@ -42,6 +44,17 @@ deviations. Default = 3.}
 effective threshold is the smaller of this and the MAD fence.
 Default = 25.}
 
+\item{exclude_markers}{Optional named list of gene vectors, e.g.
+\code{list(immune = c("PTPRC", "CD3D"), stromal = c("COL1A1"))}.
+Cells whose strongest marker-set score reaches \code{exclude_min_expr}
+are removed before clustering. This is an \strong{exclusion} rule for
+reducing non-target cells, not a tumour-cell classifier: epithelial
+markers do not imply malignancy. Default = \code{NULL} (keep all
+cells).}
+
+\item{exclude_min_expr}{Numeric. Mean log-normalised expression a cell must
+reach in a marker set to be excluded. Default = 1.}
+
 \item{nfeatures}{Integer. Number of variable features used for PCA.
 Default = 2000.}
 
@@ -56,7 +69,7 @@ embedding; this only changes the coordinates returned in
 \item{resolution}{Numeric. Clustering resolution. Default = 0.8.}
 
 \item{min_clone_cells}{Integer. Clones with fewer cells are kept but marked
-with \code{confidence = "low"}. Default = 10.}
+\code{cluster_size_class = "small"}. Default = 10.}
 
 \item{integrate}{Character. Sample integration strategy within a patient:
 \code{"auto"} (default) applies harmony when a patient has multiple
@@ -73,11 +86,15 @@ A list with:
 \describe{
 \item{cell_labels}{Data frame with \code{cell_id}, \code{clone_id},
 \code{clone_key} (unique \code{"patient@clone"} key),
-\code{patient}, \code{confidence}, and \code{dim_1}/\code{dim_2}
-(UMAP coordinates). This is the \code{clone_labels} argument of
-\code{prepare_data()}.}
+\code{patient}, \code{cluster_size_class} (\code{"large"} /
+\code{"small"}, a cell-count category and nothing more), and
+\code{dim_1}/\code{dim_2}. This is the \code{clone_labels} argument
+of \code{prepare_data()}.}
 \item{qc}{Data frame. Per-patient QC summary.}
 \item{qc_metrics}{Data frame. Per-cell QC metrics before filtering.}
+\item{excluded_cells}{Data frame. Cells removed by \code{exclude_markers}
+(columns \code{cell_id}, \code{set}, \code{score}); empty when no
+marker filtering was requested.}
 \item{used_harmony}{Logical. Whether harmony was applied.}
 \item{label_source}{Character. Always \code{"auto_cluster"}.}
 }
@@ -96,6 +113,17 @@ that patient to prevent one biological clone from being split in two by a
 technical batch effect. \pkg{harmony} is an optional dependency: without it,
 the step is skipped with a warning.
 }
+\section{What "clone" means here}{
+
+In the cell-level workflow, clone labels are \strong{operationally defined} by
+transcriptomic clustering. Cells are grouped by transcriptional similarity
+within each patient, and the resulting cluster assignments are used as
+surrogate clone labels for downstream analysis. These labels do not
+necessarily represent genetically validated clonal populations and should not
+be interpreted as evidence of shared genomic ancestry. CNV- or genotype-based
+evidence is required to call true clones.
+}
+
 \examples{
 \dontrun{
   labels <- preprocess_sc(counts, patient_labels = cell_patients)
