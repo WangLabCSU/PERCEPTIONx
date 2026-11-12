@@ -2161,6 +2161,11 @@ mod_data_server <- function(id, shared) {
       if (is.null(qc) || nrow(qc) == 0L) {
         return(NULL)
       }
+      marker_removed <- if (is.null(qc$n_marker_removed)) {
+        rep(0L, nrow(qc))
+      } else {
+        qc$n_marker_removed
+      }
       rows <- lapply(seq_len(nrow(qc)), function(i) {
         tags$tr(
           tags$td(qc$patient[i]),
@@ -2169,6 +2174,7 @@ mod_data_server <- function(id, shared) {
           tags$td(paste0(qc$pct_removed[i], "%")),
           tags$td(qc$main_reason[i]),
           tags$td(qc$mito_threshold[i]),
+          tags$td(marker_removed[i]),
           tags$td(qc$n_clones[i])
         )
       })
@@ -2194,6 +2200,7 @@ mod_data_server <- function(id, shared) {
                 tags$th("Removed"),
                 tags$th("Main reason"),
                 tags$th("Mito %"),
+                tags$th("Marker"),
                 tags$th("Clones")
               )
             ),

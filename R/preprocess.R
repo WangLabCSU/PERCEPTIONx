@@ -340,11 +340,23 @@ cluster_within_patient <- function(
       dims = seq_len(ncol(emb_p)),
       verbose = FALSE
     )
-    cl <- Seurat::FindClusters(
+    cl_raw <- Seurat::FindClusters(
       nn$snn,
       resolution = resolution,
       verbose = FALSE
     )
+    # Seurat 5 returns a one-column data.frame when given a Graph; older
+    # versions return a factor. Normalise both to a character vector.
+    cl <- if (is.data.frame(cl_raw)) {
+      as.character(cl_raw[[1]])
+    } else {
+      as.character(cl_raw)
+    }
+    if (length(cl) != nrow(emb_p)) {
+      cli::cli_abort(
+        "Clustering returned {length(cl)} label{?s} for {nrow(emb_p)} cell{?s}."
+      )
+    }
 
     out[[i]] <- data.frame(
       cell_id = rownames(emb_p),
@@ -435,7 +447,8 @@ cluster_within_patient <- function(
 #'         \code{"small"}, a cell-count category and nothing more), and
 #'         \code{dim_1}/\code{dim_2}. This is the \code{clone_labels} argument
 #'         of \code{prepare_data()}.}
-#'   \item{qc}{Data frame. Per-patient QC summary.}
+#'   \item{qc}{Data frame. Per-patient QC summary, including
+#'         \code{n_marker_removed} when \code{exclude_markers} was used.}
 #'   \item{qc_metrics}{Data frame. Per-cell QC metrics before filtering.}
 #'   \item{excluded_cells}{Data frame. Cells removed by \code{exclude_markers}
 #'         (columns \code{cell_id}, \code{set}, \code{score}); empty when no
@@ -496,8 +509,10 @@ preprocess_sc <- function(
       "x" = "Got {length(patient_labels)} labels for {ncol(counts)} cells."
     ))
   }
-  names(patient_labels) <- colnames(counts)
+  # as.character() drops names, so the names must be (re)assigned after it --
+  # the QC step below indexes this vector by cell name.
   patient_labels <- as.character(patient_labels)
+  names(patient_labels) <- colnames(counts)
 
   if (!is.null(sample_labels)) {
     if (length(sample_labels) != ncol(counts)) {
@@ -506,8 +521,8 @@ preprocess_sc <- function(
         "x" = "Got {length(sample_labels)} labels for {ncol(counts)} cells."
       ))
     }
-    names(sample_labels) <- colnames(counts)
     sample_labels <- as.character(sample_labels)
+    names(sample_labels) <- colnames(counts)
   }
 
   # --- 2. Quality control --------------------------------------------------
@@ -571,6 +586,7 @@ preprocess_sc <- function(
     score = numeric(0),
     stringsAsFactors = FALSE
   )
+  marker_removed <- integer(0)
   if (!is.null(exclude_markers)) {
     notify("filtering")
     logdata <- Seurat::GetAssayData(so, assay = "RNA", layer = "data")
@@ -578,6 +594,19 @@ preprocess_sc <- function(
     if (nrow(filtered$removed) > 0L) {
       so <- subset(so, cells = filtered$keep)
       excluded_cells <- filtered$removed
+      marker_removed <- table(patient_labels[excluded_cells$cell_id])
+
+      # A marker rule that removes most of the data is almost certainly
+      # mis-specified, so surface it instead of silently continuing.
+      pct_excluded <- nrow(excluded_cells) / length(patient_labels)
+      if (pct_excluded > 0.5) {
+        cli::cli_warn(c(
+          "{round(100 * pct_excluded)}% of cells were removed by {.arg exclude_markers}.",
+          "i" = "Check that the marker sets are specific to the populations you meant to drop.",
+          "i" = "Inspect {.code{table(excluded_cells$set)}} and consider a higher {.arg exclude_min_expr}."
+        ))
+      }
+
       cli::cli_alert_info(
         "Excluded {nrow(excluded_cells)} cell{?s} expressing non-target marker sets."
       )
@@ -660,11 +689,24 @@ preprocess_sc <- function(
   )
   rownames(labels) <- NULL
 
+  # Carry provenance on the object itself, so prepare_data(clone_labels=)
+  # can report "auto_cluster" instead of assuming the labels were hand-made.
+  attr(labels, "label_source") <- "auto_cluster"
+
   qc$report$n_clones <- vapply(
     qc$report$patient,
     function(p) length(unique(labels$clone_id[labels$patient == p])),
     integer(1)
   )
+
+  # Per-patient count of cells removed by exclude_markers, so the QC table
+  # reports the full n_input -> n_kept -> n_marker_removed -> clones chain.
+  qc$report$n_marker_removed <- 0L
+  if (length(marker_removed) > 0L) {
+    removed <- as.integer(marker_removed[qc$report$patient])
+    removed[is.na(removed)] <- 0L
+    qc$report$n_marker_removed <- removed
+  }
 
   list(
     cell_labels = labels,

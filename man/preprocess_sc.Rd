@@ -90,7 +90,8 @@ A list with:
 \code{"small"}, a cell-count category and nothing more), and
 \code{dim_1}/\code{dim_2}. This is the \code{clone_labels} argument
 of \code{prepare_data()}.}
-\item{qc}{Data frame. Per-patient QC summary.}
+\item{qc}{Data frame. Per-patient QC summary, including
+\code{n_marker_removed} when \code{exclude_markers} was used.}
 \item{qc_metrics}{Data frame. Per-cell QC metrics before filtering.}
 \item{excluded_cells}{Data frame. Cells removed by \code{exclude_markers}
 (columns \code{cell_id}, \code{set}, \code{score}); empty when no

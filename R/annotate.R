@@ -655,7 +655,10 @@ prepare_data <- function(
     cli::cli_progress_step("[1/5] Using supplied cell-to-clone labels...")
 
     if (is.null(data)) {
-      label_source <- "user_labels"
+      label_source <- attr(clone_labels, "label_source")
+      if (is.null(label_source)) {
+        label_source <- "user_labels"
+      }
     }
 
     if (!all(c("cell_id", "clone_id") %in% colnames(clone_labels))) {
