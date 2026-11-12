@@ -225,12 +225,20 @@ make_two_group_counts <- function(n_genes = 400, n_per = 25) {
     m[rows, ] <- m[rows, ] + 60
     m
   }
-  counts <- cbind(block(seq_len(120)), block(121:240))
+  # Two blocks per patient: the second block over-expresses a different gene
+  # set, so each patient contains two transcriptionally distinct populations.
+  counts <- cbind(
+    block(seq_len(120)),
+    block(121:240),
+    block(seq_len(120)),
+    block(121:240)
+  )
   colnames(counts) <- sprintf("C%03d", seq_len(ncol(counts)))
   rownames(counts) <- sprintf("G%03d", seq_len(n_genes))
 
   patient <- rep(c("P1", "P2"), each = n_per * 2)
   names(patient) <- colnames(counts)
+  stopifnot(ncol(counts) == length(patient))
   list(counts = counts, patient = patient)
 }
 

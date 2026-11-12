@@ -348,21 +348,25 @@ cluster_within_patient <- function(
     # Seurat 5 returns a one-column data.frame when given a Graph; older
     # versions return a factor. Normalise both to a character vector.
     if (is.data.frame(cl_raw)) {
-      rn <- rownames(cl_raw)
-      default_rn <- as.character(seq_len(nrow(emb_p)))
-      if (
-        !is.null(rn) &&
-          !identical(rn, rownames(emb_p)) &&
-          !identical(rn, default_rn)
-      ) {
-        cli::cli_abort(c(
-          "Cluster labels are not aligned with the input cells.",
-          "i" = "They must follow the row order of the PCA embedding."
-        ))
-      }
+      cl_names <- rownames(cl_raw)
       cl <- as.character(cl_raw[[1]])
     } else {
+      cl_names <- names(cl_raw)
       cl <- as.character(cl_raw)
+    }
+    # Labels are attached positionally, so a differently ordered (but
+    # same-length) return value would silently assign clones to the wrong
+    # cells -- check the cell names, not just the count.
+    default_names <- as.character(seq_len(nrow(emb_p)))
+    if (
+      !is.null(cl_names) &&
+        !identical(cl_names, rownames(emb_p)) &&
+        !identical(cl_names, default_names)
+    ) {
+      cli::cli_abort(c(
+        "Cluster labels are not aligned with the input cells.",
+        "i" = "They must follow the row order of the PCA embedding."
+      ))
     }
     if (length(cl) != nrow(emb_p)) {
       cli::cli_abort(
