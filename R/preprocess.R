@@ -347,10 +347,22 @@ cluster_within_patient <- function(
     )
     # Seurat 5 returns a one-column data.frame when given a Graph; older
     # versions return a factor. Normalise both to a character vector.
-    cl <- if (is.data.frame(cl_raw)) {
-      as.character(cl_raw[[1]])
+    if (is.data.frame(cl_raw)) {
+      rn <- rownames(cl_raw)
+      default_rn <- as.character(seq_len(nrow(emb_p)))
+      if (
+        !is.null(rn) &&
+          !identical(rn, rownames(emb_p)) &&
+          !identical(rn, default_rn)
+      ) {
+        cli::cli_abort(c(
+          "Cluster labels are not aligned with the input cells.",
+          "i" = "They must follow the row order of the PCA embedding."
+        ))
+      }
+      cl <- as.character(cl_raw[[1]])
     } else {
-      as.character(cl_raw)
+      cl <- as.character(cl_raw)
     }
     if (length(cl) != nrow(emb_p)) {
       cli::cli_abort(

@@ -215,6 +215,93 @@ test_that("filter_marker_sets requires a named list", {
 })
 
 
+# Two clearly separated transcriptional groups inside every patient, used to
+# check that clustering actually separates populations rather than always
+# returning a single cluster.
+make_two_group_counts <- function(n_genes = 400, n_per = 25) {
+  set.seed(23)
+  block <- function(rows) {
+    m <- matrix(stats::rpois(n_genes * n_per, 2), n_genes, n_per)
+    m[rows, ] <- m[rows, ] + 60
+    m
+  }
+  counts <- cbind(block(seq_len(120)), block(121:240))
+  colnames(counts) <- sprintf("C%03d", seq_len(ncol(counts)))
+  rownames(counts) <- sprintf("G%03d", seq_len(n_genes))
+
+  patient <- rep(c("P1", "P2"), each = n_per * 2)
+  names(patient) <- colnames(counts)
+  list(counts = counts, patient = patient)
+}
+
+
+test_that("every retained cell keeps its patient assignment", {
+  skip_if_not_installed("Seurat")
+  skip_if_not_installed("uwot")
+
+  sim <- make_mock_counts(n_genes = 300, n_cells = 80)
+  res <- preprocess_sc(
+    sim$counts,
+    sim$patient,
+    nmads = 5,
+    dims = 10,
+    resolution = 0.5
+  )
+
+  expect_false(anyNA(res$cell_labels$patient))
+  expect_equal(
+    unname(res$cell_labels$patient),
+    unname(sim$patient[res$cell_labels$cell_id])
+  )
+})
+
+
+test_that("cluster labels are one per cell and are not deparsed vectors", {
+  skip_if_not_installed("Seurat")
+  skip_if_not_installed("uwot")
+
+  sim <- make_mock_counts(n_genes = 300, n_cells = 80)
+  res <- preprocess_sc(
+    sim$counts,
+    sim$patient,
+    nmads = 5,
+    dims = 10,
+    resolution = 0.5
+  )
+
+  expect_equal(nrow(res$cell_labels), length(unique(res$cell_labels$cell_id)))
+  expect_false(anyDuplicated(res$cell_labels$cell_id) > 0)
+
+  # Regression guard for the Seurat 5 FindClusters() data.frame return: a
+  # whole column used to be deparsed into "c(1, 1, 1, ...)" and recycled.
+  expect_false(any(grepl("c\\(", res$cell_labels$clone_id)))
+  expect_true(all(nchar(res$cell_labels$clone_id) < 10L))
+})
+
+
+test_that("clustering separates two distinct populations per patient", {
+  skip_if_not_installed("Seurat")
+  skip_if_not_installed("uwot")
+
+  sim <- make_two_group_counts()
+  res <- preprocess_sc(
+    sim$counts,
+    sim$patient,
+    nmads = 5,
+    dims = 15,
+    resolution = 0.5
+  )
+
+  clusters_per_patient <- tapply(
+    res$cell_labels$clone_id,
+    res$cell_labels$patient,
+    function(x) length(unique(x))
+  )
+
+  expect_true(all(clusters_per_patient >= 2L))
+})
+
+
 test_that("prepare_data accepts clone_labels and records their source", {
   sim <- make_mock_counts(n_genes = 100, n_cells = 20)
 
