@@ -311,6 +311,22 @@ cluster_within_patient <- function(
     idx <- which(patient == p)
     emb_p <- emb[idx, seq_len(dims), drop = FALSE]
 
+    # FindNeighbors() needs a few cells: with one or two it produces NA edges
+    # and errors out. Tiny biopsies also carry no evidence of heterogeneity, so
+    # they are reported as a single clone rather than failing the whole run.
+    if (nrow(emb_p) < 3L) {
+      out[[i]] <- data.frame(
+        cell_id = rownames(emb_p),
+        clone_id = rep("1", nrow(emb_p)),
+        patient = p,
+        stringsAsFactors = FALSE
+      )
+      if (is.function(progress_cb)) {
+        progress_cb(p, i, length(patients))
+      }
+      next
+    }
+
     n_samples <- if (is.null(sample_col)) {
       1L
     } else {

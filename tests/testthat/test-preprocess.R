@@ -310,6 +310,29 @@ test_that("clustering separates two distinct populations per patient", {
 })
 
 
+test_that("a patient too small to cluster becomes a single clone", {
+  skip_if_not_installed("Seurat")
+  skip_if_not_installed("uwot")
+
+  sim <- make_mock_counts(n_genes = 300, n_cells = 60)
+  patient <- sim$patient
+  # Two cells cannot support a neighbour graph; they must not abort the run.
+  patient[colnames(sim$counts)[1:2]] <- "P_tiny"
+
+  res <- preprocess_sc(
+    sim$counts,
+    patient,
+    nmads = 5,
+    dims = 10,
+    resolution = 0.5
+  )
+
+  tiny <- res$cell_labels[res$cell_labels$patient == "P_tiny", ]
+  expect_equal(nrow(tiny), 2L)
+  expect_equal(unique(tiny$clone_id), "1")
+})
+
+
 test_that("prepare_data accepts clone_labels and records their source", {
   sim <- make_mock_counts(n_genes = 100, n_cells = 20)
 
