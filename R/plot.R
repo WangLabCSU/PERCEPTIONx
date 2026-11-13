@@ -100,17 +100,38 @@ theme_perception <- function(base_size = 11L, base_family = "") {
     )
 }
 
-# Qualitative palette for clones: evenly spaced hues from red to purple.
-# Hue-only interpolation keeps every clone equally saturated and equally
-# bright, so no clone is systematically more eye-catching than another; the
-# span stops at purple (300 deg) instead of wrapping back through magenta to
-# red, which would make the first and last clones look like the same family.
+# Qualitative palette for clones: deep, saturated colours written out
+# explicitly (no generated hues) so any entry can be tuned by hand.
+# Order is chosen for small datasets: the first six are maximally different
+# (blue / red / green / purple / orange / teal), and later entries fill the
+# remaining hue space for datasets with many clones.
+clone_palette_base <- c(
+  "#1F4E79", # 1 deep blue
+  "#C0392B", # 2 brick red
+  "#2E7D32", # 3 forest green
+  "#6A1B9A", # 4 deep purple
+  "#A04000", # 5 burnt orange
+  "#00838F", # 6 dark teal
+  "#AD1457", # 7 deep pink
+  "#4E342E", # 8 dark brown
+  "#283593", # 9 indigo
+  "#827717", # 10 dark olive
+  "#455A64", # 11 blue grey
+  "#00695C", # 12 pine green
+  "#7B1FA2", # 13 violet
+  "#B9770E", # 14 ochre
+  "#37474F" # 15 charcoal
+)
 clone_palette <- function(n) {
   if (n <= 0L) {
     return(character(0))
   }
-  hues <- seq(10, 300, length.out = n)
-  unname(grDevices::hcl(h = hues, c = 100, l = 58))
+  if (n <= length(clone_palette_base)) {
+    return(clone_palette_base[seq_len(n)])
+  }
+  # More clones than curated colours: fall back to evenly spaced dark hues.
+  hues <- seq(10, 330, length.out = n)
+  unname(grDevices::hcl(h = hues, c = 85, l = 45))
 }
 
 # Diverging scale for z-scores: the two ends are pinned to the app's THEME
