@@ -4,7 +4,13 @@
 \alias{plot_qc_report}
 \title{Plot QC metrics before and after filtering}
 \usage{
-plot_qc_report(qc_metrics, kept_cells, qc_report, base_size = 12)
+plot_qc_report(
+  qc_metrics,
+  kept_cells,
+  qc_report,
+  base_size = 12,
+  compact = FALSE
+)
 }
 \arguments{
 \item{qc_metrics}{Data frame returned as \code{qc_metrics} by
@@ -16,6 +22,11 @@ plot_qc_report(qc_metrics, kept_cells, qc_report, base_size = 12)
 \item{qc_report}{Data frame returned as \code{qc} by \code{preprocess_sc()}.}
 
 \item{base_size}{Numeric. Base font size. Default = 12.}
+
+\item{compact}{Logical. If \code{TRUE}, all patients are pooled and the
+three metrics are stacked in one column, with the per-patient
+threshold lines omitted. Use this in narrow layouts (e.g. the Shiny
+app); the default per-patient facets stay available for reports.}
 }
 \value{
 A \code{ggplot} object, faceted by metric.

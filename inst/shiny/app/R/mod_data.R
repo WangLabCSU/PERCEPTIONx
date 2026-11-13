@@ -959,6 +959,7 @@ mod_data_server <- function(id, shared) {
           shared$prepared_data <- prepared
           shared$user_clones <- prepared$cell_clone_map
           shared$qc_report <- prepared$qc
+          shared$qc_metrics <- NULL # clone-level input has no per-cell QC
           showNotification(
             paste0(
               "Data ready (clone-level): ",
@@ -1016,6 +1017,7 @@ mod_data_server <- function(id, shared) {
         shared$prepared_data <- NULL
         shared$user_clones <- NULL
         shared$qc_report <- NULL
+        shared$qc_metrics <- NULL
         shared$predictions <- NULL
         shared$patient_pred <- NULL
         shared$models <- NULL
@@ -1858,6 +1860,7 @@ mod_data_server <- function(id, shared) {
           shared$user_expr <- mat
           shared$prepared_data <- NULL # Reset prepared data when expression changes
           shared$qc_report <- NULL
+          shared$qc_metrics <- NULL
           list(
             ok = TRUE,
             msg = paste0(
@@ -1948,6 +1951,7 @@ mod_data_server <- function(id, shared) {
           shared$user_mapping <- df
           shared$prepared_data <- NULL # Reset prepared data when mapping changes
           shared$qc_report <- NULL
+          shared$qc_metrics <- NULL
           showNotification(
             paste0(
               "Patient-cell mapping loaded: ",
@@ -2012,6 +2016,7 @@ mod_data_server <- function(id, shared) {
       shared$prepared_data <- NULL
       shared$user_clones <- NULL
       shared$qc_report <- NULL
+      shared$qc_metrics <- NULL
       if (clone_mode) auto_prepare_if_clone()
     })
 
@@ -2074,6 +2079,7 @@ mod_data_server <- function(id, shared) {
           shared$prepared_data <- res
           shared$user_clones <- res$cell_clone_map
           shared$qc_report <- res$qc
+          shared$qc_metrics <- res$qc_metrics
           # Keep shared$user_expr as cell-level expression for biomarker plots
           showNotification(
             paste0(
@@ -2205,10 +2211,35 @@ mod_data_server <- function(id, shared) {
               )
             ),
             tags$tbody(rows)
-          )
+          ),
+          p(
+            class = "text-muted",
+            style = "margin-top: 0.75rem;",
+            "Kept (blue) vs removed (red) cells for each metric. Per-patient ",
+            "thresholds are listed in the table above."
+          ),
+          shiny::plotOutput(ns("qc_violin"), height = "430px")
         )
       )
     })
+
+    # QC violin: pooled kept/removed cells, one panel per metric (the compact
+    # layout keeps it readable inside the card even with dozens of patients).
+    output$qc_violin <- shiny::renderPlot(
+      {
+        metrics <- shared$qc_metrics
+        report <- shared$qc_report
+        clones <- shared$user_clones
+        shiny::req(metrics, report, clones)
+        PERCEPTIONx::plot_qc_report(
+          metrics,
+          kept_cells = clones$cell_id,
+          qc_report = report,
+          compact = TRUE
+        )
+      },
+      res = 110
+    )
 
     # --- Upload Clinical Response ---
     observeEvent(input$response_file, {

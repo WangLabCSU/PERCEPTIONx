@@ -764,11 +764,21 @@ preprocess_sc <- function(
 #' @param kept_cells Character vector of cell IDs that passed QC.
 #' @param qc_report Data frame returned as \code{qc} by \code{preprocess_sc()}.
 #' @param base_size Numeric. Base font size. Default = 12.
+#' @param compact Logical. If \code{TRUE}, all patients are pooled and the
+#'        three metrics are stacked in one column, with the per-patient
+#'        threshold lines omitted. Use this in narrow layouts (e.g. the Shiny
+#'        app); the default per-patient facets stay available for reports.
 #'
 #' @return A \code{ggplot} object, faceted by metric.
 #'
 #' @export
-plot_qc_report <- function(qc_metrics, kept_cells, qc_report, base_size = 12) {
+plot_qc_report <- function(
+  qc_metrics,
+  kept_cells,
+  qc_report,
+  base_size = 12,
+  compact = FALSE
+) {
   metrics <- qc_metrics
   metrics$status <- ifelse(
     metrics$cell_id %in% kept_cells,
@@ -797,22 +807,16 @@ plot_qc_report <- function(qc_metrics, kept_cells, qc_report, base_size = 12) {
     stringsAsFactors = FALSE
   )
 
-  ggplot2::ggplot(
+  p <- ggplot2::ggplot(
     long,
     ggplot2::aes(x = .data$status, y = .data$value, fill = .data$status)
   ) +
     ggplot2::geom_violin(scale = "width", linewidth = 0.25) +
     ggplot2::geom_boxplot(width = 0.12, outlier.size = 0.4, fill = "white") +
-    ggplot2::geom_hline(
-      data = thresholds,
-      ggplot2::aes(yintercept = .data$value),
-      linetype = "dashed",
-      colour = "grey35",
-      linewidth = 0.3
-    ) +
-    ggplot2::facet_grid(metric ~ patient, scales = "free_y") +
+    # Kept = theme blue, removed = theme red; the same pairing used by the
+    # response plots (red = "worse", blue = "better").
     ggplot2::scale_fill_manual(
-      values = c(kept = "#009E73", removed = "#D55E00")
+      values = c(kept = "#165C91", removed = "#c13232")
     ) +
     ggplot2::labs(x = NULL, y = NULL, fill = NULL) +
     ggplot2::theme_bw(base_size = base_size) +
@@ -829,4 +833,20 @@ plot_qc_report <- function(qc_metrics, kept_cells, qc_report, base_size = 12) {
       ),
       legend.position = "top"
     )
+
+  if (compact) {
+    # Pooled view: per-patient thresholds would all overlap on one panel, so
+    # they are omitted (the QC table reports them per patient instead).
+    p + ggplot2::facet_wrap(~metric, ncol = 1L, scales = "free_y")
+  } else {
+    p +
+      ggplot2::geom_hline(
+        data = thresholds,
+        ggplot2::aes(yintercept = .data$value),
+        linetype = "dashed",
+        colour = "grey35",
+        linewidth = 0.3
+      ) +
+      ggplot2::facet_grid(metric ~ patient, scales = "free_y")
+  }
 }
