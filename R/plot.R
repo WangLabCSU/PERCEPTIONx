@@ -100,38 +100,17 @@ theme_perception <- function(base_size = 11L, base_family = "") {
     )
 }
 
-# Qualitative palette for many clones, zero extra dependencies.
-# 15 curated colors, ordered so that the FIRST few are the ones a typical
-# dataset actually uses (2-6 clones) and neighbouring entries are far apart on
-# the hue wheel: deep blue -> coral -> green -> magenta -> amber -> teal -> ...
-# Clones get colors by factor level, so an unlucky order here is what makes a
-# small bar chart look washed out (two greens in a row, then two blues).
-clone_palette_base <- c(
-  "#2c6a9dff",
-  "#FF7043",
-  "#18861dff",
-  "#AB47BC",
-  "#FFCA28",
-  "#23acbeff",
-  "#910013ff",
-  "#5C6BC0",
-  "#c1dc55ff",
-  "#764BA2",
-  "#28a5dfff",
-  "#d42e2bff",
-  "#c977d2ff",
-  "#7e645bff",
-  "#20bb3dff"
-)
+# Qualitative palette for clones: evenly spaced hues from red to purple.
+# Hue-only interpolation keeps every clone equally saturated and equally
+# bright, so no clone is systematically more eye-catching than another; the
+# span stops at purple (300 deg) instead of wrapping back through magenta to
+# red, which would make the first and last clones look like the same family.
 clone_palette <- function(n) {
-  if (n <= length(clone_palette_base)) {
-    return(clone_palette_base[seq_len(n)])
+  if (n <= 0L) {
+    return(character(0))
   }
-  # More clones: evenly space hues around the wheel, anchored on the deep
-  # blue of the first curated color (hue ~214 deg), with moderate chroma and
-  # high-ish lightness for a soft, harmonious look.
-  hues <- (214L + seq(0L, n - 1L) * 360L / n) %% 360L
-  unname(grDevices::hcl(h = hues, c = 65L, l = 70L))
+  hues <- seq(10, 300, length.out = n)
+  unname(grDevices::hcl(h = hues, c = 100, l = 58))
 }
 
 # Diverging scale for z-scores: the two ends are pinned to the app's THEME
@@ -1359,14 +1338,15 @@ plot_response_boxplot <- function(
   }
   exp_vs_pred[[response_var]] <- resp_vec
 
-  # Group colors: keep R (red) / NR (blue) semantics for two groups; for 3+
-  # groups use a qualitative palette covering every level. Beyond the fixed
-  # 6-color palette, generate evenly-spaced hues (ggplot2's default scheme),
-  # so any number of response groups is supported.
+  # Group colors: keep R (red) / NR (blue) semantics for two groups, matching
+  # the app theme colors (--accent #c13232, --primary #165C91); for 3+ groups
+  # use a qualitative palette covering every level. Beyond the fixed 6-color
+  # palette, generate evenly-spaced hues (ggplot2's default scheme), so any
+  # number of response groups is supported.
   n_lv <- nlevels(exp_vs_pred[[response_var]])
   fixed_pal <- c(
-    "#C13232",
-    "#2E86AB",
+    "#c13232",
+    "#165C91",
     "#E8A13A",
     "#5A8A6A",
     "#8A5AC1",
