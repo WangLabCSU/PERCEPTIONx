@@ -114,6 +114,19 @@ plot_qc_report(
 )
 ```
 
+With many patients, the default pools everyone into three panels ("all
+metrics"); the per-patient fences are easier to read one metric at a time,
+which gives one wrapped panel per patient:
+
+```r
+plot_qc_report(
+  qc_metrics = labels$qc_metrics,
+  kept_cells = labels$cell_labels$cell_id,
+  qc_report = labels$qc,
+  metric = "Detected genes"
+)
+```
+
 If a patient loses more than ~50% of its cells, look at the violin plot before
 trusting the result. The usual causes are a genuinely bad library, or a
 median that was pulled down by a large low-quality population.

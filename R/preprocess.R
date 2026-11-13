@@ -764,10 +764,15 @@ preprocess_sc <- function(
 #' @param kept_cells Character vector of cell IDs that passed QC.
 #' @param qc_report Data frame returned as \code{qc} by \code{preprocess_sc()}.
 #' @param base_size Numeric. Base font size. Default = 12.
-#' @param compact Logical. If \code{TRUE}, all patients are pooled and the
-#'        three metrics are stacked in one column, with the per-patient
-#'        threshold lines omitted. Use this in narrow layouts (e.g. the Shiny
-#'        app); the default per-patient facets stay available for reports.
+#' @param metric Character. \code{"all"} (default) pools every patient and
+#'        stacks the three metrics in one column -- the only readable layout
+#'        when a cohort has dozens of patients. Pass one of
+#'        \code{"Detected genes"}, \code{"Total counts"} or
+#'        \code{"Mitochondrial %"} to get one panel per patient (wrapped into
+#'        rows), each with that patient's own threshold line; this is the
+#'        layout to use when per-patient QC needs to be inspected.
+#' @param ncol Integer. Number of facet columns in the per-patient layout.
+#'        Default = 6.
 #'
 #' @return A \code{ggplot} object, faceted by metric.
 #'
@@ -777,8 +782,15 @@ plot_qc_report <- function(
   kept_cells,
   qc_report,
   base_size = 12,
-  compact = FALSE
+  metric = c(
+    "all",
+    "Detected genes",
+    "Total counts",
+    "Mitochondrial %"
+  ),
+  ncol = 6L
 ) {
+  metric <- match.arg(metric)
   metrics <- qc_metrics
   metrics$status <- ifelse(
     metrics$cell_id %in% kept_cells,
@@ -807,6 +819,11 @@ plot_qc_report <- function(
     stringsAsFactors = FALSE
   )
 
+  if (metric != "all") {
+    long <- long[long$metric == metric, , drop = FALSE]
+    thresholds <- thresholds[thresholds$metric == metric, , drop = FALSE]
+  }
+
   p <- ggplot2::ggplot(
     long,
     ggplot2::aes(x = .data$status, y = .data$value, fill = .data$status)
@@ -834,11 +851,14 @@ plot_qc_report <- function(
       legend.position = "top"
     )
 
-  if (compact) {
+  if (metric == "all") {
     # Pooled view: per-patient thresholds would all overlap on one panel, so
     # they are omitted (the QC table reports them per patient instead).
     p + ggplot2::facet_wrap(~metric, ncol = 1L, scales = "free_y")
   } else {
+    # Per-patient view, wrapped into rows like the clone lollipop: one panel
+    # per patient with its own threshold line, so nobody ends up as a sliver
+    # in a 40-column strip.
     p +
       ggplot2::geom_hline(
         data = thresholds,
@@ -847,6 +867,7 @@ plot_qc_report <- function(
         colour = "grey35",
         linewidth = 0.3
       ) +
-      ggplot2::facet_grid(metric ~ patient, scales = "free_y")
+      ggplot2::facet_wrap(~patient, ncol = ncol, scales = "free_y") +
+      ggplot2::labs(y = metric, x = NULL)
   }
 }

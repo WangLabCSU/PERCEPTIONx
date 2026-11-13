@@ -9,7 +9,8 @@ plot_qc_report(
   kept_cells,
   qc_report,
   base_size = 12,
-  compact = FALSE
+  metric = c("all", "Detected genes", "Total counts", "Mitochondrial \%"),
+  ncol = 6L
 )
 }
 \arguments{
@@ -23,10 +24,8 @@ plot_qc_report(
 
 \item{base_size}{Numeric. Base font size. Default = 12.}
 
-\item{compact}{Logical. If \code{TRUE}, all patients are pooled and the
-three metrics are stacked in one column, with the per-patient
-threshold lines omitted. Use this in narrow layouts (e.g. the Shiny
-app); the default per-patient facets stay available for reports.}
+\item{ncol}{Integer. Number of facet columns in the per-patient layout.
+Default = 6.}
 }
 \value{
 A \code{ggplot} object, faceted by metric.
