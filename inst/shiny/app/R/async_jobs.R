@@ -67,21 +67,35 @@ spawn_r_bg_retry <- function(
   retries = 2L,
   delay_ms = 500L
 ) {
-  configs <- list(
-    # 1. Preferred: supervisor on, stdout discarded, stderr to the job log.
+  # Windows has no "/dev/null", so configs 1-2 could only ever fail there —
+  # and every failed attempt costs a spawn round-trip before the working
+  # config is reached. Go straight to files there: the worker's console
+  # output otherwise lands in the host console, which is slow when a Seurat
+  # run prints thousands of lines, and it leaves no log to debug a failure.
+  configs <- if (.Platform$OS.type == "windows") {
     list(
-      supervise = TRUE,
-      stdout = "/dev/null",
-      stderr = file.path(jobs_dir, "worker.log")
-    ),
-    # 2. Supervisor and stderr file are the two most container-hostile bits;
-    #    drop both, keep stdout discarded. (On Windows "/dev/null" does not
-    #    exist, so configs 1-2 fail there and 3 below is what runs locally.)
-    list(supervise = FALSE, stdout = "/dev/null", stderr = "/dev/null"),
-    # 3. Most basic: inherit stdio (no pipes to fill, nothing to redirect,
-    #    no supervisor). Always accepted unless fork itself is blocked.
-    list(supervise = FALSE, stdout = NULL, stderr = NULL)
-  )
+      list(
+        supervise = FALSE,
+        stdout = file.path(jobs_dir, "worker.out"),
+        stderr = file.path(jobs_dir, "worker.log")
+      )
+    )
+  } else {
+    list(
+      # 1. Preferred: supervisor on, stdout discarded, stderr to the job log.
+      list(
+        supervise = TRUE,
+        stdout = "/dev/null",
+        stderr = file.path(jobs_dir, "worker.log")
+      ),
+      # 2. Supervisor and stderr file are the two most container-hostile bits;
+      #    drop both, keep stdout discarded.
+      list(supervise = FALSE, stdout = "/dev/null", stderr = "/dev/null"),
+      # 3. Most basic: inherit stdio (no pipes to fill, nothing to redirect,
+      #    no supervisor). Always accepted unless fork itself is blocked.
+      list(supervise = FALSE, stdout = NULL, stderr = NULL)
+    )
+  }
   last_err <- NULL
   config_err <- character(0)
   for (cfg in configs) {
