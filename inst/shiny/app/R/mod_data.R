@@ -627,10 +627,16 @@ Shiny.addCustomMessageHandler('expr-format-state-",
               )))
             )
           ),
-          div(class = "seurat-status-bar", uiOutput(ns("seurat_status"))),
-          uiOutput(ns("qc_summary"))
+          div(class = "seurat-status-bar", uiOutput(ns("seurat_status")))
         )
       )
+    ),
+
+    # --- QC summary (own section; the report is long, so it must not sit
+    # inside the preprocessing card or interrupt the upload flow) ---
+    fluidRow(
+      style = "margin-top: 1.5rem;",
+      column(12, uiOutput(ns("qc_summary")))
     ),
 
     # --- Data Preview ---
@@ -2161,7 +2167,45 @@ mod_data_server <- function(id, shared) {
       }
     })
 
-    # --- QC summary (cell-level mode, produced by preprocess_sc()) ---
+    # --- QC summary: a one-line card; the long table + violin live in a modal
+    # so the QC block cannot break the flow between the upload cards. ---
+    qc_table_ui <- function(qc) {
+      marker_removed <- if (is.null(qc$n_marker_removed)) {
+        rep(0L, nrow(qc))
+      } else {
+        qc$n_marker_removed
+      }
+      show_marker <- any(marker_removed > 0)
+      rows <- lapply(seq_len(nrow(qc)), function(i) {
+        tags$tr(
+          tags$td(qc$patient[i]),
+          tags$td(qc$n_input[i]),
+          tags$td(qc$n_kept[i]),
+          tags$td(paste0(qc$pct_removed[i], "%")),
+          tags$td(qc$main_reason[i]),
+          tags$td(qc$mito_threshold[i]),
+          if (show_marker) tags$td(marker_removed[i]),
+          tags$td(qc$n_clones[i])
+        )
+      })
+      tags$table(
+        class = "table table-sm",
+        tags$thead(
+          tags$tr(
+            tags$th("Patient"),
+            tags$th("Input"),
+            tags$th("Kept"),
+            tags$th("Removed"),
+            tags$th("Main reason"),
+            tags$th("Mito %"),
+            if (show_marker) tags$th("Marker-excluded"),
+            tags$th("Clones")
+          )
+        ),
+        tags$tbody(rows)
+      )
+    }
+
     output$qc_summary <- renderUI({
       qc <- shared$qc_report
       cell_mode <- !identical(input$expr_format, "clone")
@@ -2171,100 +2215,93 @@ mod_data_server <- function(id, shared) {
         if (!cell_mode) {
           return(NULL)
         }
-        msg <- if (isTRUE(shared$demo_loaded)) {
-          paste0(
-            "The demo was prepared without the QC step. Upload your own ",
-            "cell-level matrix and click Preprocess & Cluster to see the ",
-            "per-patient QC table and violin plot here."
-          )
-        } else {
-          paste0(
-            "No QC report yet. Upload a cell-level matrix and mapping, then ",
-            "click Preprocess & Cluster. The per-patient QC table and violin ",
-            "plot will appear here."
-          )
-        }
         return(
           div(
             class = "card animate-fade-in-up",
-            style = "margin-top: 1rem;",
             div(
               class = "card-header",
               icon("filter"),
               " Quality Control Summary"
             ),
-            div(class = "card-body", p(class = "text-muted", msg))
+            div(
+              class = "card-body",
+              p(
+                class = "text-muted",
+                style = "margin: 0;",
+                "No QC report yet. Upload a cell-level matrix and mapping, ",
+                "then click Preprocess & Cluster."
+              )
+            )
           )
         )
       }
-      marker_removed <- if (is.null(qc$n_marker_removed)) {
-        rep(0L, nrow(qc))
-      } else {
-        qc$n_marker_removed
-      }
-      rows <- lapply(seq_len(nrow(qc)), function(i) {
-        tags$tr(
-          tags$td(qc$patient[i]),
-          tags$td(qc$n_input[i]),
-          tags$td(qc$n_kept[i]),
-          tags$td(paste0(qc$pct_removed[i], "%")),
-          tags$td(qc$main_reason[i]),
-          tags$td(qc$mito_threshold[i]),
-          tags$td(marker_removed[i]),
-          tags$td(qc$n_clones[i])
-        )
-      })
+      n_in <- sum(qc$n_input)
+      n_kept <- sum(qc$n_kept)
+      pct <- round(100 * (n_in - n_kept) / max(n_in, 1L), 1)
       div(
         class = "card animate-fade-in-up",
-        style = "margin-top: 1rem;",
         div(class = "card-header", icon("filter"), " Quality Control Summary"),
         div(
           class = "card-body",
-          p(
-            class = "text-muted",
-            "Cells were filtered with a per-patient MAD rule, so thresholds ",
-            "adapt to each sample instead of using one fixed percentage. ",
-            "Review this table before trusting the inferred clones."
-          ),
-          tags$table(
-            class = "table table-sm",
-            tags$thead(
-              tags$tr(
-                tags$th("Patient"),
-                tags$th("Input"),
-                tags$th("Kept"),
-                tags$th("Removed"),
-                tags$th("Main reason"),
-                tags$th("Mito %"),
-                tags$th("Marker"),
-                tags$th("Clones")
+          div(
+            style = "display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;",
+            p(
+              class = "text-muted",
+              style = "margin: 0;",
+              sprintf(
+                "%s of %s cells kept (%.1f%% removed) across %d samples; %d clones.",
+                format(n_kept, big.mark = ","),
+                format(n_in, big.mark = ","),
+                pct,
+                nrow(qc),
+                sum(qc$n_clones)
               )
             ),
-            tags$tbody(rows)
-          ),
-          p(
-            class = "text-muted",
-            style = "margin-top: 0.75rem;",
-            "Kept (blue) vs removed (red) cells. Choose a single metric to ",
-            "see one panel per patient (wrapped, each with its own threshold); ",
-            "\"All metrics\" pools the cohort, which stays readable when there ",
-            "are dozens of patients."
-          ),
-          shiny::selectInput(
-            ns("qc_metric"),
-            NULL,
-            choices = c(
-              "All metrics (pooled)" = "all",
-              "Detected genes" = "Detected genes",
-              "Total counts" = "Total counts",
-              "Mitochondrial %" = "Mitochondrial %"
-            ),
-            selected = "all",
-            width = "100%"
-          ),
-          shiny::plotOutput(ns("qc_violin"), height = "520px")
+            actionButton(
+              ns("qc_details"),
+              "View QC details",
+              class = "btn-sm btn-outline-primary",
+              icon = icon("magnifying-glass-chart")
+            )
+          )
         )
       )
+    })
+
+    # Details modal: metric selector + violin + scrollable per-patient table.
+    observeEvent(input$qc_details, {
+      qc <- shared$qc_report
+      metrics <- shared$qc_metrics
+      clones <- shared$user_clones
+      shiny::req(qc, metrics, clones)
+      showModal(modalDialog(
+        title = "Quality Control Report",
+        size = "l",
+        easyClose = TRUE,
+        footer = modalButton("Close"),
+        p(
+          class = "text-muted",
+          "Cells were filtered with a per-patient MAD rule, so thresholds adapt ",
+          "to each sample instead of one fixed percentage. Blue = kept, red = removed."
+        ),
+        selectInput(
+          ns("qc_metric"),
+          NULL,
+          choices = c(
+            "All metrics (pooled)" = "all",
+            "Detected genes" = "Detected genes",
+            "Total counts" = "Total counts",
+            "Mitochondrial %" = "Mitochondrial %"
+          ),
+          selected = "all",
+          width = "100%"
+        ),
+        shiny::plotOutput(ns("qc_violin"), height = "360px"),
+        div(
+          style = "max-height: 280px; overflow-y: auto; margin-top: 0.75rem;",
+          qc_table_ui(qc)
+        )
+      ))
     })
 
     # QC violin: "all" pools patients (3 stacked panels); a single metric
@@ -2288,6 +2325,15 @@ mod_data_server <- function(id, shared) {
         )
       },
       res = 110
+    )
+    # A plot inside a modal is reported as "hidden" by Shiny's visibility
+    # check (it lives in an overlay, often below the modal viewport), so with
+    # the default suspendWhenHidden = TRUE the server never computes it and
+    # the client waits forever on an empty "recalculating" box.
+    shiny::outputOptions(
+      output,
+      "qc_violin",
+      suspendWhenHidden = FALSE
     )
 
     # --- Upload Clinical Response ---

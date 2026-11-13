@@ -106,21 +106,21 @@ theme_perception <- function(base_size = 11L, base_family = "") {
 # (blue / red / green / purple / orange / teal), and later entries fill the
 # remaining hue space for datasets with many clones.
 clone_palette_base <- c(
-  "#1F4E79", # 1 deep blue
-  "#C0392B", # 2 brick red
-  "#2E7D32", # 3 forest green
-  "#6A1B9A", # 4 deep purple
-  "#A04000", # 5 burnt orange
-  "#00838F", # 6 dark teal
-  "#AD1457", # 7 deep pink
-  "#4E342E", # 8 dark brown
-  "#283593", # 9 indigo
-  "#827717", # 10 dark olive
-  "#455A64", # 11 blue grey
-  "#00695C", # 12 pine green
-  "#7B1FA2", # 13 violet
-  "#B9770E", # 14 ochre
-  "#37474F" # 15 charcoal
+  "#1F4E79",
+  "#ff640aff",
+  "#C0392B",
+  "#f1cd1bff",
+  "#2E7D32",
+  "#00838F",
+  "#AD1457",
+  "#6A1B9A",
+  "#4E342E",
+  "#283593",
+  "#455A64",
+  "#00695C",
+  "#7B1FA2",
+  "#c88416ff",
+  "#0cbe85ff"
 )
 clone_palette <- function(n) {
   if (n <= 0L) {

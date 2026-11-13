@@ -919,15 +919,36 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
     }
     storage.mode(expr_matrix) <- "numeric"
 
+    # The demo runs the SAME cell-level path as a user upload (QC + per-patient
+    # clustering), so the QC report and every downstream plot behave exactly
+    # like the real workflow. Only the QC floor is lower: the demo matrix has
+    # 49 genes, so the 200-gene default would discard every cell.
+    demo_patient <- patient_mapping$patient_id
+    names(demo_patient) <- patient_mapping$cell_id
+    labels <- PERCEPTIONx::preprocess_sc(
+      counts = expr_matrix,
+      patient_labels = demo_patient,
+      min_genes = 10,
+      nfeatures = min(2000, length(gene_names)),
+      dims = 10,
+      resolution = 0.8,
+      method = "umap",
+      progress_cb = progress_cb
+    )
+
     prepared <- PERCEPTIONx::prepare_data(
       method = "umap",
       expression_matrix = expr_matrix,
-      patient_mapping = patient_mapping,
-      seurat_resolution = 0.8,
-      seurat_dims = 10,
-      seurat_nfeatures = min(2000, length(gene_names)),
+      patient_mapping = data.frame(
+        cell_id = labels$cell_labels$cell_id,
+        patient_id = labels$cell_labels$patient,
+        stringsAsFactors = FALSE
+      ),
+      clone_labels = labels$cell_labels,
       progress_cb = progress_cb
     )
+    prepared$qc <- labels$qc
+    prepared$qc_metrics <- labels$qc_metrics
 
     make_structured_training <- function(
       marker_genes,
@@ -1018,6 +1039,8 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
       user_expr = expr_matrix,
       prepared_data = prepared,
       user_clones = prepared$cell_clone_map,
+      qc = labels$qc,
+      qc_metrics = labels$qc_metrics,
       models = models
     )
   }
@@ -1677,15 +1700,19 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
         out <- tryCatch(
           switch(
             params$task,
+            # preprocess_sc reports progress as (phase, i, n) while
+            # prepare_data/train_models use (phase, i, n, drug), so the drug
+            # slot must default: a 3-arg caller would otherwise error with
+            # "argument \"drug\" is missing" and kill the whole task.
             prepare = run_prepare(
               params$args,
-              progress_cb = function(phase, i, n, drug) {
+              progress_cb = function(phase, i = 0L, n = 0L, drug = "") {
                 write_progress(file.path(j, "progress.txt"), phase, i, n, drug)
               }
             ),
             demo = run_demo(
               params$args,
-              progress_cb = function(phase, i, n, drug) {
+              progress_cb = function(phase, i = 0L, n = 0L, drug = "") {
                 write_progress(file.path(j, "progress.txt"), phase, i, n, drug)
               }
             ),

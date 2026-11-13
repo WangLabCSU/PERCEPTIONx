@@ -378,6 +378,8 @@ run_demo_pipeline <- function(
       shared$user_expr <- res$user_expr # stays CELL-level for spatial plots
       shared$prepared_data <- res$prepared_data
       shared$user_clones <- res$user_clones
+      shared$qc_report <- res$qc
+      shared$qc_metrics <- res$qc_metrics
       shared$models <- res$models
       shared$model_cache <- res$models
       shared$model_active <- setNames(
