@@ -2164,8 +2164,38 @@ mod_data_server <- function(id, shared) {
     # --- QC summary (cell-level mode, produced by preprocess_sc()) ---
     output$qc_summary <- renderUI({
       qc <- shared$qc_report
+      cell_mode <- !identical(input$expr_format, "clone")
       if (is.null(qc) || nrow(qc) == 0L) {
-        return(NULL)
+        # Keep the entry visible in cell-level mode: otherwise users only see
+        # a blank area and conclude the QC report does not exist.
+        if (!cell_mode) {
+          return(NULL)
+        }
+        msg <- if (isTRUE(shared$demo_loaded)) {
+          paste0(
+            "The demo was prepared without the QC step. Upload your own ",
+            "cell-level matrix and click Preprocess & Cluster to see the ",
+            "per-patient QC table and violin plot here."
+          )
+        } else {
+          paste0(
+            "No QC report yet. Upload a cell-level matrix and mapping, then ",
+            "click Preprocess & Cluster. The per-patient QC table and violin ",
+            "plot will appear here."
+          )
+        }
+        return(
+          div(
+            class = "card animate-fade-in-up",
+            style = "margin-top: 1rem;",
+            div(
+              class = "card-header",
+              icon("filter"),
+              " Quality Control Summary"
+            ),
+            div(class = "card-body", p(class = "text-muted", msg))
+          )
+        )
       }
       marker_removed <- if (is.null(qc$n_marker_removed)) {
         rep(0L, nrow(qc))
@@ -2215,27 +2245,46 @@ mod_data_server <- function(id, shared) {
           p(
             class = "text-muted",
             style = "margin-top: 0.75rem;",
-            "Kept (blue) vs removed (red) cells for each metric. Per-patient ",
-            "thresholds are listed in the table above."
+            "Kept (blue) vs removed (red) cells. Choose a single metric to ",
+            "see one panel per patient (wrapped, each with its own threshold); ",
+            "\"All metrics\" pools the cohort, which stays readable when there ",
+            "are dozens of patients."
           ),
-          shiny::plotOutput(ns("qc_violin"), height = "430px")
+          shiny::selectInput(
+            ns("qc_metric"),
+            NULL,
+            choices = c(
+              "All metrics (pooled)" = "all",
+              "Detected genes" = "Detected genes",
+              "Total counts" = "Total counts",
+              "Mitochondrial %" = "Mitochondrial %"
+            ),
+            selected = "all",
+            width = "100%"
+          ),
+          shiny::plotOutput(ns("qc_violin"), height = "520px")
         )
       )
     })
 
-    # QC violin: pooled kept/removed cells, one panel per metric (the compact
-    # layout keeps it readable inside the card even with dozens of patients).
+    # QC violin: "all" pools patients (3 stacked panels); a single metric
+    # switches to one wrapped panel per patient, like the clone lollipop.
     output$qc_violin <- shiny::renderPlot(
       {
         metrics <- shared$qc_metrics
         report <- shared$qc_report
         clones <- shared$user_clones
         shiny::req(metrics, report, clones)
+        metric <- input$qc_metric
+        if (is.null(metric) || !nzchar(metric)) {
+          metric <- "all"
+        }
         PERCEPTIONx::plot_qc_report(
           metrics,
           kept_cells = clones$cell_id,
           qc_report = report,
-          compact = TRUE
+          metric = metric,
+          ncol = 6L
         )
       },
       res = 110
