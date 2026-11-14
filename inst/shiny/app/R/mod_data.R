@@ -585,6 +585,60 @@ PAT_003    Responder"
                     width = "100%"
                   )
                 ),
+                # QC overrides: the defaults (3 MAD, 200 genes, 25% mito) are
+                # right for most 10x data, but tissues differ wildly in
+                # mitochondrial content and cell complexity, so the three
+                # numbers that actually decide what gets dropped stay
+                # adjustable. Closed by default to keep the card compact.
+                tags$details(
+                  class = "qc-settings",
+                  tags$summary(icon("sliders"), " QC settings"),
+                  div(
+                    class = "seurat-params",
+                    numericInput(
+                      ns("qc_nmads"),
+                      "MAD",
+                      value = 3,
+                      min = 1,
+                      max = 10,
+                      step = 0.5,
+                      width = "100%"
+                    ),
+                    numericInput(
+                      ns("qc_min_genes"),
+                      "Min genes",
+                      value = 200,
+                      min = 0,
+                      max = 5000,
+                      step = 50,
+                      width = "100%"
+                    ),
+                    numericInput(
+                      ns("qc_max_mito"),
+                      "Mito %",
+                      value = 25,
+                      min = 5,
+                      max = 100,
+                      step = 1,
+                      width = "100%"
+                    )
+                  ),
+                  p(
+                    class = "qc-settings-note",
+                    strong("MAD"),
+                    " = per-sample fence width (median ± n×MAD). ",
+                    strong("Min genes"),
+                    " = hard lower bound per cell. ",
+                    strong("Mito %"),
+                    " = upper cap for the mitochondrial fence, which is ",
+                    "otherwise set per sample by MAD."
+                  ),
+                  actionButton(
+                    ns("qc_reset"),
+                    "Reset to defaults",
+                    class = "btn-sm btn-outline-secondary qc-settings-reset"
+                  )
+                ),
                 actionButton(
                   ns("run_seurat"),
                   "Preprocess & Cluster",
@@ -2026,6 +2080,13 @@ mod_data_server <- function(id, shared) {
       if (clone_mode) auto_prepare_if_clone()
     })
 
+    # --- QC knobs: reset to the documented defaults ---
+    observeEvent(input$qc_reset, {
+      updateNumericInput(session, ns("qc_nmads"), value = 3)
+      updateNumericInput(session, ns("qc_min_genes"), value = 200)
+      updateNumericInput(session, ns("qc_max_mito"), value = 25)
+    })
+
     # --- Run Seurat Clustering (prepare_data) — background worker ---
     observeEvent(input$run_seurat, {
       req(shared$user_expr, shared$user_mapping)
@@ -2034,6 +2095,38 @@ mod_data_server <- function(id, shared) {
           "A preparation task is already running",
           type = "warning",
           duration = 5
+        )
+        return()
+      }
+      # A cleared numericInput sends NA; fall back to the package defaults so
+      # an empty box never turns into an "argument is missing" failure.
+      qc_num <- function(x, default) {
+        if (is.null(x) || length(x) == 0L || is.na(x)) {
+          default
+        } else {
+          as.numeric(x)
+        }
+      }
+      qc_args <- list(
+        qc_nmads = qc_num(input$qc_nmads, 3),
+        qc_min_genes = qc_num(input$qc_min_genes, 200),
+        qc_max_mito = qc_num(input$qc_max_mito, 25)
+      )
+      # A gene floor at or above the panel size can only drop every cell; say
+      # so here instead of letting the worker fail with a generic message.
+      if (qc_args$qc_min_genes >= nrow(shared$user_expr)) {
+        showNotification(
+          paste0(
+            "Min genes (",
+            qc_args$qc_min_genes,
+            ") is not below the number ",
+            "of genes in this matrix (",
+            nrow(shared$user_expr),
+            "). ",
+            "Every cell would be removed — lower the threshold first."
+          ),
+          type = "error",
+          duration = 10
         )
         return()
       }
@@ -2056,7 +2149,10 @@ mod_data_server <- function(id, shared) {
             expression_matrix = shared$user_expr,
             patient_mapping = shared$user_mapping,
             seurat_resolution = input$seurat_resolution,
-            seurat_dims = input$seurat_dims
+            seurat_dims = input$seurat_dims,
+            qc_nmads = qc_args$qc_nmads,
+            qc_min_genes = qc_args$qc_min_genes,
+            qc_max_mito = qc_args$qc_max_mito
           )
         ),
         error = function(e) {
@@ -2086,6 +2182,9 @@ mod_data_server <- function(id, shared) {
           shared$user_clones <- res$cell_clone_map
           shared$qc_report <- res$qc
           shared$qc_metrics <- res$qc_metrics
+          # Echo the settings this report was produced with, so a surprising
+          # kept/removed split can be traced to a specific threshold.
+          shared$qc_params <- qc_args
           # Keep shared$user_expr as cell-level expression for biomarker plots
           showNotification(
             paste0(
@@ -2310,6 +2409,22 @@ mod_data_server <- function(id, shared) {
       metrics <- shared$qc_metrics
       clones <- shared$user_clones
       shiny::req(qc, metrics, clones)
+      params <- shared$qc_params
+      applied <- if (is.null(params)) {
+        NULL
+      } else {
+        p(
+          class = "text-muted",
+          style = "margin-bottom: 0.4rem;",
+          strong("Applied here: "),
+          sprintf(
+            "%s MAD, min %s genes, mitochondrial cap %s%%.",
+            params$nmads,
+            params$min_genes,
+            params$max_mito
+          )
+        )
+      }
       qc_modal_open(TRUE)
       showModal(modalDialog(
         title = "Quality Control Report",
@@ -2324,10 +2439,10 @@ mod_data_server <- function(id, shared) {
             "Each sample is filtered with its own median +/- nMAD fence ",
             "instead of one fixed percentage. Blue = kept, red = removed. ",
             "Dashed lines are the effective per-sample cut-offs for detected ",
-            "genes and mitochondrial % (the mitochondrial fence is also capped ",
-            "at 25% by default). Total counts has no cut-off and is shown for ",
-            "context."
+            "genes and mitochondrial %. Total counts has no cut-off and is ",
+            "shown for context."
           ),
+          applied,
           div(
             style = "display: flex; gap: 0.75rem; align-items: flex-end;",
             div(

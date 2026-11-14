@@ -776,6 +776,11 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
     labels <- PERCEPTIONx::preprocess_sc(
       counts = a$expression_matrix,
       patient_labels = patient,
+      # QC thresholds are user-adjustable in the app; missing values fall back
+      # to the package defaults (3 MAD, 200 genes, 25% mito).
+      nmads = if (is.null(a$qc_nmads)) 3 else a$qc_nmads,
+      min_genes = if (is.null(a$qc_min_genes)) 200L else a$qc_min_genes,
+      max_mito = if (is.null(a$qc_max_mito)) 25 else a$qc_max_mito,
       dims = if (is.null(a$seurat_dims)) 20L else a$seurat_dims,
       method = if (is.null(a$method)) "umap" else a$method,
       resolution = if (is.null(a$seurat_resolution)) {
@@ -1041,6 +1046,9 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
       user_clones = prepared$cell_clone_map,
       qc = labels$qc,
       qc_metrics = labels$qc_metrics,
+      # The demo uses a lower gene floor than the app default, so the QC modal
+      # must show the settings this report actually used.
+      qc_params = list(nmads = 3, min_genes = 10, max_mito = 25),
       models = models
     )
   }

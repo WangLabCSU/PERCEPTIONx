@@ -380,6 +380,7 @@ run_demo_pipeline <- function(
       shared$user_clones <- res$user_clones
       shared$qc_report <- res$qc
       shared$qc_metrics <- res$qc_metrics
+      shared$qc_params <- res$qc_params
       shared$models <- res$models
       shared$model_cache <- res$models
       shared$model_active <- setNames(

@@ -143,7 +143,7 @@ div.card > .card-body.seurat-body {
   min-width: 0;
 }
 .seurat-right {
-  flex: 0 0 240px;
+  flex: 0 0 300px;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -168,6 +168,53 @@ div.card > .card-body.seurat-body {
   height: 36px;
   text-align: center;
   padding: 0.25rem 0.4rem;
+}
+
+/* Collapsible QC knobs inside the preprocessing card: closed by default so
+   the card stays short, open for users who need to override the defaults. */
+details.qc-settings {
+  border: 1px solid var(--border-light, #eef0f6);
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+  background: rgba(22, 92, 145, 0.03);
+}
+
+details.qc-settings > summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  user-select: none;
+}
+
+details.qc-settings > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.qc-settings > summary::after {
+  content: "▾";
+  margin-left: auto;
+  transition: transform 0.15s ease;
+}
+
+details.qc-settings[open] > summary::after {
+  transform: rotate(180deg);
+}
+
+details.qc-settings .qc-settings-note {
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  margin: 0.35rem 0 0;
+}
+
+details.qc-settings .qc-settings-reset {
+  margin-top: 0.35rem;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.72rem;
 }
 .seurat-run-btn {
   width: 100%;
