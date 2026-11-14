@@ -3150,6 +3150,14 @@ table.dataTable thead th {
   min-height: calc(100% - 3.5rem);
 }
 
+/* Plots inside a modal are rendered at a fixed width (so the first frame is
+   never a 480 px fallback), then scaled down on narrow screens instead of
+   overflowing the dialog. */
+.modal .shiny-plot-output img {
+  max-width: 100%;
+  height: auto;
+}
+
 /* Pending-generation status line (shown on the very first draw) */
 .viz-gen-pending {
   display: flex;

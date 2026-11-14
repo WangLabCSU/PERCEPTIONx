@@ -2249,7 +2249,7 @@ mod_data_server <- function(id, shared) {
               class = "text-muted",
               style = "margin: 0;",
               sprintf(
-                "%s of %s cells kept (%.1f%% removed) across %d samples; %d clones.",
+                "%s of %s cells kept (%.1f%% removed) across %d samples, forming %d clones.",
                 format(n_kept, big.mark = ","),
                 format(n_in, big.mark = ","),
                 pct,
@@ -2268,62 +2268,119 @@ mod_data_server <- function(id, shared) {
       )
     })
 
-    # Details modal: metric selector + violin + scrollable per-patient table.
+    # --- QC details modal ---------------------------------------------------
+    # Five facets per row keeps each patient panel wide enough to read; the
+    # plot height follows the number of facet rows instead of being a fixed
+    # 360 px box that squeezed 20 patients into unreadable slivers.
+    qc_ncol <- 5L
+    # Gate the (pre-)rendering on the modal being open. Without it,
+    # suspendWhenHidden = FALSE makes the server draw the plot off-screen at
+    # Shiny's 480 px default, so the modal first showed a small plot for ~1 s
+    # before the real 1100 px image arrived.
+    qc_modal_open <- shiny::reactiveVal(FALSE)
+    qc_metric_value <- function() {
+      metric <- input$qc_metric
+      if (is.null(metric) || !nzchar(metric)) "all" else metric
+    }
+    qc_plot_height <- function() {
+      if (identical(qc_metric_value(), "all")) {
+        return(560)
+      }
+      n <- if (is.null(shared$qc_report)) 0L else nrow(shared$qc_report)
+      rows <- ceiling(max(n, 1L) / qc_ncol)
+      min(1000, max(320, rows * 170 + 120))
+    }
+    qc_plot_obj <- shiny::reactive({
+      shiny::req(isTRUE(qc_modal_open()))
+      metrics <- shared$qc_metrics
+      report <- shared$qc_report
+      clones <- shared$user_clones
+      shiny::req(metrics, report, clones)
+      PERCEPTIONx::plot_qc_report(
+        metrics,
+        kept_cells = clones$cell_id,
+        qc_report = report,
+        metric = qc_metric_value(),
+        ncol = qc_ncol
+      )
+    })
+
     observeEvent(input$qc_details, {
       qc <- shared$qc_report
       metrics <- shared$qc_metrics
       clones <- shared$user_clones
       shiny::req(qc, metrics, clones)
+      qc_modal_open(TRUE)
       showModal(modalDialog(
         title = "Quality Control Report",
-        size = "l",
+        size = "xl",
         easyClose = TRUE,
         footer = modalButton("Close"),
-        p(
-          class = "text-muted",
-          "Cells were filtered with a per-patient MAD rule, so thresholds adapt ",
-          "to each sample instead of one fixed percentage. Blue = kept, red = removed."
-        ),
-        selectInput(
-          ns("qc_metric"),
-          NULL,
-          choices = c(
-            "All metrics (pooled)" = "all",
-            "Detected genes" = "Detected genes",
-            "Total counts" = "Total counts",
-            "Mitochondrial %" = "Mitochondrial %"
-          ),
-          selected = "all",
-          width = "100%"
-        ),
-        shiny::plotOutput(ns("qc_violin"), height = "360px"),
         div(
-          style = "max-height: 280px; overflow-y: auto; margin-top: 0.75rem;",
-          qc_table_ui(qc)
+          # The dialog is taller than a laptop viewport; .modal-xl .modal-body
+          # already scrolls as a whole (styles.css), so no nested scroller.
+          p(
+            class = "text-muted",
+            "Each sample is filtered with its own median +/- nMAD fence ",
+            "instead of one fixed percentage. Blue = kept, red = removed. ",
+            "Dashed lines are the effective per-sample cut-offs for detected ",
+            "genes and mitochondrial % (the mitochondrial fence is also capped ",
+            "at 25% by default). Total counts has no cut-off and is shown for ",
+            "context."
+          ),
+          div(
+            style = "display: flex; gap: 0.75rem; align-items: flex-end;",
+            div(
+              style = "flex: 1;",
+              selectInput(
+                ns("qc_metric"),
+                NULL,
+                choices = c(
+                  "All metrics (pooled)" = "all",
+                  "Detected genes" = "Detected genes",
+                  "Total counts" = "Total counts",
+                  "Mitochondrial %" = "Mitochondrial %"
+                ),
+                selected = "all",
+                width = "100%"
+              )
+            ),
+            downloadButton(
+              ns("qc_download"),
+              "Download plot",
+              class = "btn-sm btn-outline-primary",
+              icon = icon("download")
+            )
+          ),
+          # The plot is created by renderUI so its height can follow the
+          # metric: a fixed plotOutput box cannot grow from 3 pooled panels to
+          # 4 rows of per-patient facets.
+          shiny::uiOutput(ns("qc_plot_ui")),
+          div(
+            style = "max-height: 260px; overflow-y: auto; margin-top: 0.75rem;",
+            qc_table_ui(qc)
+          )
         )
       ))
     })
 
     # QC violin: "all" pools patients (3 stacked panels); a single metric
     # switches to one wrapped panel per patient, like the clone lollipop.
+    output$qc_plot_ui <- shiny::renderUI({
+      shiny::req(qc_modal_open())
+      shiny::plotOutput(
+        ns("qc_violin"),
+        height = paste0(qc_plot_height(), "px")
+      )
+    })
     output$qc_violin <- shiny::renderPlot(
-      {
-        metrics <- shared$qc_metrics
-        report <- shared$qc_report
-        clones <- shared$user_clones
-        shiny::req(metrics, report, clones)
-        metric <- input$qc_metric
-        if (is.null(metric) || !nzchar(metric)) {
-          metric <- "all"
-        }
-        PERCEPTIONx::plot_qc_report(
-          metrics,
-          kept_cells = clones$cell_id,
-          qc_report = report,
-          metric = metric,
-          ncol = 6L
-        )
-      },
+      qc_plot_obj(),
+      # Fixed server-side width: the first request arrives before the modal has
+      # been laid out, so a client-sized plot renders at Shiny's 480 px default
+      # and is then replaced (~2 s of a tiny plot in a wide box). Returning the
+      # size from the server makes the very first frame correct.
+      width = function() 1100L,
+      height = function() qc_plot_height(),
       res = 110
     )
     # A plot inside a modal is reported as "hidden" by Shiny's visibility
@@ -2333,6 +2390,41 @@ mod_data_server <- function(id, shared) {
     shiny::outputOptions(
       output,
       "qc_violin",
+      suspendWhenHidden = FALSE
+    )
+    shiny::outputOptions(
+      output,
+      "qc_plot_ui",
+      suspendWhenHidden = FALSE
+    )
+
+    # Same view as the modal, saved at print quality. Width/height mirror the
+    # on-screen proportions so the downloaded figure matches what was reviewed.
+    output$qc_download <- shiny::downloadHandler(
+      filename = function() {
+        metric <- qc_metric_value()
+        slug <- gsub("[^A-Za-z0-9]+", "_", tolower(metric))
+        paste0("qc_", slug, ".png")
+      },
+      content = function(file) {
+        p <- shiny::isolate(qc_plot_obj())
+        h <- shiny::isolate(qc_plot_height())
+        ggplot2::ggsave(
+          file,
+          plot = p,
+          width = 11,
+          height = max(4, h / 100),
+          dpi = 300,
+          bg = "white",
+          limitsize = FALSE
+        )
+      }
+    )
+    # Same modal problem as the plot: the link is enabled only once the server
+    # sends the download URL, and a hidden modal keeps that from happening.
+    shiny::outputOptions(
+      output,
+      "qc_download",
       suspendWhenHidden = FALSE
     )
 
