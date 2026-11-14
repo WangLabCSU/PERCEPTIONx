@@ -82,12 +82,25 @@ qc_filter_cells <- function(
     n_genes <- metrics$n_genes[idx]
     pct_mito <- metrics$pct_mito[idx]
 
+    # Estimate the fence on plausible cells only. A raw CellRanger matrix is
+    # >99% empty droplets, and those zero-gene barcodes drag the median and
+    # MAD down to 0 — which turns both upper fences into +/-Inf, so the "MAD"
+    # half of the rule silently does nothing on exactly the input that needs
+    # it most. The absolute gene floor is a safe pre-filter: it is applied to
+    # every cell anyway, so it cannot change which cells survive.
+    est <- idx[n_genes >= min_genes]
+    if (length(est) < 10L) {
+      est <- idx
+    }
+    n_genes_est <- metrics$n_genes[est]
+    pct_mito_est <- metrics$pct_mito[est]
+
     genes_upper <- if (is.null(max_genes)) {
-      qc_upper_threshold(n_genes, nmads)
+      qc_upper_threshold(n_genes_est, nmads)
     } else {
       max_genes
     }
-    mito_upper <- min(qc_upper_threshold(pct_mito, nmads), max_mito)
+    mito_upper <- min(qc_upper_threshold(pct_mito_est, nmads), max_mito)
 
     fail_low_genes <- n_genes < min_genes
     fail_high_genes <- n_genes > genes_upper

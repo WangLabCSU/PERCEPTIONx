@@ -2383,11 +2383,17 @@ mod_data_server <- function(id, shared) {
     }
     qc_plot_height <- function() {
       if (identical(qc_metric_value(), "all")) {
-        return(560)
+        # Three stacked panels: ~240 px each. The old 560 px box left each
+        # violin as a flat strip, because the pooled view only has two x
+        # categories and does not need a wide canvas.
+        return(840)
       }
       n <- if (is.null(shared$qc_report)) 0L else nrow(shared$qc_report)
       rows <- ceiling(max(n, 1L) / qc_ncol)
       min(1000, max(320, rows * 170 + 120))
+    }
+    qc_plot_width <- function() {
+      if (identical(qc_metric_value(), "all")) 640L else 1100L
     }
     qc_plot_obj <- shiny::reactive({
       shiny::req(isTRUE(qc_modal_open()))
@@ -2444,7 +2450,7 @@ mod_data_server <- function(id, shared) {
           ),
           applied,
           div(
-            style = "display: flex; gap: 0.75rem; align-items: flex-end;",
+            class = "qc-toolbar",
             div(
               style = "flex: 1;",
               selectInput(
@@ -2463,7 +2469,7 @@ mod_data_server <- function(id, shared) {
             downloadButton(
               ns("qc_download"),
               "Download plot",
-              class = "btn-sm btn-outline-primary",
+              class = "btn-outline-primary qc-download-btn",
               icon = icon("download")
             )
           ),
@@ -2494,7 +2500,7 @@ mod_data_server <- function(id, shared) {
       # been laid out, so a client-sized plot renders at Shiny's 480 px default
       # and is then replaced (~2 s of a tiny plot in a wide box). Returning the
       # size from the server makes the very first frame correct.
-      width = function() 1100L,
+      width = function() qc_plot_width(),
       height = function() qc_plot_height(),
       res = 110
     )

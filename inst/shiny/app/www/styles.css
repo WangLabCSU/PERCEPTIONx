@@ -3198,11 +3198,37 @@ table.dataTable thead th {
 }
 
 /* Plots inside a modal are rendered at a fixed width (so the first frame is
-   never a 480 px fallback), then scaled down on narrow screens instead of
-   overflowing the dialog. */
+   never a 480 px fallback), then centred and scaled down on narrow screens
+   instead of overflowing the dialog. */
 .modal .shiny-plot-output img {
+  display: block;
+  margin: 0 auto;
   max-width: 100%;
   height: auto;
+}
+
+/* QC toolbar: the metric select and the download button share one baseline
+   (Bootstrap gives .form-group a bottom margin, which used to lift the
+   button off the select). */
+.qc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.qc-toolbar .form-group,
+.qc-toolbar .shiny-input-container {
+  margin-bottom: 0;
+  width: 100%;
+}
+
+.qc-toolbar .qc-download-btn {
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 /* Pending-generation status line (shown on the very first draw) */
