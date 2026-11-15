@@ -24,7 +24,9 @@ Sys.setenv(PERCEPTION_WORKER_IDLE_MINUTES = '1')
 
 args <- commandArgs(trailingOnly = TRUE)
 uploaded <- NULL
-if (length(args) >= 2 && args[1] == '--uploaded') uploaded <- args[2]
+if (length(args) >= 2 && args[1] == '--uploaded') {
+  uploaded <- args[2]
+}
 
 # ---- build the app-side `shared` state ------------------------------------
 # An environment (reference semantics, like reactiveValues) — a plain list is
@@ -35,9 +37,13 @@ cache_dir <- getOption(
   'PERCEPTIONx.depmap_cache_dir',
   # Accept both env-var spellings (docs use PERCEPTIONX..., early
   # deployments set PERCEPTIONx...); Sys.getenv is case-sensitive on Linux.
-  Sys.getenv('PERCEPTIONX_DEPMAP_CACHE_DIR',
-             Sys.getenv('PERCEPTIONx_DEPMAP_CACHE_DIR',
-                        tools::R_user_dir('PERCEPTIONx', 'data')))
+  Sys.getenv(
+    'PERCEPTIONX_DEPMAP_CACHE_DIR',
+    Sys.getenv(
+      'PERCEPTIONx_DEPMAP_CACHE_DIR',
+      tools::R_user_dir('PERCEPTIONx', 'cache')
+    )
+  )
 )
 shared <- new.env(parent = emptyenv())
 if (!is.null(uploaded)) {
@@ -47,12 +53,20 @@ if (!is.null(uploaded)) {
 } else {
   shared$depmap_is_standard <- TRUE
   shared$depmap_path <- file.path(cache_dir, 'DepMap.RDS')
-  cat('[e2e] SCENARIO: standard user (load_depmap cache), file =', shared$depmap_path, '\n')
+  cat(
+    '[e2e] SCENARIO: standard user (load_depmap cache), file =',
+    shared$depmap_path,
+    '\n'
+  )
 }
 if (!file.exists(shared$depmap_path)) {
   stop('[e2e] DepMap file not found: ', shared$depmap_path)
 }
-cat('[e2e] DepMap size:', round(file.info(shared$depmap_path)$size / 1e6), 'MB\n')
+cat(
+  '[e2e] DepMap size:',
+  round(file.info(shared$depmap_path)$size / 1e6),
+  'MB\n'
+)
 
 # ---- start worker + submit jobs via the app's own functions ---------------
 t0 <- Sys.time()
@@ -73,14 +87,16 @@ mk_params <- function(drug, tag) {
   # for exclude_cancer: feature_ranking_bulk does grep(exclude_cancer, lineage)
   # and grep(NULL, ...) errors, which err_handle swallows into a silent
   # "feature ranking failed" (all models skipped).
-  list(drug_list         = drug,
-       cancer_type       = 'PanCan',
-       exclude_cancer    = 'PanCan',
-       GOI               = c('TP53', 'BRCA1'),
-       k_features_values = c(50),
-       model_type        = 'glmnet',
-       ncores            = 1,
-       output_dir        = file.path(jobs_dir, paste0('out_', tag)))
+  list(
+    drug_list = drug,
+    cancer_type = 'PanCan',
+    exclude_cancer = 'PanCan',
+    GOI = c('TP53', 'BRCA1'),
+    k_features_values = c(50),
+    model_type = 'glmnet',
+    ncores = 1,
+    output_dir = file.path(jobs_dir, paste0('out_', tag))
+  )
 }
 
 # erlotinib/gemcitabine verified to train cleanly on the clean release asset
@@ -90,7 +106,11 @@ jid1 <- submit_train_job(shared, mk_params('erlotinib', 'a'))
 jid2 <- submit_train_job(shared, mk_params('gemcitabine', 'e'))
 # shared is an environment: submit_train_job mutated it in place, re-read the
 # jobs_dir it recorded (covers the uploaded scenario where it differs).
-jobs_dir <- if (isTRUE(shared$depmap_is_standard)) getOption('perception.jobs_dir') else shared$jobs_dir
+jobs_dir <- if (isTRUE(shared$depmap_is_standard)) {
+  getOption('perception.jobs_dir')
+} else {
+  shared$jobs_dir
+}
 cat('[e2e] submitted jobs:', jid1, '|', jid2, '\n')
 
 # ---- poll ----------------------------------------------------------------
@@ -99,7 +119,10 @@ done <- character(0)
 while (Sys.time() < deadline) {
   if (!worker$is_alive()) {
     cat('[e2e] WORKER DIED unexpectedly; stderr tail:\n')
-    cat(tail(readLines(file.path(jobs_dir, 'worker.log'), warn = FALSE), 30), sep = '\n')
+    cat(
+      tail(readLines(file.path(jobs_dir, 'worker.log'), warn = FALSE), 30),
+      sep = '\n'
+    )
     quit(status = 1)
   }
   for (jid in c(jid1, jid2)) {
@@ -108,15 +131,28 @@ while (Sys.time() < deadline) {
       done <- c(done, jid)
       msg <- if (st$status == 'error') paste0(' ERROR: ', st$message) else ''
       res <- file.exists(file.path(jobs_dir, jid, 'result.rds'))
-      cat(sprintf('[e2e] %s -> %s (result.rds=%s) after %.0fs%s\n',
-                  jid, st$status, res,
-                  as.numeric(difftime(Sys.time(), t0, units = 'secs')), msg))
+      cat(sprintf(
+        '[e2e] %s -> %s (result.rds=%s) after %.0fs%s\n',
+        jid,
+        st$status,
+        res,
+        as.numeric(difftime(Sys.time(), t0, units = 'secs')),
+        msg
+      ))
     } else if (st$status == 'running') {
-      cat(sprintf('[e2e] %s running: phase=%s %d/%d drug=%s\n',
-                  jid, st$phase, st$i, st$n, st$drug))
+      cat(sprintf(
+        '[e2e] %s running: phase=%s %d/%d drug=%s\n',
+        jid,
+        st$phase,
+        st$i,
+        st$n,
+        st$drug
+      ))
     }
   }
-  if (length(done) == 2) break
+  if (length(done) == 2) {
+    break
+  }
   Sys.sleep(5)
 }
 
@@ -124,28 +160,43 @@ if (length(done) != 2) {
   cat('[e2e] TIMEOUT; final states:\n')
   for (jid in c(jid1, jid2)) {
     st <- read_job_state(shared, jid)
-    cat(jid, ': status =', st$status,
-        if (!is.null(st$message)) paste0(' (', st$message, ')') else '', '\n')
+    cat(
+      jid,
+      ': status =',
+      st$status,
+      if (!is.null(st$message)) paste0(' (', st$message, ')') else '',
+      '\n'
+    )
   }
   quit(status = 1)
 }
 
 # result content sanity check
 for (jid in c(jid1, jid2)) {
-  res <- tryCatch(readRDS(file.path(jobs_dir, jid, 'result.rds')), error = function(e) NULL)
+  res <- tryCatch(
+    readRDS(file.path(jobs_dir, jid, 'result.rds')),
+    error = function(e) NULL
+  )
   if (is.null(res)) {
     cat('[e2e] FAIL: result.rds missing for', jid, '\n')
     quit(status = 1)
   }
   n <- if (is.list(res)) length(res) else NA
-  cat(sprintf('[e2e] %s result: len=%s names=%s\n', jid, n,
-              paste(if (is.list(res)) names(res) else '', collapse = ', ')))
+  cat(sprintf(
+    '[e2e] %s result: len=%s names=%s\n',
+    jid,
+    n,
+    paste(if (is.list(res)) names(res) else '', collapse = ', ')
+  ))
   if (is.list(res) && length(res) > 0) {
     nm <- names(res)[1]
     m <- res[[1]]
-    cat(sprintf('[e2e]   %s: class=%s fields=%s\n', nm,
-                paste(class(m), collapse = '/'),
-                paste(names(m), collapse = ', ')))
+    cat(sprintf(
+      '[e2e]   %s: class=%s fields=%s\n',
+      nm,
+      paste(class(m), collapse = '/'),
+      paste(names(m), collapse = ', ')
+    ))
   }
 }
 
@@ -155,8 +206,11 @@ if (isTRUE(shared$depmap_is_standard)) {
   deadline2 <- Sys.time() + 180
   while (Sys.time() < deadline2) {
     if (!worker$is_alive()) {
-      cat('[e2e] master exited after',
-          round(as.numeric(difftime(Sys.time(), t0, units = 'secs'))), 's\n')
+      cat(
+        '[e2e] master exited after',
+        round(as.numeric(difftime(Sys.time(), t0, units = 'secs'))),
+        's\n'
+      )
       break
     }
     Sys.sleep(2)

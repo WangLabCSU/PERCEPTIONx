@@ -493,7 +493,7 @@ load_model <- function(
 #' Supports automatic mirror fallback for users in different regions.
 #'
 #' @param dest Directory to save the downloaded file. Default: the user cache
-#'        directory (\code{tools::R_user_dir("PERCEPTIONx", "data")}), or a
+#'        directory (\code{tools::R_user_dir("PERCEPTIONx", "cache")}), or a
 #'        cache-root derived path when \code{options(PERCEPTIONx.cache_root)} is
 #'        set. An existing \file{DepMap.RDS} in the working directory is reused
 #'        instead of downloading another copy.
@@ -540,6 +540,31 @@ load_depmap <- function(
   }
 
   destfile <- file.path(dest, "DepMap.RDS")
+
+  # DepMap used to be cached under R_user_dir("PERCEPTIONx", "data"). Move that
+  # copy into the cache directory once, instead of making the user download
+  # 567 MB again just because the location changed.
+  old_dir <- tools::R_user_dir("PERCEPTIONx", "data")
+  old_file <- file.path(old_dir, "DepMap.RDS")
+  same_dest <- identical(
+    normalizePath(dest, mustWork = FALSE),
+    normalizePath(perception_depmap_cache_dir(), mustWork = FALSE)
+  )
+  if (same_dest && !file.exists(destfile) && file.exists(old_file)) {
+    moved <- file.rename(old_file, destfile)
+    if (!moved) {
+      moved <- file.copy(old_file, destfile) && file.remove(old_file)
+    }
+    if (moved) {
+      old_meta <- file.path(old_dir, "DepMap_meta.RDS")
+      if (file.exists(old_meta)) {
+        file.rename(old_meta, file.path(dest, "DepMap_meta.RDS"))
+      }
+      cli::cli_alert_info(
+        "Moved the existing DepMap cache from {.path {old_dir}} to {.path {dest}}."
+      )
+    }
+  }
 
   # Users upgrading from <= 0.4.0 have DepMap.RDS in their working directory.
   # Keep using that copy instead of silently downloading another 594 MB.

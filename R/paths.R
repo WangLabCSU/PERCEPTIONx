@@ -16,7 +16,7 @@
 #
 # Precedence for the DepMap directory specifically (kept from the original
 # app-only option): the dedicated option/env var wins; otherwise it is derived
-# from cache_root; otherwise the R user data dir is used.
+# from cache_root; otherwise the R user cache dir is used.
 # When no cache_root is set, package-level functions keep their historical
 # defaults ("./" for load_depmap, "./models" for load_model) and the Shiny app
 # keeps using tempdir() for models / jobs — i.e. behaviour is unchanged.
@@ -50,7 +50,10 @@ perception_depmap_cache_dir <- function() {
   if (!is.null(root)) {
     return(file.path(root, "depmap"))
   }
-  tools::R_user_dir("PERCEPTIONx", "data")
+  # "cache", not "data": DepMap.RDS is a 567 MB download that can be regenerated
+  # at any time, so it belongs in the cache directory (Local on Windows) rather
+  # than the roaming user data directory, which some platforms sync or back up.
+  tools::R_user_dir("PERCEPTIONx", "cache")
 }
 
 # Pre-trained model cache directory when a cache_root is set (NULL otherwise).

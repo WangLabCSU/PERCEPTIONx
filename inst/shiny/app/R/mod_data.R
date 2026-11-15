@@ -1619,7 +1619,7 @@ mod_data_server <- function(id, shared) {
       use_mirror <- isTRUE(input$depmap_mirror)
       # Unified cache dir: options(PERCEPTIONx.depmap_cache_dir) / env var win;
       # otherwise derived from options(PERCEPTIONx.cache_root) (or its env var);
-      # otherwise the R user data dir. Resolution lives in R/paths.R so the
+      # otherwise the R user cache dir. Resolution lives in R/paths.R so the
       # package functions and the Shiny app share one rule.
       cache_dir <- PERCEPTIONx:::perception_depmap_cache_dir()
       dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)

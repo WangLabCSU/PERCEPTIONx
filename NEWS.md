@@ -54,6 +54,11 @@
   (10x GRCh38 `features.tsv` column 1, many GEO uploads). Previously the
   `MT-` prefix never matched, so `pct_mito` was silently 0 and the
   mitochondrial fence did nothing.
+- DepMap now caches under `tools::R_user_dir("PERCEPTIONx", "cache")`, the
+  platform cache directory, instead of the roaming user data directory. It is
+  a regenerable 567 MB download, so it should not be synced or backed up with
+  user data. A copy found in the old location is moved on first use rather
+  than downloaded again.
 - Internal code migrated to `data.table`; user-facing results remain
   `data.frame`.
 - Messages and errors use `cli`; `run_seurat_pipeline()` and its
