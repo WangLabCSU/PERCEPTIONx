@@ -1,0 +1,3 @@
+# Git hooks are shell scripts: force LF so they run on every platform, even
+# when the working copy is checked out with CRLF.
+.githooks/* text eol=lf

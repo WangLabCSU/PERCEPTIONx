@@ -32,6 +32,69 @@ patient_desc_html <- function() {
   )
 }
 
+# Publication-style heatmap of clone x drug viability. Kept as a top-level
+# function (not inline in a reactive) so it can be rendered and exported
+# without a live Shiny session.
+clone_heatmap_plot <- function(mat, base_size = 11) {
+  mat <- as.matrix(mat)
+  clones <- rownames(mat)
+  drugs <- colnames(mat)
+  long <- data.frame(
+    clone = factor(rep(clones, times = length(drugs)), levels = rev(clones)),
+    drug = factor(rep(drugs, each = length(clones)), levels = drugs),
+    viability = as.vector(mat),
+    stringsAsFactors = FALSE
+  )
+  ggplot2::ggplot(
+    long,
+    ggplot2::aes(x = .data$drug, y = .data$clone, fill = .data$viability)
+  ) +
+    ggplot2::geom_tile(colour = "white", linewidth = 0.6) +
+    ggplot2::scale_fill_gradientn(
+      colours = c("#f7fbff", "#c6dbef", "#6baed6", "#2171b5", "#08306b"),
+      name = "Viability",
+      limits = c(0, 1),
+      oob = scales::squish
+    ) +
+    ggplot2::labs(
+      title = "Predicted viability by clone and drug",
+      subtitle = sprintf(
+        "%d clone%s × %d drug%s · higher = more resistant",
+        length(clones),
+        if (length(clones) == 1L) "" else "s",
+        length(drugs),
+        if (length(drugs) == 1L) "" else "s"
+      ),
+      caption = "Values are model predictions, not measured IC50s.",
+      x = "Drug",
+      y = "Clone"
+    ) +
+    ggplot2::theme_bw(base_size = base_size) +
+    ggplot2::theme(
+      panel.grid = ggplot2::element_blank(),
+      panel.border = ggplot2::element_rect(linewidth = 0.4, colour = "grey35"),
+      axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
+      axis.ticks = ggplot2::element_line(linewidth = 0.3),
+      plot.title = ggplot2::element_text(
+        face = "bold",
+        hjust = 0.5,
+        size = ggplot2::rel(1.05)
+      ),
+      plot.subtitle = ggplot2::element_text(
+        hjust = 0.5,
+        colour = "grey30",
+        size = ggplot2::rel(0.82)
+      ),
+      plot.caption = ggplot2::element_text(
+        hjust = 0,
+        colour = "grey40",
+        size = ggplot2::rel(0.7)
+      ),
+      plot.title.position = "plot",
+      plot.caption.position = "plot"
+    )
+}
+
 mod_predict_ui <- function(id) {
   ns <- NS(id)
   tagList(
@@ -77,16 +140,13 @@ mod_predict_ui <- function(id) {
             div(
               class = "param-section",
               h6(class = "param-section-title", icon("link"), " Sources"),
-              div(
-                class = "info-box",
-                style = "margin-top: 0.2rem; font-size: 0.78rem;",
-                icon("circle-info"),
-                " Prediction runs on the ",
+              p(
+                class = "param-note",
+                "Prediction runs on the ",
                 strong("active models"),
-                " from the Data tab (Loaded Models Management) ",
-                "and the expression data prepared there. Load, upload or train ",
-                "models on the Data / Train tabs - every uploaded .RDS appears ",
-                "in the management list automatically."
+                " and the expression data prepared in the Data tab. Load, upload ",
+                "or train models there — every uploaded .RDS appears in the ",
+                "management list automatically."
               )
             ),
 
@@ -109,17 +169,15 @@ mod_predict_ui <- function(id) {
                 ),
                 selected = "weighted_max"
               ),
-              div(
-                class = "info-box",
-                style = "margin-top: 0.5rem; font-size: 0.78rem;",
+              p(
+                class = "param-note",
                 strong("weighted_max"),
-                ": maximum clone viability weighted by clone proportion (recommended)",
-                br(),
+                ": highest clone viability, weighted by clone proportion ",
+                "(recommended). ",
                 strong("weighted_average"),
-                ": weighted average across all clones",
-                br(),
-                strong("min/max"),
-                ": most sensitive/resistant clone"
+                ": weighted mean across clones. ",
+                strong("min / max"),
+                ": the most sensitive / most resistant clone."
               )
             ),
 
@@ -455,30 +513,28 @@ mod_predict_server <- function(id, shared, main_session) {
     # (task "predict", see async_jobs.R); patient_pred() is a reactiveVal set
     # when the job completes.
 
-    # Clone heatmap
-    output$clone_heatmap <- renderPlotly({
-      req(clone_pred())
+    # Clone heatmap — a static ggplot rather than plotly. This is the figure
+    # that ends up in a paper, so it gets the same treatment as the QC report
+    # (title, subtitle, caption, no web chrome) and a 300 dpi PNG export.
+    clone_heatmap_height <- function() {
       mat <- clone_pred()
+      if (is.null(mat)) {
+        return(420L)
+      }
+      as.integer(min(780L, max(320L, 190L + 20L * nrow(mat))))
+    }
 
-      plotly::plot_ly(
-        x = colnames(mat),
-        y = rownames(mat),
-        z = mat,
-        type = "heatmap",
-        colorscale = list(
-          c(0, 1),
-          c("rgb(58, 79, 138)", "rgb(232, 145, 58)")
-        ),
-        colorbar = list(title = "Viability"),
-        hovertemplate = "Clone: %{y}<br>Drug: %{x}<br>Viability: %{z:.3f}<extra></extra>"
-      ) %>%
-        layout(
-          xaxis = list(title = "Drug", tickangle = 45),
-          yaxis = list(title = "Clone"),
-          font = list(family = "Inter, sans-serif", size = 11),
-          margin = list(l = 120, b = 80)
-        )
+    clone_heatmap_obj <- shiny::reactive({
+      mat <- clone_pred()
+      shiny::req(mat)
+      clone_heatmap_plot(mat)
     })
+
+    output$clone_heatmap <- renderPlot(
+      clone_heatmap_obj(),
+      height = function() clone_heatmap_height(),
+      res = 110
+    )
 
     # Heatmap area — only rendered after a prediction run, so no empty
     # heatmap frame shows before the user clicks Run Prediction. Height grows
@@ -491,12 +547,6 @@ mod_predict_server <- function(id, shared, main_session) {
       mat <- clone_pred()
       if (is.null(mat)) {
         return(div())
-      }
-      n_rows <- nrow(mat)
-      h <- if (is.null(n_rows) || n_rows <= 0) {
-        400
-      } else {
-        min(700, max(240, 140 + 16 * n_rows))
       }
       # Demo models are SIMULATED (trained on random noise, not real drug
       # response data) but carry real drug names — the results must carry a
@@ -516,9 +566,39 @@ mod_predict_server <- function(id, shared, main_session) {
       }
       tagList(
         banner,
-        plotlyOutput(ns("clone_heatmap"), height = paste0(h, "px"))
+        div(
+          class = "figure-toolbar",
+          downloadButton(
+            ns("clone_heatmap_download"),
+            "Download PNG",
+            class = "btn-outline-primary qc-download-btn",
+            icon = icon("download")
+          )
+        ),
+        plotOutput(
+          ns("clone_heatmap"),
+          height = paste0(clone_heatmap_height(), "px")
+        )
       )
     })
+
+    output$clone_heatmap_download <- downloadHandler(
+      filename = function() {
+        paste0("clone_viability_", format(Sys.Date(), "%Y%m%d"), ".png")
+      },
+      content = function(file) {
+        p <- clone_heatmap_obj()
+        ggplot2::ggsave(
+          file,
+          plot = p,
+          width = 8.5,
+          height = max(4, clone_heatmap_height() / 100),
+          dpi = 300,
+          bg = "white",
+          limitsize = FALSE
+        )
+      }
+    )
 
     # Card annotations (icon + description + hint) are statically pre-rendered
     # in the UI (visible on first paint). Clear them once predictions exist,

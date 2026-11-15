@@ -21,7 +21,7 @@
 # Upper fence of a robust (MAD-based) filter: median + nmads * MAD.
 # Returns Inf when MAD is zero (all values identical) so the filter keeps
 # everything instead of discarding half the cells on a degenerate sample.
-qc_upper_threshold <- function(x, nmads = 3) {
+qc_upper_threshold <- function(x, nmads = 5) {
   med <- stats::median(x, na.rm = TRUE)
   spread <- stats::mad(x, na.rm = TRUE)
   if (!is.finite(spread) || spread == 0) {
@@ -38,6 +38,32 @@ compute_qc_metrics <- function(counts) {
   n_genes <- Matrix::colSums(counts > 0)
   n_counts <- Matrix::colSums(counts)
   is_mito <- grepl("^MT-", toupper(rownames(counts)))
+
+  # Some references name genes by Ensembl ID (10x GRCh38 with `features.tsv`
+  # column 1, many GEO uploads), so "MT-" never matches and the mitochondrial
+  # fraction would silently be 0 for every cell -- the mito fence would do
+  # nothing. Fall back to the fixed Ensembl IDs of the 13 protein-coding
+  # mitochondrial genes plus the two rRNA genes where a reference carries them.
+  if (!any(is_mito)) {
+    mt_ids <- c(
+      "ENSG00000198888",
+      "ENSG00000198763",
+      "ENSG00000198804",
+      "ENSG00000198712",
+      "ENSG00000228253",
+      "ENSG00000198899",
+      "ENSG00000198938",
+      "ENSG00000198840",
+      "ENSG00000212907",
+      "ENSG00000198886",
+      "ENSG00000198786",
+      "ENSG00000198695",
+      "ENSG00000198727",
+      "ENSG00000210049",
+      "ENSG00000210082"
+    )
+    is_mito <- sub("[.][0-9]+$", "", rownames(counts)) %in% mt_ids
+  }
 
   pct_mito <- if (any(is_mito)) {
     mito_counts <- Matrix::colSums(counts[is_mito, , drop = FALSE])
@@ -64,17 +90,59 @@ compute_qc_metrics <- function(counts) {
 qc_filter_cells <- function(
   counts,
   patient,
-  nmads = 3,
+  nmads = 5,
   min_genes = 200,
   max_mito = 25,
-  max_genes = NULL
+  max_genes = NULL,
+  skip = FALSE
 ) {
   metrics <- compute_qc_metrics(counts)
   metrics$patient <- as.character(patient)
 
+  # "No QC" still needs a report: the app and the vignette both read the same
+  # table, so every cell is simply marked as kept and the fences are NA.
+  if (isTRUE(skip)) {
+    patients <- unique(metrics$patient)
+    report <- data.frame(
+      patient = patients,
+      n_input = as.integer(table(metrics$patient)[patients]),
+      n_kept = as.integer(table(metrics$patient)[patients]),
+      pct_removed = 0,
+      main_reason = "-",
+      mito_threshold = NA_real_,
+      genes_min = NA_integer_,
+      genes_max = NA_real_,
+      stringsAsFactors = FALSE
+    )
+    rownames(report) <- NULL
+    return(list(keep = metrics$cell_id, report = report, metrics = metrics))
+  }
+
   patients <- unique(metrics$patient)
   keep <- rep(TRUE, nrow(metrics))
   rows <- vector("list", length(patients))
+
+  # Pooled fences across every sample. A sample whose plausible-cell pool is
+  # dominated by low-quality barcodes gets a collapsed median/MAD -- the fence
+  # lands on the junk tail -- and would then remove its real cells. When that
+  # happens we fall back to the pooled estimate instead of silently losing the
+  # sample.
+  plausible <- metrics$n_genes >= min_genes
+  pooled <- if (sum(plausible) >= 10L) {
+    list(
+      genes = if (is.null(max_genes)) {
+        qc_upper_threshold(metrics$n_genes[plausible], nmads)
+      } else {
+        max_genes
+      },
+      mito = min(
+        qc_upper_threshold(metrics$pct_mito[plausible], nmads),
+        max_mito
+      )
+    )
+  } else {
+    NULL
+  }
 
   for (i in seq_along(patients)) {
     p <- patients[[i]]
@@ -101,6 +169,23 @@ qc_filter_cells <- function(
       max_genes
     }
     mito_upper <- min(qc_upper_threshold(pct_mito_est, nmads), max_mito)
+
+    # Two ways the local fence can be nonsense: it collapses onto the
+    # low-quality tail (below ~2x the gene floor), or it keeps nothing at all.
+    # Both mean "the plausible-cell pool was not representative", so use the
+    # pooled fence rather than deleting the sample.
+    if (!is.null(pooled)) {
+      collapsed <- is.null(max_genes) && genes_upper < max(500, 2 * min_genes)
+      keeps_none <- !any(
+        !(n_genes < min_genes | n_genes > genes_upper | pct_mito > mito_upper)
+      )
+      if (collapsed || keeps_none) {
+        if (is.null(max_genes)) {
+          genes_upper <- pooled$genes
+        }
+        mito_upper <- min(pooled$mito, max_mito)
+      }
+    }
 
     fail_low_genes <- n_genes < min_genes
     fail_high_genes <- n_genes > genes_upper
@@ -206,6 +291,71 @@ filter_marker_sets <- function(log_counts, exclude_markers, min_expr = 1) {
 }
 
 
+# Detect doublets with scDblFinder, one patient at a time.
+#
+# Doublet detection is not a QC threshold: two cells captured in one droplet can
+# have perfectly normal gene counts and mitochondrial fractions, so the MAD
+# fences cannot see them. They inflate the upper gene-count tail, and a doublet
+# of two different clones gets read as a "resistant clone" of its own.
+#
+# Returns the cells classified as doublets (empty when scDblFinder is absent).
+detect_doublets <- function(counts, patient, seed = 42L, min_cells = 30L) {
+  none <- data.frame(
+    cell_id = character(0),
+    patient = character(0),
+    score = numeric(0),
+    stringsAsFactors = FALSE
+  )
+
+  if (!requireNamespace("scDblFinder", quietly = TRUE)) {
+    cli::cli_warn(c(
+      "{.pkg scDblFinder} is not installed; skipping doublet detection.",
+      "i" = "Install it with {.code{BiocManager::install(\"scDblFinder\")}}.",
+      "i" = "The upper gene-count fence still removes most high-complexity doublets."
+    ))
+    return(none)
+  }
+  if (!requireNamespace("SingleCellExperiment", quietly = TRUE)) {
+    cli::cli_warn(c(
+      "{.pkg SingleCellExperiment} is not installed; skipping doublet detection."
+    ))
+    return(none)
+  }
+
+  patient <- as.character(patient)
+  out <- vector("list", 0L)
+  for (p in unique(patient)) {
+    idx <- which(patient == p)
+    # scDblFinder needs enough neighbours to build its artificial doublets.
+    if (length(idx) < min_cells) {
+      cli::cli_warn(
+        "Patient {.val {p}} has {length(idx)} cell{?s}; skipping doublet detection."
+      )
+      next
+    }
+    sce <- SingleCellExperiment::SingleCellExperiment(
+      assays = list(counts = counts[, idx, drop = FALSE])
+    )
+    set.seed(as.integer(seed))
+    sce <- suppressMessages(scDblFinder::scDblFinder(sce, verbose = FALSE))
+    is_dbl <- sce$scDblFinder.class == "doublet"
+    if (any(is_dbl)) {
+      out[[length(out) + 1L]] <- data.frame(
+        cell_id = colnames(sce)[is_dbl],
+        patient = p,
+        score = round(sce$scDblFinder.score[is_dbl], 3),
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+
+  if (length(out) == 0L) {
+    return(none)
+  }
+  do.call(rbind, out)
+}
+
+
 # Check that the matrix is genes x cells and looks like raw counts.
 # Returns a list describing what was detected; aborts on a transposed matrix
 # because that error is silent and expensive to debug downstream.
@@ -261,18 +411,30 @@ tsne_from_pca <- function(so, dims, seed = 42) {
 }
 
 
-# Copy the uwot UMAP settings used by run_seurat_pipeline(): the default
+# Copy the uwot UMAP settings used by the original Seurat pipeline: the default
 # RunUMAP settings cost seconds of fixed overhead on small datasets, and this
 # embedding is only used for visualisation.
 umap_from_pca <- function(so, dims, seed = 42, n_threads = 1L) {
   pca <- Seurat::Embeddings(so, "pca")[, seq_len(dims), drop = FALSE]
 
   n_neighbors <- min(15L, max(2L, nrow(pca) - 1L))
+  # UMAP is the single most expensive step of the pipeline, and its cost is
+  # almost all SGD epochs. Below ~5k cells the default 200 epochs are cheap;
+  # at 20k cells they cost ~60 s on a build without OpenMP, for a 2D layout
+  # that is only used for visualisation. The layout is stable well before 200
+  # epochs, so the budget is scaled down with cell count.
+  n_epochs <- if (nrow(pca) > 15000L) {
+    50L
+  } else if (nrow(pca) > 5000L) {
+    100L
+  } else {
+    200L
+  }
   coords <- uwot::umap(
     X = pca,
     n_neighbors = n_neighbors,
     n_components = 2,
-    n_epochs = 200,
+    n_epochs = n_epochs,
     n_trees = 10,
     metric = "cosine",
     learning_rate = 1,
@@ -303,6 +465,7 @@ cluster_within_patient <- function(
   sample_col = NULL,
   dims = 20,
   resolution = 0.8,
+  cluster_algorithm = 1L,
   integrate = c("auto", "none", "harmony"),
   seed = 42,
   progress_cb = NULL
@@ -372,6 +535,7 @@ cluster_within_patient <- function(
     cl_raw <- Seurat::FindClusters(
       nn$snn,
       resolution = resolution,
+      algorithm = cluster_algorithm,
       verbose = FALSE
     )
     # Seurat 5 returns a one-column data.frame when given a Graph; older
@@ -419,19 +583,165 @@ cluster_within_patient <- function(
 }
 
 
+# Shared core: variable features -> scaling -> PCA -> clustering -> 2D embedding.
+#
+# One implementation for every entry point. preprocess_sc() calls it after QC,
+# while annotate_clones() / plot_seurat_clustering() call it directly on an
+# already-normalised object (they keep their own min_cells/min_features
+# filters). Keeping a single core is what makes "the new pipeline" the only
+# pipeline: cluster ids, embedding settings and the small-dataset PCA cap
+# cannot drift between the exported functions.
+#
+# The input must already be normalised (LogNormalize) and carry a `patient`
+# column in its metadata; a single-patient matrix simply gets
+# `patient = "patient1"`.
+cluster_embedding <- function(
+  so,
+  nfeatures = 2000L,
+  dims = 20L,
+  resolution = 0.8,
+  method = c("umap", "tsne"),
+  seed = 42L,
+  cluster_algorithm = 1L,
+  variable_selection = c("vst", "dispersion", "mvp"),
+  sample_col = NULL,
+  integrate = c("auto", "none", "harmony"),
+  cluster_scope = c("global", "patient"),
+  progress_cb = NULL
+) {
+  method <- rlang::arg_match(method)
+  variable_selection <- rlang::arg_match(variable_selection)
+  integrate <- rlang::arg_match(integrate)
+  cluster_scope <- rlang::arg_match(cluster_scope)
+  set.seed(seed)
+  notify <- function(phase, i = NULL, n = NULL) {
+    if (is.function(progress_cb)) {
+      progress_cb(phase, i, n)
+    }
+  }
+
+  notify("variable-features")
+  nfeatures <- min(nfeatures, nrow(so))
+  so <- Seurat::FindVariableFeatures(
+    so,
+    selection.method = variable_selection,
+    nfeatures = nfeatures
+  )
+
+  notify("scaling")
+  so <- Seurat::ScaleData(so, features = Seurat::VariableFeatures(so))
+
+  # PCA needs npcs < min(cells, variable features); small datasets get capped
+  # instead of erroring out.
+  npcs <- min(
+    dims,
+    ncol(so) - 1L,
+    length(Seurat::VariableFeatures(so)) - 1L
+  )
+  npcs <- max(1L, as.integer(npcs))
+
+  notify("pca")
+  so <- Seurat::RunPCA(
+    so,
+    features = Seurat::VariableFeatures(so),
+    npcs = npcs
+  )
+
+  notify("clustering")
+  if (cluster_scope == "global") {
+    # Original PERCEPTION behaviour: one clustering over every cell, so a clone
+    # is a transcriptional state shared across patients. Harmony is not applied
+    # here -- it only makes sense inside a patient, which is the "patient" scope.
+    so <- Seurat::FindNeighbors(
+      so,
+      dims = seq_len(npcs),
+      reduction = "pca",
+      verbose = FALSE
+    )
+    so <- Seurat::FindClusters(
+      so,
+      resolution = resolution,
+      algorithm = cluster_algorithm,
+      verbose = FALSE
+    )
+    clustered <- list(
+      labels = data.frame(
+        cell_id = colnames(so),
+        clone_id = as.character(so$seurat_clusters),
+        patient = as.character(so$patient),
+        stringsAsFactors = FALSE
+      ),
+      used_harmony = FALSE
+    )
+  } else {
+    clustered <- cluster_within_patient(
+      so,
+      patient_col = "patient",
+      sample_col = sample_col,
+      dims = npcs,
+      resolution = resolution,
+      cluster_algorithm = cluster_algorithm,
+      integrate = integrate,
+      seed = seed,
+      progress_cb = function(p, i, n) notify("clustering", i, n)
+    )
+  }
+
+  notify(if (method == "umap") "umap" else "tsne")
+  coords <- if (method == "umap") {
+    n_threads <- max(
+      1L,
+      min(4L, as.integer(parallel::detectCores()), na.rm = TRUE)
+    )
+    umap_from_pca(so, npcs, seed = seed, n_threads = n_threads)
+  } else {
+    tsne_from_pca(so, npcs, seed = seed)
+  }
+
+  # Attach the embedding as a real reduction so Seurat::DimPlot()/Idents() work
+  # for callers that use the object directly (plot_seurat_clustering()).
+  key <- if (method == "umap") "UMAP_" else "TSNE_"
+  so[[method]] <- Seurat::CreateDimReducObject(
+    embeddings = coords,
+    key = key,
+    assay = Seurat::DefaultAssay(so)
+  )
+
+  labels <- clustered$labels
+  # Idents follow the clone labels, not the cell names Seurat would default to.
+  idents <- labels$clone_id[match(colnames(so), labels$cell_id)]
+  so$seurat_clusters <- factor(idents)
+  Seurat::Idents(so) <- "seurat_clusters"
+
+  list(
+    so = so,
+    labels = labels,
+    npcs = npcs,
+    used_harmony = clustered$used_harmony
+  )
+}
+
+
 #' Preprocess raw single-cell data into clone labels
 #'
 #' End-to-end preprocessing for users who only have a raw count matrix: quality
-#' control, normalisation, variable-feature selection, PCA, and per-patient
-#' clustering, followed by a QC report. No tissue-specific thresholds are
+#' control, normalisation, variable-feature selection, PCA, and clustering,
+#' followed by a QC report. No tissue-specific thresholds are
 #' required; the QC fences adapt to each patient's own distribution.
 #'
-#' Clustering is performed **within each patient** on a shared PCA embedding,
-#' so transcriptional clones can never span two patients. When a patient has
-#' more than one sample (e.g. longitudinal biopsies), harmony is applied inside
-#' that patient to prevent one biological clone from being split in two by a
-#' technical batch effect. \pkg{harmony} is an optional dependency: without it,
-#' the step is skipped with a warning.
+#' Clustering is performed on a shared PCA embedding. By default
+#' (\code{cluster_scope = "global"}) every cell is clustered together, which is
+#' what the original PERCEPTION method does: a clone is a transcriptional state
+#' that can appear in several patients. With \code{cluster_scope = "patient"}
+#' neighbours are searched inside each patient only, so a clone can never span
+#' two patients -- useful when clone labels are meant to be patient-specific.
+#' For a single-patient dataset the two settings are identical.
+#'
+#' When a patient has more than one sample (e.g. longitudinal biopsies) and
+#' \code{cluster_scope = "patient"}, harmony is applied inside that patient to
+#' prevent one biological clone from being split in two by a technical batch
+#' effect. \pkg{harmony} is an optional dependency: without it, the step is
+#' skipped with a warning.
 #'
 #' @param counts Matrix (genes as rows, cells as columns) or a \code{Seurat}
 #'        object. Raw counts are expected; normalised values trigger a warning
@@ -442,11 +752,34 @@ cluster_within_patient <- function(
 #'        or batch a cell belongs to. Required only when a patient has multiple
 #'        samples. Default = \code{NULL}.
 #' @param nmads Numeric. Width of the MAD-based QC fence, in median absolute
-#'        deviations. Default = 3.
+#'        deviations. Default = 5. Tumour tissue has genuinely higher
+#'        mitochondrial content and larger cells than blood, so a 3-MAD fence
+#'        removes real cells: against CellRanger's own calls on a real lung
+#'        squamous carcinoma sample, 5 MAD recovers ~88% of its cells versus
+#'        ~78% at 3 MAD, with precision unchanged.
 #' @param min_genes Integer. Minimum detected genes per cell. Default = 200.
 #' @param max_mito Numeric. Hard cap on the mitochondrial fraction (%). The
 #'        effective threshold is the smaller of this and the MAD fence.
 #'        Default = 25.
+#' @param max_genes Integer. Fixed upper bound on detected genes per cell. When
+#'        \code{NULL} (default) the bound is estimated per patient as
+#'        \code{median + nmads * MAD}, which is what removes empty droplets and
+#'        high-complexity doublets. Set it to reproduce a fixed threshold such
+#'        as the 2,500 genes used in most tutorials.
+#' @param remove_doublets Logical. When \code{TRUE}, cells classified as
+#'        doublets by \pkg{scDblFinder} are removed after QC, one patient at a
+#'        time. Doublets can pass every QC threshold -- they have normal gene
+#'        counts and mitochondrial fractions -- yet they inflate the
+#'        high-complexity tail and can form a spurious "resistant clone" made of
+#'        two fused clones. Requires the optional \pkg{scDblFinder} package;
+#'        without it the step is skipped with a warning. Default = \code{FALSE},
+#'        because detection is probabilistic and should be opted into.
+#' @param skip_qc Logical. When \code{TRUE}, the MAD fences are not applied and
+#'        every cell is kept; the QC table then only describes the input. This
+#'        reproduces the original PERCEPTION pipeline, which expects an
+#'        already-curated matrix (e.g. malignant cells downloaded from a paper),
+#'        where an extra per-patient fence only perturbs the result. Default
+#'        \code{FALSE} -- raw 10x data always needs the fences.
 #' @param nfeatures Integer. Number of variable features used for PCA.
 #'        Default = 2000.
 #' @param dims Integer. Number of principal components. Capped automatically
@@ -470,7 +803,12 @@ cluster_within_patient <- function(
 #' @param integrate Character. Sample integration strategy within a patient:
 #'        \code{"auto"} (default) applies harmony when a patient has multiple
 #'        samples, \code{"none"} never integrates, \code{"harmony"} behaves
-#'        like \code{"auto"}.
+#'        like \code{"auto"}. Only used when \code{cluster_scope = "patient"}.
+#' @param cluster_scope Character. \code{"global"} (default) clusters all cells
+#'        together, matching the original PERCEPTION method, so one clone can
+#'        span several patients. \code{"patient"} clusters inside each patient
+#'        only, so clone labels are patient-specific. Identical for a
+#'        single-patient dataset.
 #' @param seed Integer. Random seed. Default = 42.
 #' @param progress_cb Optional function called as \code{progress_cb(phase, i, n)}
 #'        between stages. Used to drive progress bars in the Shiny app.
@@ -493,11 +831,15 @@ cluster_within_patient <- function(
 #'         \code{dim_1}/\code{dim_2}. This is the \code{clone_labels} argument
 #'         of \code{prepare_data()}.}
 #'   \item{qc}{Data frame. Per-patient QC summary, including
-#'         \code{n_marker_removed} when \code{exclude_markers} was used.}
+#'         \code{n_marker_removed} when \code{exclude_markers} was used and
+#'         \code{n_doublet_removed} when \code{remove_doublets = TRUE}.}
 #'   \item{qc_metrics}{Data frame. Per-cell QC metrics before filtering.}
 #'   \item{excluded_cells}{Data frame. Cells removed by \code{exclude_markers}
 #'         (columns \code{cell_id}, \code{set}, \code{score}); empty when no
 #'         marker filtering was requested.}
+#'   \item{doublet_cells}{Data frame. Cells removed by \code{remove_doublets}
+#'         (columns \code{cell_id}, \code{patient}, \code{score}); empty when
+#'         the step was not requested or no doublets were found.}
 #'   \item{used_harmony}{Logical. Whether harmony was applied.}
 #'   \item{label_source}{Character. Always \code{"auto_cluster"}.}
 #' }
@@ -517,9 +859,12 @@ preprocess_sc <- function(
   counts,
   patient_labels,
   sample_labels = NULL,
-  nmads = 3,
+  nmads = 5,
   min_genes = 200,
   max_mito = 25,
+  max_genes = NULL,
+  skip_qc = FALSE,
+  remove_doublets = FALSE,
   exclude_markers = NULL,
   exclude_min_expr = 1,
   nfeatures = 2000,
@@ -528,10 +873,12 @@ preprocess_sc <- function(
   resolution = 0.8,
   min_clone_cells = 10,
   integrate = c("auto", "none", "harmony"),
+  cluster_scope = c("global", "patient"),
   seed = 42,
   progress_cb = NULL
 ) {
   integrate <- match.arg(integrate)
+  cluster_scope <- match.arg(cluster_scope)
   method <- match.arg(method)
   set.seed(seed)
 
@@ -577,7 +924,9 @@ preprocess_sc <- function(
     patient_labels,
     nmads = nmads,
     min_genes = min_genes,
-    max_mito = max_mito
+    max_mito = max_mito,
+    max_genes = max_genes,
+    skip = skip_qc
   )
 
   keep <- qc$keep
@@ -592,6 +941,37 @@ preprocess_sc <- function(
       "Only {ncol(counts)} cell{?s} left after quality control.",
       "i" = "Relax {.arg nmads} or {.arg min_genes} to keep more cells."
     ))
+  }
+
+  # --- 2b. Optional doublet removal ---------------------------------------
+  # Doublets survive every QC fence (normal genes, normal mito), so they need
+  # their own detector. Runs on the QC-passed counts, before normalisation.
+  doublet_cells <- data.frame(
+    cell_id = character(0),
+    patient = character(0),
+    score = numeric(0),
+    stringsAsFactors = FALSE
+  )
+  if (isTRUE(remove_doublets)) {
+    notify("doublets")
+    doublet_cells <- detect_doublets(counts, patient_labels, seed = seed)
+    if (nrow(doublet_cells) > 0L) {
+      keep_dbl <- setdiff(colnames(counts), doublet_cells$cell_id)
+      counts <- counts[, keep_dbl, drop = FALSE]
+      patient_labels <- patient_labels[keep_dbl]
+      if (!is.null(sample_labels)) {
+        sample_labels <- sample_labels[keep_dbl]
+      }
+      cli::cli_alert_info(
+        "Removed {nrow(doublet_cells)} doublet{?s} detected by scDblFinder."
+      )
+      if (ncol(counts) < 10L) {
+        cli::cli_abort(c(
+          "Only {ncol(counts)} cell{?s} left after doublet removal.",
+          "i" = "Set {.arg remove_doublets = FALSE} to keep them."
+        ))
+      }
+    }
   }
 
   # --- 3. Normalise and embed on ALL cells ---------------------------------
@@ -664,59 +1044,28 @@ preprocess_sc <- function(
     }
   }
 
-  notify("variable-features")
-  nfeatures <- min(nfeatures, nrow(so))
-  so <- Seurat::FindVariableFeatures(
+  # --- 4. Variable features, PCA, clustering and the 2D embedding ----------
+  # Same core as annotate_clones()/plot_seurat_clustering(), so the exported
+  # entry points cannot drift apart.
+  clustered <- cluster_embedding(
     so,
-    selection.method = "vst",
-    nfeatures = nfeatures
-  )
-
-  notify("scaling")
-  so <- Seurat::ScaleData(so, features = Seurat::VariableFeatures(so))
-
-  npcs <- min(
-    dims,
-    ncol(so) - 1L,
-    length(Seurat::VariableFeatures(so)) - 1L
-  )
-  npcs <- max(1L, as.integer(npcs))
-
-  notify("pca")
-  so <- Seurat::RunPCA(
-    so,
-    features = Seurat::VariableFeatures(so),
-    npcs = npcs
-  )
-
-  # --- 4. Cluster within each patient --------------------------------------
-  notify("clustering")
-  clustered <- cluster_within_patient(
-    so,
-    patient_col = "patient",
-    sample_col = if (is.null(sample_labels)) NULL else "sample",
-    dims = npcs,
+    nfeatures = nfeatures,
+    dims = dims,
     resolution = resolution,
-    integrate = integrate,
+    method = method,
     seed = seed,
-    progress_cb = function(p, i, n) notify("clustering", i, n)
+    variable_selection = "vst",
+    sample_col = if (is.null(sample_labels)) NULL else "sample",
+    integrate = integrate,
+    cluster_scope = cluster_scope,
+    progress_cb = notify
   )
-
-  # --- 5. Shared 2D embedding for visualisation ----------------------------
-  notify("embedding")
-  n_threads <- max(
-    1L,
-    min(4L, as.integer(parallel::detectCores()), na.rm = TRUE)
-  )
-  coords <- if (method == "umap") {
-    umap_from_pca(so, npcs, seed = seed, n_threads = n_threads)
-  } else {
-    tsne_from_pca(so, npcs, seed = seed)
-  }
-
-  # --- 6. Assemble labels --------------------------------------------------
-  notify("assembling")
+  so <- clustered$so
   labels <- clustered$labels
+  coords <- Seurat::Embeddings(so, method)
+
+  # --- 5. Assemble labels --------------------------------------------------
+  notify("assembling")
   labels$dim_1 <- coords[labels$cell_id, 1]
   labels$dim_2 <- coords[labels$cell_id, 2]
 
@@ -753,11 +1102,19 @@ preprocess_sc <- function(
     qc$report$n_marker_removed <- removed
   }
 
+  qc$report$n_doublet_removed <- 0L
+  if (nrow(doublet_cells) > 0L) {
+    removed <- as.integer(table(doublet_cells$patient)[qc$report$patient])
+    removed[is.na(removed)] <- 0L
+    qc$report$n_doublet_removed <- removed
+  }
+
   list(
     cell_labels = labels,
     qc = qc$report,
     qc_metrics = qc$metrics,
     excluded_cells = excluded_cells,
+    doublet_cells = doublet_cells,
     used_harmony = clustered$used_harmony,
     label_source = "auto_cluster"
   )
@@ -781,7 +1138,7 @@ preprocess_sc <- function(
 #'        stacks the three metrics in one column -- the only readable layout
 #'        when a cohort has dozens of patients. Pass one of
 #'        \code{"Detected genes"}, \code{"Total counts"} or
-#'        \code{"Mitochondrial %"} to get one panel per patient (wrapped into
+#'        \code{"Mitochondrial \%"} to get one panel per patient (wrapped into
 #'        rows), each with that patient's own threshold line; this is the
 #'        layout to use when per-patient QC needs to be inspected.
 #' @param ncol Integer. Number of facet columns in the per-patient layout.
@@ -805,10 +1162,9 @@ plot_qc_report <- function(
 ) {
   metric <- match.arg(metric)
   metrics <- qc_metrics
-  metrics$status <- ifelse(
-    metrics$cell_id %in% kept_cells,
-    "kept",
-    "removed"
+  metrics$status <- factor(
+    ifelse(metrics$cell_id %in% kept_cells, "kept", "removed"),
+    levels = c("kept", "removed")
   )
 
   long <- data.frame(
@@ -821,6 +1177,7 @@ plot_qc_report <- function(
     status = rep(metrics$status, 3L),
     stringsAsFactors = FALSE
   )
+  long$metric <- factor(long$metric, levels = unique(long$metric))
 
   thresholds <- data.frame(
     patient = rep(qc_report$patient, 2L),
@@ -837,18 +1194,86 @@ plot_qc_report <- function(
     thresholds <- thresholds[thresholds$metric == metric, , drop = FALSE]
   }
 
+  # A violin needs at least two cells. ggplot silently drops smaller groups
+  # (and warns), which is why a sample with a single removed cell showed an
+  # empty slot instead of a mark. Those cells are drawn as points instead.
+  group_key <- paste(long$patient, long$metric, long$status, sep = "\r")
+  group_n <- ave(seq_len(nrow(long)), group_key, FUN = length)
+  violin_df <- long[group_n >= 2L, , drop = FALSE]
+  point_df <- long[group_n < 2L, , drop = FALSE]
+
+  n_cells <- nrow(metrics)
+  n_kept <- sum(metrics$status == "kept")
+  n_samples <- length(unique(metrics$patient))
+  subtitle <- sprintf(
+    "%s cells · %s retained · %s removed (%.1f%%) · %s sample%s",
+    format(n_cells, big.mark = ","),
+    format(n_kept, big.mark = ","),
+    format(n_cells - n_kept, big.mark = ","),
+    if (n_cells > 0) 100 * (n_cells - n_kept) / n_cells else 0,
+    n_samples,
+    if (n_samples == 1L) "" else "s"
+  )
+
+  caption <- if (metric == "all") {
+    paste0(
+      "Violins split cells by QC outcome (blue = retained, red = removed). ",
+      "Per-sample cut-offs are listed in the table.\n",
+      "Total counts has no cut-off and is shown for context."
+    )
+  } else {
+    paste0(
+      "Dashed lines mark each sample's effective cut-off (median ± n×MAD).\n",
+      "Total counts has no cut-off and is shown for context."
+    )
+  }
+
   p <- ggplot2::ggplot(
     long,
     ggplot2::aes(x = .data$status, y = .data$value, fill = .data$status)
   ) +
-    ggplot2::geom_violin(scale = "width", linewidth = 0.25) +
-    ggplot2::geom_boxplot(width = 0.12, outlier.size = 0.4, fill = "white") +
+    ggplot2::geom_violin(
+      data = violin_df,
+      scale = "width",
+      width = 0.62,
+      linewidth = 0.25
+    ) +
+    # Groups too small for a density estimate (1 cell) still deserve a mark.
+    ggplot2::geom_point(
+      data = point_df,
+      size = 1.1,
+      position = ggplot2::position_jitter(width = 0.06, height = 0, seed = 42)
+    ) +
+    # Boxplots stay slim: with only two x categories a wide violin reads as a
+    # flat blob, so the fill is deliberately narrower than ggplot's 0.9 default.
+    ggplot2::geom_boxplot(
+      data = violin_df,
+      width = 0.1,
+      outlier.size = 0.4,
+      fill = "white"
+    ) +
     # Kept = theme blue, removed = theme red; the same pairing used by the
     # response plots (red = "worse", blue = "better").
     ggplot2::scale_fill_manual(
-      values = c(kept = "#165C91", removed = "#c13232")
+      values = c(kept = "#165C91", removed = "#c13232"),
+      labels = c(kept = "Retained", removed = "Removed"),
+      drop = FALSE
     ) +
-    ggplot2::labs(x = NULL, y = NULL, fill = NULL) +
+    # A metric that is constant within a panel (e.g. 0% mitochondrial reads
+    # when no MT genes were detected) collapses the range to zero, which made
+    # every y tick print the same value. The additive margin gives such a
+    # panel a real interval without moving the data.
+    ggplot2::scale_y_continuous(
+      expand = ggplot2::expansion(mult = 0.05, add = 0.5)
+    ) +
+    ggplot2::labs(
+      x = NULL,
+      y = NULL,
+      fill = NULL,
+      title = "Quality control metrics by cell status",
+      subtitle = subtitle,
+      caption = caption
+    ) +
     ggplot2::theme_bw(base_size = base_size) +
     ggplot2::theme(
       panel.grid.minor = ggplot2::element_blank(),
@@ -861,17 +1286,40 @@ plot_qc_report <- function(
         fill = "grey95",
         linewidth = 0.3
       ),
-      legend.position = "top"
+      strip.text = ggplot2::element_text(
+        face = "bold",
+        size = ggplot2::rel(0.85)
+      ),
+      legend.position = "top",
+      legend.key.size = grid::unit(0.9, "lines"),
+      plot.title = ggplot2::element_text(
+        face = "bold",
+        size = ggplot2::rel(1.05),
+        hjust = 0.5
+      ),
+      plot.subtitle = ggplot2::element_text(
+        colour = "grey30",
+        size = ggplot2::rel(0.82),
+        hjust = 0.5
+      ),
+      plot.caption = ggplot2::element_text(
+        colour = "grey40",
+        size = ggplot2::rel(0.7),
+        hjust = 0
+      ),
+      plot.title.position = "plot",
+      plot.caption.position = "plot"
     )
 
   if (metric == "all") {
     # Pooled view: per-patient thresholds would all overlap on one panel, so
     # they are omitted (the QC table reports them per patient instead).
-    p + ggplot2::facet_wrap(~metric, ncol = 1L, scales = "free_y")
+    p + ggplot2::facet_wrap(~metric, ncol = 1L, scales = "free")
   } else {
     # Per-patient view, wrapped into rows like the clone lollipop: one panel
     # per patient with its own threshold line, so nobody ends up as a sliver
-    # in a 40-column strip.
+    # in a 40-column strip. scales = "free" also removes the empty status
+    # slot in a sample where nothing was removed.
     p +
       ggplot2::geom_hline(
         data = thresholds,
@@ -880,7 +1328,7 @@ plot_qc_report <- function(
         colour = "grey35",
         linewidth = 0.3
       ) +
-      ggplot2::facet_wrap(~patient, ncol = ncol, scales = "free_y") +
-      ggplot2::labs(y = metric, x = NULL)
+      ggplot2::facet_wrap(~patient, ncol = ncol, scales = "free") +
+      ggplot2::labs(y = metric)
   }
 }

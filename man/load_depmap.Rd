@@ -15,9 +15,11 @@ load_depmap(
 )
 }
 \arguments{
-\item{dest}{Directory to save the downloaded file. Default: a cache-root
-derived path (see \code{options(PERCEPTIONx.cache_root)}), or "." when
-no cache root is set.}
+\item{dest}{Directory to save the downloaded file. Default: the user cache
+directory (\code{tools::R_user_dir("PERCEPTIONx", "data")}), or a
+cache-root derived path when \code{options(PERCEPTIONx.cache_root)} is
+set. An existing \file{DepMap.RDS} in the working directory is reused
+instead of downloading another copy.}
 
 \item{read}{Whether to read the data and assign to global environment as "DepMap".
 Default = FALSE.}

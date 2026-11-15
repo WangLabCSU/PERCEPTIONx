@@ -2256,9 +2256,9 @@ plot_seurat_clustering <- function(
 
   rlang::check_installed("Seurat")
 
-  # Shared pipeline (also used by annotate_clones) includes the PCA-dimension
+  # Shared core (also used by annotate_clones) includes the PCA-dimension
   # safeguard for small datasets.
-  so <- run_seurat_pipeline(
+  so <- cluster_cells_seurat(
     expression_matrix,
     method,
     min_cells,

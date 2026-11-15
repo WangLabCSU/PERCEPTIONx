@@ -59,10 +59,12 @@ perception_model_dir <- function() {
   if (is.null(root)) NULL else file.path(root, "models")
 }
 
-# Default dest for load_depmap(): cache_root-derived, else historical ".".
+# Default dest for load_depmap(): the user cache directory, not the working
+# directory. Downloads used to land in "." (594 MB next to whatever project the
+# user had open); the cache is shared by the app and the API and survives
+# project switches.
 perception_default_depmap_dir <- function() {
-  root <- perception_cache_root()
-  if (is.null(root)) "." else file.path(root, "depmap")
+  perception_depmap_cache_dir()
 }
 
 # Default dest for load_model(): cache_root-derived, else historical "./models".

@@ -14,6 +14,16 @@ NULL
 # different size.
 .depmap_release_size <- 594589700L
 
+# Does the cached file look complete? A partial download never reaches the
+# release size, so this is the cache-hit test used by load_depmap().
+depmap_file_complete <- function(path) {
+  if (!file.exists(path) || dir.exists(path)) {
+    return(FALSE)
+  }
+  size <- file.size(path)
+  is.finite(size) && size >= .depmap_release_size
+}
+
 #' Get the DepMap dataset
 #'
 #' Retrieves the DepMap dataset from the package-level cache.
@@ -482,9 +492,11 @@ load_model <- function(
 #' and cell line metadata required for PERCEPTIONx model training.
 #' Supports automatic mirror fallback for users in different regions.
 #'
-#' @param dest Directory to save the downloaded file. Default: a cache-root
-#'        derived path (see \code{options(PERCEPTIONx.cache_root)}), or "." when
-#'        no cache root is set.
+#' @param dest Directory to save the downloaded file. Default: the user cache
+#'        directory (\code{tools::R_user_dir("PERCEPTIONx", "data")}), or a
+#'        cache-root derived path when \code{options(PERCEPTIONx.cache_root)} is
+#'        set. An existing \file{DepMap.RDS} in the working directory is reused
+#'        instead of downloading another copy.
 #' @param read Whether to read the data and assign to global environment as "DepMap".
 #'        Default = FALSE.
 #' @param mirror Logical. If FALSE (default), download from GitHub directly.
@@ -529,6 +541,16 @@ load_depmap <- function(
 
   destfile <- file.path(dest, "DepMap.RDS")
 
+  # Users upgrading from <= 0.4.0 have DepMap.RDS in their working directory.
+  # Keep using that copy instead of silently downloading another 594 MB.
+  legacy_file <- file.path(".", "DepMap.RDS")
+  if (!file.exists(destfile) && file.exists(legacy_file)) {
+    destfile <- legacy_file
+    cli::cli_alert_info(
+      "Using the existing {.file DepMap.RDS} in the working directory. Move it to {.path {dest}} so every project can reuse it."
+    )
+  }
+
   # force: drop a stale/corrupt cached file so the download always restarts
   if (force && file.exists(destfile)) {
     file.remove(destfile)
@@ -538,16 +560,12 @@ load_depmap <- function(
   }
 
   # A partial file from an interrupted download must never be treated as a
-  # cache hit (it would fail at readRDS). Re-download when the on-disk file is
+  # cache hit (it would fail when parsed). Re-download when the on-disk file is
   # smaller than the official release asset.
-  if (
-    !file.exists(destfile) ||
-      is.finite(file.size(destfile)) &&
-        file.size(destfile) < .depmap_release_size
-  ) {
+  if (!depmap_file_complete(destfile)) {
     if (file.exists(destfile)) {
       cli::cli_alert_warning(
-        "Existing {.file DepMap.RDS} is incomplete ({format(file.size(destfile), big.mark = ',')} bytes < expected {format(.depmap_release_size, big.mark = ',')}), re-downloading..."
+        "Existing {.file DepMap.RDS} looks incomplete ({format(file.size(destfile), big.mark = ',')} bytes), re-downloading..."
       )
       file.remove(destfile)
     }

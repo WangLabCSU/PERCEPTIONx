@@ -32,7 +32,6 @@ Imports:
     ggiraph,
     parallel,
     cli,
-    lifecycle,
     data.table,
     Matrix
 URL: https://wanglabcsu.github.io/PERCEPTIONx, https://github.com/WangLabCSU/PERCEPTIONx
@@ -53,7 +52,9 @@ Suggests:
     WGCNA,
     matrixStats,
     kableExtra,
-    harmony
+    harmony,
+    scDblFinder,
+    SingleCellExperiment
 Config/testthat/edition: 3
 Language: en-US
-Config/roxygen2/version: 8.1.0
+Config/roxygen2/version: 8.1.1

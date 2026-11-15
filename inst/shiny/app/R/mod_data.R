@@ -256,6 +256,287 @@ coerce_response_df <- function(x) {
   )
 }
 
+# Small "i" badge with a CSS-only tooltip. Bootstrap tooltips need a JS
+# initialiser after every re-render; this works in the collapsed settings panel
+# and inside modals without any script.
+qc_info <- function(text) {
+  tags$span(
+    class = "qc-info",
+    tabindex = "0",
+    `data-tip` = text,
+    "i"
+  )
+}
+
+# Field label: name + info badge, kept on one line next to the input.
+qc_label <- function(text, tip) {
+  tags$span(class = "qc-label", text, qc_info(tip))
+}
+
+# Locate the three 10x files in a set of file names. Returns a named integer
+# vector (mtx, barcodes, features) or NULL when the set is not a triplet.
+match_10x_triplet <- function(nm) {
+  nm <- tolower(nm)
+  pick <- function(pattern) which(grepl(pattern, nm))
+  i_mtx <- pick("matrix[.]mtx")
+  i_bc <- pick("barcodes[.]tsv")
+  i_feat <- pick("(genes|features)[.]tsv")
+  if (length(i_mtx) != 1L || length(i_bc) != 1L || length(i_feat) != 1L) {
+    return(NULL)
+  }
+  c(mtx = i_mtx, barcodes = i_bc, features = i_feat)
+}
+
+# Unpack a .tar / .tar.gz / .tgz / .zip bundle into a temp directory. Sequencing
+# cores usually deliver the triplet this way rather than as loose files.
+extract_10x_archive <- function(path, name) {
+  dir <- tempfile("tenx_")
+  dir.create(dir, recursive = TRUE)
+  if (grepl("[.]zip$", tolower(name))) {
+    utils::unzip(path, exdir = dir)
+  } else {
+    utils::untar(path, exdir = dir, tar = "internal")
+  }
+  dir
+}
+
+# Read the triplet from three paths. Stays sparse end to end.
+read_10x_files <- function(mtx_path, bc_path, feat_path) {
+  read_lines_any <- function(path) {
+    if (grepl("[.]gz$", path)) {
+      con <- gzfile(path, "rt")
+      on.exit(close(con))
+      readLines(con, warn = FALSE)
+    } else {
+      readLines(path, warn = FALSE)
+    }
+  }
+
+  feat <- utils::read.delim(
+    text = read_lines_any(feat_path),
+    header = FALSE,
+    stringsAsFactors = FALSE,
+    quote = ""
+  )
+  barcodes <- read_lines_any(bc_path)
+  genes <- if (ncol(feat) >= 2L) feat[[2]] else feat[[1]]
+
+  mat <- if (grepl("[.]gz$", mtx_path)) {
+    con <- gzfile(mtx_path, "rt")
+    on.exit(close(con), add = TRUE)
+    Matrix::readMM(con)
+  } else {
+    Matrix::readMM(mtx_path)
+  }
+  mat <- methods::as(mat, "CsparseMatrix")
+
+  if (nrow(mat) != length(genes) || ncol(mat) != length(barcodes)) {
+    stop(sprintf(
+      "The 10x files do not belong together: the matrix is %d genes x %d cells, but features/barcodes give %d x %d.",
+      nrow(mat),
+      ncol(mat),
+      length(genes),
+      length(barcodes)
+    ))
+  }
+  # Feature files may repeat a symbol; Seurat requires unique row names.
+  rownames(mat) <- make.unique(as.character(genes))
+  colnames(mat) <- barcodes
+  mat
+}
+
+# Read a 10x Genomics "triplet" (matrix.mtx + barcodes.tsv + genes/features.tsv),
+# either as three loose files or as one archive holding them. Returns NULL when
+# the selection is not a complete triplet, so the caller can fall back to the
+# single-table reader.
+read_10x_triplet <- function(files) {
+  if (is.null(files) || !is.data.frame(files) || nrow(files) == 0L) {
+    return(NULL)
+  }
+
+  # Packaged bundle: one archive, three files inside.
+  if (
+    nrow(files) == 1L &&
+      grepl("[.](tar[.]gz|tgz|tar|zip)$", tolower(files$name[1]))
+  ) {
+    dir <- extract_10x_archive(files$datapath[1], files$name[1])
+    paths <- list.files(dir, recursive = TRUE, full.names = TRUE)
+    idx <- match_10x_triplet(basename(paths))
+    if (is.null(idx)) {
+      stop(
+        "The archive does not contain matrix.mtx, barcodes.tsv and ",
+        "genes/features.tsv (in any sub-folder)."
+      )
+    }
+    return(read_10x_files(
+      paths[idx[["mtx"]]],
+      paths[idx[["barcodes"]]],
+      paths[idx[["features"]]]
+    ))
+  }
+
+  idx <- match_10x_triplet(files$name)
+  if (is.null(idx)) {
+    return(NULL)
+  }
+  read_10x_files(
+    files$datapath[idx[["mtx"]]],
+    files$datapath[idx[["barcodes"]]],
+    files$datapath[idx[["features"]]]
+  )
+}
+
+# A .rds upload may hold a plain matrix (handled by read_uploaded_table) or a
+# Seurat object, which is how most users store a processed dataset. Extract the
+# count matrix plus, when the metadata has a recognisable patient column, the
+# cell -> patient table, so the mapping card fills itself in.
+seurat_upload_parts <- function(so) {
+  assay <- tryCatch(
+    Seurat::DefaultAssay(so),
+    error = function(e) "RNA"
+  )
+  layer_data <- function(layer, slot) {
+    out <- tryCatch(
+      SeuratObject::LayerData(so, assay = assay, layer = layer),
+      error = function(e) NULL
+    )
+    if (is.null(out)) {
+      out <- tryCatch(
+        Seurat::GetAssayData(so, assay = assay, slot = slot),
+        error = function(e) NULL
+      )
+    }
+    out
+  }
+
+  counts <- layer_data("counts", "counts")
+  layer <- "counts"
+  if (is.null(counts) || nrow(counts) == 0L) {
+    counts <- layer_data("data", "data")
+    layer <- "data"
+  }
+  if (is.null(counts) || nrow(counts) == 0L) {
+    stop(
+      "This Seurat object has no 'counts' or 'data' layer in assay '",
+      assay,
+      "'. Supply an object with an expression matrix."
+    )
+  }
+
+  meta <- tryCatch(so[[]], error = function(e) NULL)
+  cols <- if (is.null(meta)) character(0) else tolower(colnames(meta))
+  want <- c("patient_id", "patient", "sample", "orig.ident", "donor")
+  hit <- want[want %in% cols][1]
+  mapping <- NULL
+  mapping_col <- NULL
+  if (!is.na(hit)) {
+    mapping_col <- colnames(meta)[which(cols == hit)[1]]
+    mapping <- data.frame(
+      cell_id = rownames(meta),
+      patient_id = as.character(meta[[mapping_col]]),
+      stringsAsFactors = FALSE
+    )
+    # Keep only cells that are actually in the matrix (subset objects can
+    # carry stale metadata rows).
+    mapping <- mapping[mapping$cell_id %in% colnames(counts), , drop = FALSE]
+    if (nrow(mapping) == 0L) {
+      mapping <- NULL
+    }
+  }
+
+  list(
+    counts = counts,
+    assay = assay,
+    layer = layer,
+    mapping = mapping,
+    mapping_col = mapping_col
+  )
+}
+
+# Format examples used to be <pre> blocks with hand-spaced columns, which never
+# line up because the font is proportional. A real table aligns the columns and
+# lets required headers be marked in the accent colour while optional ones stay
+# in the normal text colour.
+format_table <- function(cols, rows, optional = character(0)) {
+  tags$table(
+    class = "format-table",
+    tags$thead(
+      tags$tr(lapply(cols, function(cn) {
+        is_opt <- cn %in% optional
+        tags$th(
+          class = if (is_opt) "fmt-optional" else "fmt-required",
+          if (is_opt) paste0(cn, " (optional)") else cn
+        )
+      }))
+    ),
+    tags$tbody(
+      lapply(rows, function(r) {
+        tags$tr(lapply(r, function(x) tags$td(x)))
+      })
+    )
+  )
+}
+
+# Divider between two acceptable input shapes (e.g. loose files vs archive).
+format_or <- function() {
+  div(class = "fmt-or", span("or"))
+}
+
+# Default exclusion panel. Kept deliberately short and generic: immune,
+# stromal and endothelial programmes are the populations that most often form
+# their own clusters in tumour tissue. It is an exclusion list, not a
+# malignancy classifier, so it stays opt-in and editable.
+default_exclude_markers <- paste(
+  "immune: PTPRC, CD3D, CD3E, CD2, NKG7, MS4A1, CD79A, LYZ, CD68",
+  "stromal: COL1A1, COL1A2, DCN, LUM",
+  "endothelial: PECAM1, VWF, KDR",
+  sep = "\n"
+)
+
+# Parse the marker box, one set per line ("immune: PTPRC, CD3D").
+# Returns list(ok = TRUE, value = <named list or NULL>) so the caller can show
+# a precise error instead of silently filtering nothing.
+parse_marker_sets <- function(text) {
+  if (is.null(text) || !length(text)) {
+    return(list(ok = TRUE, value = NULL))
+  }
+  lines <- trimws(unlist(strsplit(text, "[\r\n]+")))
+  lines <- lines[nzchar(lines)]
+  if (!length(lines)) {
+    return(list(ok = TRUE, value = NULL))
+  }
+
+  out <- list()
+  for (ln in lines) {
+    parts <- strsplit(ln, ":", fixed = TRUE)[[1]]
+    if (length(parts) < 2L) {
+      return(list(
+        ok = FALSE,
+        message = paste0(
+          "Marker line \"",
+          ln,
+          "\" needs a name, a colon and genes, e.g. immune: PTPRC, CD3D."
+        )
+      ))
+    }
+    name <- trimws(parts[1])
+    genes <- trimws(strsplit(paste(parts[-1], collapse = ":"), ",")[[1]])
+    genes <- genes[nzchar(genes)]
+    if (!nzchar(name) || !length(genes)) {
+      return(list(
+        ok = FALSE,
+        message = paste0(
+          "Marker line \"",
+          ln,
+          "\" is missing a set name or gene list."
+        )
+      ))
+    }
+    out[[name]] <- genes
+  }
+  list(ok = TRUE, value = out)
+}
+
 mod_data_ui <- function(id) {
   ns <- NS(id)
   tagList(
@@ -314,22 +595,90 @@ mod_data_ui <- function(id) {
             p(
               class = "text-muted",
               style = "font-size: 0.82rem;",
-              "Single-cell expression matrix (genes × cells). Raw counts or normalized values. CSV / TSV / TXT / Excel / RDS format."
+              "Single-cell counts or bulk expression. Upload one table ",
+              "(genes × cells), the three 10x files together, or one ",
+              "tar.gz / zip of the three."
             ),
             p(
               style = "font-size: 0.8rem; font-weight: 700; color: var(--text); margin: 0.3rem 0 0.5rem;",
-              "Header is auto-detected as the first row with ≥2 columns (gene / cell names); single-field title/comment rows above it are skipped. Avoid a multi-column title row above the header."
+              "10x input is read sparse, so a raw 737k-barcode matrix stays manageable. Table uploads auto-detect the header row (first row with ≥2 columns)."
             ),
             div(
               class = "data-format-hint",
               icon("table"),
-              " Format: rows = genes, columns = cells",
-              tags$pre(
-                class = "data-format-example",
-                "CELL_001  CELL_002  CELL_003
-TP53      2.1       0.0       5.3
-BRCA1     0.0       1.8       3.2
-EGFR      4.7       2.1       0.0"
+              " Table format: rows = ",
+              tags$code("genes"),
+              ", columns = ",
+              tags$code("cells"),
+              format_table(
+                cols = c("gene", "CELL_001", "CELL_002", "CELL_003"),
+                rows = list(
+                  c("TP53", "2.1", "0.0", "5.3"),
+                  c("BRCA1", "0.0", "1.8", "3.2"),
+                  c("EGFR", "4.7", "2.1", "0.0")
+                )
+              )
+            ),
+            div(
+              class = "data-format-hint",
+              style = "margin-top: 0.4rem;",
+              icon("folder-open"),
+              " 10x format: three files, or one archive",
+              div(
+                class = "fmt-filelist",
+                div(
+                  class = "fmt-file",
+                  tags$code("matrix.mtx"),
+                  span("counts, sparse")
+                ),
+                div(
+                  class = "fmt-file",
+                  tags$code("barcodes.tsv"),
+                  span("cell barcodes")
+                ),
+                div(
+                  class = "fmt-file",
+                  tags$code("features.tsv"),
+                  span("gene IDs + symbols")
+                )
+              ),
+              format_or(),
+              div(
+                class = "fmt-filelist",
+                div(
+                  class = "fmt-file",
+                  tags$code("sample.tar.gz"),
+                  span("one archive holding the three above")
+                )
+              ),
+              tags$small(
+                class = "fmt-note",
+                "All three files (or the archive) must be selected together. ",
+                ".gz is fine either way."
+              )
+            ),
+            div(
+              class = "data-format-hint",
+              style = "margin-top: 0.4rem;",
+              icon("database"),
+              " Seurat object (.rds)",
+              div(
+                class = "fmt-filelist",
+                div(
+                  class = "fmt-file",
+                  tags$code("seurat.rds"),
+                  span("counts layer + cell metadata")
+                )
+              ),
+              tags$small(
+                class = "fmt-note",
+                "The matrix is read from the counts layer. If the metadata has a ",
+                tags$code("patient"),
+                " / ",
+                tags$code("sample"),
+                " / ",
+                tags$code("orig.ident"),
+                " column, the patient map is filled in automatically."
               )
             ),
             radioButtons(
@@ -337,22 +686,33 @@ EGFR      4.7       2.1       0.0"
               "Data format",
               choices = c(
                 "Cell-level — quality-control and cluster cells into clones" = "cell",
-                "Clone-level — each column is one clone, skip clustering" = "clone"
+                "Clone-level / bulk — each column is one sample, skip clustering" = "clone"
               ),
               selected = "cell",
               width = "100%"
             ),
+            tags$small(
+              class = "text-muted",
+              style = "display: block; margin: -0.3rem 0 0.6rem;",
+              "Bulk RNA-seq or pseudobulk: choose Clone-level / bulk — ",
+              "per-cell QC and clustering do not apply to one-column-per-sample data."
+            ),
             fileInput(
               ns("expr_file"),
               "Upload Expression",
+              multiple = TRUE,
               accept = c(
                 ".csv",
                 ".tsv",
                 ".txt",
+                ".mtx",
                 ".xlsx",
                 ".rds",
                 ".RDS",
-                ".gz"
+                ".gz",
+                ".tar",
+                ".tgz",
+                ".zip"
               ),
               width = "100%"
             ),
@@ -361,42 +721,43 @@ EGFR      4.7       2.1       0.0"
         )
       ),
 
-      # Patient-Cell Mapping
+      # Patient-Cell / Patient-Clone Mapping
       column(
         4,
         div(
           class = "card animate-fade-in-up delay-2",
-          div(class = "card-header", icon("users"), " Patient-Cell Mapping"),
+          uiOutput(ns("mapping_header")),
           div(
             class = "card-body",
             p(
               class = "text-muted",
               style = "font-size: 0.82rem;",
-              "File with columns: ",
-              tags$code("cell_id"),
-              " and ",
+              "One ID column and one ",
               tags$code("patient_id"),
-              " (case-insensitive). Maps each cell (or clone) to its patient. In Clone-level mode the data is auto-prepared without clustering. CSV / TSV / TXT / Excel / RDS."
-            ),
-            p(
-              style = "font-size: 0.8rem; font-weight: 700; color: var(--text); margin: 0.3rem 0 0.5rem;",
-              "Header is auto-detected as the first row with ≥2 columns (cell_id / patient_id); single-field title/comment rows above it are skipped."
+              " column. The ID column is ",
+              tags$code("cell_id"),
+              " for cell-level data; ",
+              tags$code("clone_id"),
+              " is accepted too. Case-insensitive."
             ),
             # Cell-level example (default). Clone-level mode swaps to the
-            # count-column example below — the two hints are mutually
-            # exclusive so only the one matching the selected format shows.
+            # clone + optional count example below.
             conditionalPanel(
               condition = paste0("input['", ns("expr_format"), "'] != 'clone'"),
               div(
                 class = "data-format-hint",
                 icon("users"),
-                " Format: cell_id + patient_id",
-                tags$pre(
-                  class = "data-format-example",
-                  "cell_id    patient_id
-CELL_001   PAT_001
-CELL_002   PAT_001
-CELL_003   PAT_002"
+                " Format: ",
+                tags$code("cell_id"),
+                " + ",
+                tags$code("patient_id"),
+                format_table(
+                  cols = c("cell_id", "patient_id"),
+                  rows = list(
+                    c("CELL_001", "PAT_001"),
+                    c("CELL_002", "PAT_001"),
+                    c("CELL_003", "PAT_002")
+                  )
                 )
               )
             ),
@@ -406,17 +767,29 @@ CELL_003   PAT_002"
                 class = "data-format-hint",
                 style = "margin-top: 0.4rem;",
                 icon("users"),
-                " Format: cell_id + patient_id + count",
-                tags$pre(
-                  class = "data-format-example",
-                  "cell_id       patient_id   count
-CLONE_001     PAT_001      450
-CLONE_002     PAT_001      50
-CLONE_003     PAT_002      300"
+                " Format: ",
+                tags$code("clone_id"),
+                " + ",
+                tags$code("patient_id"),
+                " + optional ",
+                tags$code("count"),
+                format_table(
+                  cols = c("clone_id", "patient_id", "count"),
+                  optional = "count",
+                  rows = list(
+                    c("CLONE_001", "PAT_001", "450"),
+                    c("CLONE_002", "PAT_001", "50"),
+                    c("CLONE_003", "PAT_002", "300")
+                  )
                 ),
-                tags$small(
-                  class = "text-muted",
-                  "count = real cell number per clone; proportions are then shown accurately. Without it, clone proportions fall back to equal (1/n)."
+                div(
+                  class = "fmt-note fmt-note-optional",
+                  icon("circle-info"),
+                  span(
+                    strong("count is optional."),
+                    " It is the real number of cells in the clone. Without it ",
+                    "every clone gets equal weight in the composition plots."
+                  )
                 )
               )
             ),
@@ -459,13 +832,17 @@ CLONE_003     PAT_002      300"
             div(
               class = "data-format-hint",
               icon("heartbeat"),
-              " Format: patient + response",
-              tags$pre(
-                class = "data-format-example",
-                "patient    response
-PAT_001    Responder
-PAT_002    Non-responder
-PAT_003    Responder"
+              " Format: ",
+              tags$code("patient"),
+              " + ",
+              tags$code("response"),
+              format_table(
+                cols = c("patient", "response"),
+                rows = list(
+                  c("PAT_001", "Responder"),
+                  c("PAT_002", "Non-responder"),
+                  c("PAT_003", "Responder")
+                )
               )
             ),
             fileInput(
@@ -505,41 +882,48 @@ PAT_003    Responder"
           ),
           div(
             class = "card-body seurat-body",
-            # Left: description (always visible)
+            # Left: one-line summary + optional details. The long explanation
+            # used to sit here permanently, which made the card look like a
+            # manual; it now lives behind a disclosure.
             div(
               class = "seurat-left",
               p(
-                class = "text-muted",
-                style = "font-size: 0.85rem; line-height: 1.5; margin-bottom: 0.6rem;",
-                "Quality-control each patient's cells, cluster them into transcriptional ",
-                "subclones, compute clone-level mean expression, rank-normalize the data, ",
-                "and build the clone abundance table required for prediction. QC thresholds ",
-                "adapt to each patient automatically."
+                class = "seurat-lede",
+                "Quality control each sample, cluster its cells into subclones, ",
+                "and turn them into clone-level expression."
+              ),
+              tags$details(
+                class = "seurat-help",
+                tags$summary(
+                  icon("circle-question"),
+                  " What do these settings do?"
+                ),
+                tags$dl(
+                  class = "seurat-help-list",
+                  tags$dt("Method"),
+                  tags$dd(
+                    "UMAP keeps global structure and scales better; t-SNE ",
+                    "emphasises local neighbourhoods."
+                  ),
+                  tags$dt("Resolution"),
+                  tags$dd(
+                    "Higher values give more, finer clones. Default 0.8."
+                  ),
+                  tags$dt("PCA Dims"),
+                  tags$dd("Components used for clustering. Default 10."),
+                  tags$dt("QC settings"),
+                  tags$dd(
+                    "Fence width, gene floor and ceiling, and the ",
+                    "mitochondrial cap. An empty gene ceiling is estimated ",
+                    "per sample."
+                  )
+                )
               ),
               p(
-                class = "text-muted",
-                style = "font-size: 0.8rem; line-height: 1.5; margin-bottom: 0;",
-                strong("Method"),
-                ": UMAP (default) preserves global structure and is faster with large datasets; ",
-                "t-SNE emphasizes fine local neighborhoods and may reveal finer substructure at the cost of speed.",
-                br(),
-                strong("Resolution"),
-                " controls clustering granularity. Higher values produce more clones (finer subclones); ",
-                "lower values produce fewer, broader clones. Default 0.8 suits most datasets.",
-                br(),
-                strong("PCA Dims"),
-                " sets the number of principal components used for clustering. ",
-                "Higher values capture more biological signal but may include noise. Default 10 is standard for scRNA-seq."
-              ),
-              div(
-                class = "info-box",
-                style = "margin-top: 0.6rem; margin-bottom: 0; font-size: 0.8rem; padding: 0.5rem 0.7rem;",
-                icon("info-circle"),
-                "Requires Expression Matrix and Patient-Cell Mapping loaded first. ",
-                "By default cells are quality-controlled and then clustered per patient. ",
-                br(),
-                "Choose \"Clone-level\" in the Expression Matrix card to skip clustering. ",
-                "The data is then prepared automatically after upload."
+                class = "seurat-footnote",
+                icon("circle-info"),
+                " Needs an expression matrix and a mapping. Clone-level mode ",
+                "skips this card."
               )
             ),
             # Right: clone-level note (vertically centered) + clustering controls
@@ -585,58 +969,171 @@ PAT_003    Responder"
                     width = "100%"
                   )
                 ),
-                # QC overrides: the defaults (3 MAD, 200 genes, 25% mito) are
-                # right for most 10x data, but tissues differ wildly in
-                # mitochondrial content and cell complexity, so the three
-                # numbers that actually decide what gets dropped stay
+                # QC overrides: the defaults (3 MAD, 200 genes, 25% mito, an
+                # auto gene ceiling) are right for most 10x data, but tissues
+                # differ wildly in mitochondrial content and cell complexity,
+                # so the numbers that actually decide what gets dropped stay
                 # adjustable. Closed by default to keep the card compact.
                 tags$details(
                   class = "qc-settings",
-                  tags$summary(icon("sliders"), " QC settings"),
+                  tags$summary(
+                    icon("sliders"),
+                    span("QC settings"),
+                    tags$span(class = "qc-settings-hint", "overrides")
+                  ),
+                  # A single switch for the whole MAD block. Off reproduces the
+                  # original pipeline, which expects an already-curated matrix.
                   div(
-                    class = "seurat-params",
-                    numericInput(
-                      ns("qc_nmads"),
-                      "MAD",
-                      value = 3,
-                      min = 1,
-                      max = 10,
-                      step = 0.5,
-                      width = "100%"
-                    ),
-                    numericInput(
-                      ns("qc_min_genes"),
-                      "Min genes",
-                      value = 200,
-                      min = 0,
-                      max = 5000,
-                      step = 50,
-                      width = "100%"
-                    ),
-                    numericInput(
-                      ns("qc_max_mito"),
-                      "Mito %",
-                      value = 25,
-                      min = 5,
-                      max = 100,
-                      step = 1,
-                      width = "100%"
+                    class = "qc-extra",
+                    checkboxInput(
+                      ns("qc_enabled"),
+                      qc_label(
+                        "Run QC",
+                        "On: apply the MAD fences below, per patient. Off: keep every cell and only normalise/cluster, which is what the original PERCEPTION pipeline does on an already-curated matrix."
+                      ),
+                      value = TRUE
                     )
                   ),
-                  p(
-                    class = "qc-settings-note",
-                    strong("MAD"),
-                    " = per-sample fence width (median ± n×MAD). ",
-                    strong("Min genes"),
-                    " = hard lower bound per cell. ",
-                    strong("Mito %"),
-                    " = upper cap for the mitochondrial fence, which is ",
-                    "otherwise set per sample by MAD."
+                  conditionalPanel(
+                    condition = sprintf(
+                      "input['%s'] == true",
+                      ns("qc_enabled")
+                    ),
+                    div(
+                      class = "seurat-params",
+                      numericInput(
+                        ns("qc_nmads"),
+                        qc_label(
+                          "MAD",
+                          "Width of each sample's fence: median ± n × MAD."
+                        ),
+                        value = 5,
+                        min = 1,
+                        max = 10,
+                        step = 0.5,
+                        width = "100%"
+                      ),
+                      numericInput(
+                        ns("qc_min_genes"),
+                        qc_label(
+                          "Min genes",
+                          "Cells detecting fewer genes than this are dropped."
+                        ),
+                        value = 200,
+                        min = 0,
+                        max = 5000,
+                        step = 50,
+                        width = "100%"
+                      ),
+                      numericInput(
+                        ns("qc_max_mito"),
+                        qc_label(
+                          "Mito %",
+                          "Upper cap on mitochondrial reads; the MAD fence may be stricter."
+                        ),
+                        value = 25,
+                        min = 5,
+                        max = 100,
+                        step = 1,
+                        width = "100%"
+                      )
+                    ),
+                    div(
+                      class = "seurat-params",
+                      style = "margin-top: 0.45rem;",
+                      # Blank = let the MAD fence choose the ceiling. Typing a
+                      # number pins it, which is how a fixed threshold such as
+                      # the 2,500 genes used in most tutorials is reproduced.
+                      numericInput(
+                        ns("qc_max_genes"),
+                        qc_label(
+                          "Gene ceiling",
+                          "Max genes per cell. Blank = median + n × MAD, which drops empty droplets and doublets."
+                        ),
+                        value = NA,
+                        min = 0,
+                        max = 20000,
+                        step = 100,
+                        width = "100%"
+                      )
+                    )
                   ),
-                  actionButton(
-                    ns("qc_reset"),
-                    "Reset to defaults",
-                    class = "btn-sm btn-outline-secondary qc-settings-reset"
+                  # Clustering scope: global = original PERCEPTION behaviour.
+                  # Same result for a single patient, so this only matters for
+                  # multi-patient cohorts.
+                  div(
+                    class = "qc-extra",
+                    checkboxInput(
+                      ns("seurat_cluster_global"),
+                      qc_label(
+                        "Cluster across patients",
+                        "On: all cells are clustered together, as in the original PERCEPTION method, so one clone can appear in several patients. Off: cluster inside each patient only. No effect for a single patient."
+                      ),
+                      value = TRUE
+                    )
+                  ),
+                  # Two optional steps that are NOT thresholds. Doublets can
+                  # pass every fence (normal genes, normal mito); a marker
+                  # exclusion removes populations you explicitly do not want
+                  # treated as clones. Both default to off.
+                  div(
+                    class = "qc-extra",
+                    checkboxInput(
+                      ns("qc_remove_doublets"),
+                      qc_label(
+                        "Remove doublets",
+                        "scDblFinder after QC. Doublets often pass every threshold but can form a spurious clone. Needs the scDblFinder package; skipped with a warning when absent."
+                      ),
+                      value = FALSE
+                    ),
+                    checkboxInput(
+                      ns("qc_exclude_non_target"),
+                      qc_label(
+                        "Drop immune / stromal cells",
+                        "Optional. Removes cells that strongly express a marker set below, so they are not clustered as clones. Not a tumour-cell classifier; leave off for leukaemia, lymphoma or any dataset where these cells are the target."
+                      ),
+                      value = FALSE
+                    )
+                  ),
+                  conditionalPanel(
+                    condition = sprintf(
+                      "input['%s'] == true",
+                      ns("qc_exclude_non_target")
+                    ),
+                    div(
+                      class = "qc-extra",
+                      textAreaInput(
+                        ns("qc_exclude_markers"),
+                        qc_label(
+                          "Marker sets",
+                          "One set per line as name: GENE1, GENE2. A cell is dropped when its mean log-normalised expression in a set reaches 1."
+                        ),
+                        value = default_exclude_markers,
+                        rows = 4,
+                        width = "100%",
+                        resize = "vertical"
+                      ),
+                      numericInput(
+                        ns("qc_exclude_min_expr"),
+                        qc_label(
+                          "Score cut-off",
+                          "Mean log-normalised expression a cell must reach in a set to be dropped. Lower removes more cells, including tumour cells that share the programme."
+                        ),
+                        value = 1,
+                        min = 0,
+                        max = 5,
+                        step = 0.25,
+                        width = "50%"
+                      )
+                    )
+                  ),
+                  div(
+                    class = "qc-settings-actions",
+                    actionButton(
+                      ns("qc_reset"),
+                      tagList(icon("rotate-left"), "Reset to defaults"),
+                      class = "qc-settings-reset"
+                    )
                   )
                 ),
                 actionButton(
@@ -1141,13 +1638,9 @@ mod_data_server <- function(id, shared) {
       # background worker — the main process must never deserialize the
       # 567 MB file (blocks the UI + spikes RAM).
       # A partial file from an interrupted download must never be treated as a
-      # cache hit (it would fail at readRDS). Only files that reach the full
-      # release size count as a valid cache.
-      if (
-        file.exists(destfile) &&
-          is.finite(file.size(destfile)) &&
-          file.size(destfile) >= depmap_release_size
-      ) {
+      # cache hit. The completeness check is format-aware: a qs2 asset is
+      # legitimately smaller than the classic RDS release.
+      if (PERCEPTIONx:::depmap_file_complete(destfile)) {
         meta_cache <- file.path(cache_dir, "DepMap_meta.RDS")
         meta <- read_cached_meta(destfile, meta_cache)
         if (!is.null(meta)) {
@@ -1370,9 +1863,7 @@ mod_data_server <- function(id, shared) {
                 # insufficient RAM: reading 567 MB needs ~2-4x its size).
                 # Deleting the full-size file would force a pointless 567 MB
                 # re-download that fails the same way.
-                full_size <- file.exists(destfile) &&
-                  is.finite(file.size(destfile)) &&
-                  file.size(destfile) >= depmap_release_size
+                full_size <- PERCEPTIONx:::depmap_file_complete(destfile)
                 if (full_size) {
                   showNotification(
                     paste0(
@@ -1862,8 +2353,11 @@ mod_data_server <- function(id, shared) {
 
     # --- Upload Expression ---
     observeEvent(input$expr_file, {
-      shared$demo_loaded <- FALSE # user switched to their own data
       file <- input$expr_file
+      if (is.null(file) || nrow(file) == 0L) {
+        return()
+      }
+      shared$demo_loaded <- FALSE # user switched to their own data
       w <- Waiter$new(
         html = tagList(
           div(class = "spinner-ring"),
@@ -1875,34 +2369,62 @@ mod_data_server <- function(id, shared) {
       w$show()
       res <- tryCatch(
         {
-          mat <- read_uploaded_table(file)
-          n_skip <- attr(mat, "skipped_rows")
-          if (is.null(n_skip)) {
-            n_skip <- 0L
-          }
-          # RDS may be a matrix; text/Excel uploads come in as a data.frame
-          if (!is.matrix(mat)) {
-            mat <- as.matrix(mat)
-            # First column holding gene names (e.g. from Excel/csv export) -> rownames
-            if (
-              ncol(mat) > 1 &&
-                is.character(mat[, 1]) &&
-                anyNA(suppressWarnings(as.numeric(mat[, 1])))
-            ) {
-              rownames(mat) <- mat[, 1]
-              mat <- mat[, -1, drop = FALSE]
+          # 10x triplet first: it must stay sparse, so it cannot go through the
+          # data.frame path below (which densifies).
+          mat <- read_10x_triplet(file)
+          is_10x <- !is.null(mat)
+          is_seurat <- FALSE
+          seurat_parts <- NULL
+          n_skip <- 0L
+
+          if (!is_10x) {
+            if (nrow(file) > 1L) {
+              stop(
+                "Select either one expression table, or the three 10x files ",
+                "(matrix.mtx, barcodes.tsv and features.tsv) together."
+              )
+            }
+            mat <- read_uploaded_table(file)
+            n_skip <- attr(mat, "skipped_rows")
+            if (is.null(n_skip)) {
+              n_skip <- 0L
+            }
+            # A .rds may hold a Seurat object. It already carries a sparse
+            # matrix and usually the patient labels, so it bypasses the
+            # dense-table coercion below.
+            if (inherits(mat, "Seurat")) {
+              seurat_parts <- seurat_upload_parts(mat)
+              mat <- seurat_parts$counts
+              is_seurat <- TRUE
             }
           }
-          # Ensure numeric (Seurat LogMap requires numeric, not integer)
-          if (is.integer(mat)) {
-            mat <- matrix(
-              as.numeric(mat),
-              nrow = nrow(mat),
-              ncol = ncol(mat),
-              dimnames = dimnames(mat)
-            )
+
+          if (!is_10x && !is_seurat) {
+            # RDS may be a matrix; text/Excel uploads come in as a data.frame
+            if (!is.matrix(mat)) {
+              mat <- as.matrix(mat)
+              # First column holding gene names (e.g. from Excel/csv export) -> rownames
+              if (
+                ncol(mat) > 1 &&
+                  is.character(mat[, 1]) &&
+                  anyNA(suppressWarnings(as.numeric(mat[, 1])))
+              ) {
+                rownames(mat) <- mat[, 1]
+                mat <- mat[, -1, drop = FALSE]
+              }
+            }
+            # Ensure numeric (Seurat LogMap requires numeric, not integer)
+            if (is.integer(mat)) {
+              mat <- matrix(
+                as.numeric(mat),
+                nrow = nrow(mat),
+                ncol = ncol(mat),
+                dimnames = dimnames(mat)
+              )
+            }
+            storage.mode(mat) <- "numeric"
           }
-          storage.mode(mat) <- "numeric"
+
           # Sanity check: a real expression matrix needs a plausible number of
           # genes x cells. A stray text file (e.g. a gene list) would otherwise
           # "parse" into a tiny matrix and silently load with no error at all.
@@ -1918,6 +2440,19 @@ mod_data_server <- function(id, shared) {
             ))
           }
           shared$user_expr <- mat
+          # A Seurat object usually carries its own patient labels; use them so
+          # the user does not have to export and re-upload a mapping table.
+          mapping_note <- ""
+          if (is_seurat && !is.null(seurat_parts$mapping)) {
+            shared$user_mapping <- seurat_parts$mapping
+            shared$mapping_n_ids <- length(unique(seurat_parts$mapping$cell_id))
+            shared$mapping_has_count <- FALSE
+            mapping_note <- paste0(
+              " | patient map read from metadata column '",
+              seurat_parts$mapping_col,
+              "'"
+            )
+          }
           shared$prepared_data <- NULL # Reset prepared data when expression changes
           shared$qc_report <- NULL
           shared$qc_metrics <- NULL
@@ -1929,6 +2464,14 @@ mod_data_server <- function(id, shared) {
               " genes x ",
               ncol(mat),
               " cells",
+              if (is_10x) {
+                " (10x triplet, kept sparse)"
+              } else if (is_seurat) {
+                paste0(" (Seurat object, ", seurat_parts$layer, " layer)")
+              } else {
+                ""
+              },
+              mapping_note,
               skipped_rows_msg(n_skip)
             )
           )
@@ -1979,15 +2522,24 @@ mod_data_server <- function(id, shared) {
           if (is.null(n_skip)) {
             n_skip <- 0L
           }
-          df <- standardize_columns(df, c("cell_id", "patient_id"))
+          df <- standardize_columns(df, c("cell_id", "patient_id", "clone_id"))
+          # Clone-level mappings usually name their ID column clone_id; accept
+          # it and map it onto the internal name instead of rejecting the file.
+          if (!"cell_id" %in% names(df) && "clone_id" %in% names(df)) {
+            names(df)[names(df) == "clone_id"] <- "cell_id"
+          }
           if (!all(c("cell_id", "patient_id") %in% names(df))) {
             stop(
-              "Mapping must contain columns 'cell_id' and 'patient_id' (case-insensitive). Found: ",
+              "Mapping must contain an ID column ('cell_id' or 'clone_id') ",
+              "and 'patient_id' (case-insensitive). Found: ",
               paste(names(df), collapse = ", ")
             )
           }
           df$cell_id <- as.character(df$cell_id)
           df$patient_id <- as.character(df$patient_id)
+          # Number of distinct clones/cells BEFORE the optional count column is
+          # expanded into rows: this is what the status line should report.
+          shared$mapping_n_ids <- length(unique(df$cell_id))
 
           # Optional per-clone abundance column (count / cells / n_cells /
           # abundance): if present, expand each row to that many cells so clone
@@ -2014,9 +2566,13 @@ mod_data_server <- function(id, shared) {
           shared$qc_metrics <- NULL
           showNotification(
             paste0(
-              "Patient-cell mapping loaded: ",
-              nrow(shared$user_mapping),
-              " cells",
+              "Mapping loaded: ",
+              shared$mapping_n_ids,
+              if (identical(input$expr_format, "clone")) {
+                " clones"
+              } else {
+                " cells"
+              },
               skipped_rows_msg(n_skip)
             ),
             type = "message"
@@ -2029,12 +2585,29 @@ mod_data_server <- function(id, shared) {
       )
     })
 
+    # The card has two names because the ID column means different things in
+    # the two modes; a fixed "Patient-Cell Mapping" title was misleading once
+    # clone-level data (where the ID is a clone) became a first-class input.
+    output$mapping_header <- renderUI({
+      clone_mode <- identical(input$expr_format, "clone")
+      div(
+        class = "card-header",
+        icon("users"),
+        if (clone_mode) " Patient–Clone Mapping" else " Patient–Cell Mapping"
+      )
+    })
+
     output$mapping_status <- renderUI({
       if (is.null(shared$user_mapping)) {
         return(NULL)
       }
       n_patients <- length(unique(shared$user_mapping$patient_id))
       clone_mode <- identical(input$expr_format, "clone")
+      n_ids <- if (is.null(shared$mapping_n_ids)) {
+        nrow(shared$user_mapping)
+      } else {
+        shared$mapping_n_ids
+      }
       # In clone-level mode without a count column there are no per-clone cell
       # counts, so clone proportions fall back to equal 1/n per clone. Be
       # explicit about this so users know what the plots actually show.
@@ -2058,7 +2631,12 @@ mod_data_server <- function(id, shared) {
         ),
         tags$small(
           class = "text-muted",
-          paste0(nrow(shared$user_mapping), " cells, ", n_patients, " patients")
+          paste0(
+            n_ids,
+            if (clone_mode) " clones, " else " cells, ",
+            n_patients,
+            if (n_patients == 1L) " patient" else " patients"
+          )
         ),
         equal_weight_note
       )
@@ -2082,9 +2660,20 @@ mod_data_server <- function(id, shared) {
 
     # --- QC knobs: reset to the documented defaults ---
     observeEvent(input$qc_reset, {
-      updateNumericInput(session, ns("qc_nmads"), value = 3)
+      updateNumericInput(session, ns("qc_nmads"), value = 5)
       updateNumericInput(session, ns("qc_min_genes"), value = 200)
       updateNumericInput(session, ns("qc_max_mito"), value = 25)
+      updateNumericInput(session, ns("qc_max_genes"), value = NA)
+      updateCheckboxInput(session, ns("qc_remove_doublets"), value = FALSE)
+      updateCheckboxInput(session, ns("qc_exclude_non_target"), value = FALSE)
+      updateTextAreaInput(
+        session,
+        ns("qc_exclude_markers"),
+        value = default_exclude_markers
+      )
+      updateNumericInput(session, ns("qc_exclude_min_expr"), value = 1)
+      updateCheckboxInput(session, ns("seurat_cluster_global"), value = TRUE)
+      updateCheckboxInput(session, ns("qc_enabled"), value = TRUE)
     })
 
     # --- Run Seurat Clustering (prepare_data) — background worker ---
@@ -2108,13 +2697,37 @@ mod_data_server <- function(id, shared) {
         }
       }
       qc_args <- list(
-        qc_nmads = qc_num(input$qc_nmads, 3),
+        qc_nmads = qc_num(input$qc_nmads, 5),
         qc_min_genes = qc_num(input$qc_min_genes, 200),
-        qc_max_mito = qc_num(input$qc_max_mito, 25)
+        qc_max_mito = qc_num(input$qc_max_mito, 25),
+        # Blank = auto: the worker receives NULL and lets the MAD fence pick
+        # the gene ceiling.
+        qc_max_genes = qc_num(input$qc_max_genes, NA_real_)
       )
+      if (is.na(qc_args$qc_max_genes)) {
+        qc_args$qc_max_genes <- NULL
+      }
+      # Optional steps. The marker box is parsed here so a typo fails
+      # immediately instead of silently removing nothing in the worker.
+      marker_sets <- parse_marker_sets(
+        if (isTRUE(input$qc_exclude_non_target)) {
+          input$qc_exclude_markers
+        } else {
+          NULL
+        }
+      )
+      if (!marker_sets$ok) {
+        showNotification(marker_sets$message, type = "error", duration = 10)
+        return()
+      }
+      qc_args$qc_remove_doublets <- isTRUE(input$qc_remove_doublets)
+      qc_args$qc_exclude_markers <- marker_sets$value
+      qc_args$qc_exclude_min_expr <- qc_num(input$qc_exclude_min_expr, 1)
+      # "Run QC" off = original pipeline behaviour: keep every cell.
+      qc_args$skip_qc <- !isTRUE(input$qc_enabled)
       # A gene floor at or above the panel size can only drop every cell; say
       # so here instead of letting the worker fail with a generic message.
-      if (qc_args$qc_min_genes >= nrow(shared$user_expr)) {
+      if (!qc_args$skip_qc && qc_args$qc_min_genes >= nrow(shared$user_expr)) {
         showNotification(
           paste0(
             "Min genes (",
@@ -2124,6 +2737,24 @@ mod_data_server <- function(id, shared) {
             nrow(shared$user_expr),
             "). ",
             "Every cell would be removed — lower the threshold first."
+          ),
+          type = "error",
+          duration = 10
+        )
+        return()
+      }
+      if (
+        !qc_args$skip_qc &&
+          !is.null(qc_args$qc_max_genes) &&
+          qc_args$qc_max_genes <= qc_args$qc_min_genes
+      ) {
+        showNotification(
+          paste0(
+            "Gene ceiling (",
+            qc_args$qc_max_genes,
+            ") must be above min genes (",
+            qc_args$qc_min_genes,
+            "), otherwise no cell can pass both bounds."
           ),
           type = "error",
           duration = 10
@@ -2150,9 +2781,19 @@ mod_data_server <- function(id, shared) {
             patient_mapping = shared$user_mapping,
             seurat_resolution = input$seurat_resolution,
             seurat_dims = input$seurat_dims,
+            cluster_scope = if (isTRUE(input$seurat_cluster_global)) {
+              "global"
+            } else {
+              "patient"
+            },
             qc_nmads = qc_args$qc_nmads,
+            qc_skip = qc_args$skip_qc,
             qc_min_genes = qc_args$qc_min_genes,
-            qc_max_mito = qc_args$qc_max_mito
+            qc_max_mito = qc_args$qc_max_mito,
+            qc_max_genes = qc_args$qc_max_genes,
+            qc_remove_doublets = qc_args$qc_remove_doublets,
+            qc_exclude_markers = qc_args$qc_exclude_markers,
+            qc_exclude_min_expr = qc_args$qc_exclude_min_expr
           )
         ),
         error = function(e) {
@@ -2275,6 +2916,15 @@ mod_data_server <- function(id, shared) {
         qc$n_marker_removed
       }
       show_marker <- any(marker_removed > 0)
+      dbl_removed <- if (is.null(qc$n_doublet_removed)) {
+        rep(0L, nrow(qc))
+      } else {
+        qc$n_doublet_removed
+      }
+      show_dbl <- any(dbl_removed > 0)
+      clustered <- qc$n_kept - dbl_removed - marker_removed
+      # With "Run QC" off the fences are NA: show "off" instead of NA.
+      fmt_fence <- function(x) if (all(is.na(x))) "off" else format(x)
       rows <- lapply(seq_len(nrow(qc)), function(i) {
         tags$tr(
           tags$td(qc$patient[i]),
@@ -2282,8 +2932,11 @@ mod_data_server <- function(id, shared) {
           tags$td(qc$n_kept[i]),
           tags$td(paste0(qc$pct_removed[i], "%")),
           tags$td(qc$main_reason[i]),
-          tags$td(qc$mito_threshold[i]),
+          tags$td(fmt_fence(qc$genes_max[i])),
+          tags$td(fmt_fence(qc$mito_threshold[i])),
+          if (show_dbl) tags$td(dbl_removed[i]),
           if (show_marker) tags$td(marker_removed[i]),
+          tags$td(clustered[i]),
           tags$td(qc$n_clones[i])
         )
       })
@@ -2293,11 +2946,14 @@ mod_data_server <- function(id, shared) {
           tags$tr(
             tags$th("Patient"),
             tags$th("Input"),
-            tags$th("Kept"),
-            tags$th("Removed"),
+            tags$th("QC kept"),
+            tags$th("QC removed"),
             tags$th("Main reason"),
+            tags$th("Genes ≤"),
             tags$th("Mito %"),
+            if (show_dbl) tags$th("Doublets"),
             if (show_marker) tags$th("Marker-excluded"),
+            tags$th("Clustered"),
             tags$th("Clones")
           )
         ),
@@ -2335,33 +2991,44 @@ mod_data_server <- function(id, shared) {
         )
       }
       n_in <- sum(qc$n_input)
-      n_kept <- sum(qc$n_kept)
+      # n_kept counts cells that passed the fences; doublets and non-target
+      # cells are removed after that, so report what actually got clustered.
+      n_dbl <- if (is.null(qc$n_doublet_removed)) {
+        0L
+      } else {
+        sum(qc$n_doublet_removed)
+      }
+      n_mk <- if (is.null(qc$n_marker_removed)) 0L else sum(qc$n_marker_removed)
+      n_kept <- sum(qc$n_kept) - n_dbl - n_mk
       pct <- round(100 * (n_in - n_kept) / max(n_in, 1L), 1)
+      stat <- function(value, label) {
+        div(
+          class = "qc-summary-stat",
+          div(class = "qc-summary-value", value),
+          div(class = "qc-summary-label", label)
+        )
+      }
       div(
         class = "card animate-fade-in-up",
         div(class = "card-header", icon("filter"), " Quality Control Summary"),
         div(
-          class = "card-body",
+          class = "card-body qc-summary-body",
           div(
-            style = "display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;",
-            p(
-              class = "text-muted",
-              style = "margin: 0;",
-              sprintf(
-                "%s of %s cells kept (%.1f%% removed) across %d samples, forming %d clones.",
-                format(n_kept, big.mark = ","),
-                format(n_in, big.mark = ","),
-                pct,
-                nrow(qc),
-                sum(qc$n_clones)
-              )
-            ),
-            actionButton(
-              ns("qc_details"),
-              "View QC details",
-              class = "btn-sm btn-outline-primary",
-              icon = icon("magnifying-glass-chart")
+            class = "qc-summary-stats",
+            stat(format(n_kept, big.mark = ","), "cells clustered"),
+            stat(paste0(pct, "%"), "removed"),
+            if (n_dbl > 0L) stat(n_dbl, "doublets"),
+            if (n_mk > 0L) stat(n_mk, "non-target"),
+            stat(nrow(qc), if (nrow(qc) == 1L) "sample" else "samples"),
+            stat(
+              sum(qc$n_clones),
+              if (sum(qc$n_clones) == 1L) "clone" else "clones"
             )
+          ),
+          actionButton(
+            ns("qc_details"),
+            tagList(icon("magnifying-glass-chart"), "View QC details"),
+            class = "btn-primary qc-details-btn"
           )
         )
       )
@@ -2381,19 +3048,29 @@ mod_data_server <- function(id, shared) {
       metric <- input$qc_metric
       if (is.null(metric) || !nzchar(metric)) "all" else metric
     }
+    # One facet column per patient, but never more than qc_ncol. Sizing the
+    # device from this is what stops a single-patient cohort from stretching
+    # two violins across 1100 px and rendering them as flat blobs.
+    qc_patient_ncol <- function() {
+      n <- if (is.null(shared$qc_report)) 1L else nrow(shared$qc_report)
+      as.integer(max(1L, min(qc_ncol, n)))
+    }
     qc_plot_height <- function() {
       if (identical(qc_metric_value(), "all")) {
-        # Three stacked panels: ~240 px each. The old 560 px box left each
-        # violin as a flat strip, because the pooled view only has two x
-        # categories and does not need a wide canvas.
-        return(840)
+        # Three stacked panels of ~260 px each, plus room for the title,
+        # subtitle and two-line caption. Taller than wide on purpose: with two
+        # x categories, a short wide panel turns every violin into a streak.
+        return(980L)
       }
       n <- if (is.null(shared$qc_report)) 0L else nrow(shared$qc_report)
-      rows <- ceiling(max(n, 1L) / qc_ncol)
-      min(1000, max(320, rows * 170 + 120))
+      rows <- ceiling(max(n, 1L) / qc_patient_ncol())
+      as.integer(min(1200L, max(360L, rows * 190L + 190L)))
     }
     qc_plot_width <- function() {
-      if (identical(qc_metric_value(), "all")) 640L else 1100L
+      if (identical(qc_metric_value(), "all")) {
+        return(760L)
+      }
+      as.integer(110L + qc_patient_ncol() * 200L)
     }
     qc_plot_obj <- shiny::reactive({
       shiny::req(isTRUE(qc_modal_open()))
@@ -2406,7 +3083,7 @@ mod_data_server <- function(id, shared) {
         kept_cells = clones$cell_id,
         qc_report = report,
         metric = qc_metric_value(),
-        ncol = qc_ncol
+        ncol = qc_patient_ncol()
       )
     })
 
@@ -2416,19 +3093,33 @@ mod_data_server <- function(id, shared) {
       clones <- shared$user_clones
       shiny::req(qc, metrics, clones)
       params <- shared$qc_params
+      n_in <- sum(qc$n_input)
+      n_kept <- sum(qc$n_kept)
+      pct <- round(100 * (n_in - n_kept) / max(n_in, 1L), 1)
+      qc_stat <- function(value, label) {
+        div(
+          class = "qc-stat",
+          div(class = "qc-stat-value", value),
+          div(class = "qc-stat-label", label)
+        )
+      }
+      # Echo the settings this report was actually produced with, so a
+      # surprising kept/removed split can be traced to a specific threshold.
       applied <- if (is.null(params)) {
-        NULL
+        "package defaults"
       } else {
-        p(
-          class = "text-muted",
-          style = "margin-bottom: 0.4rem;",
-          strong("Applied here: "),
-          sprintf(
-            "%s MAD, min %s genes, mitochondrial cap %s%%.",
-            params$nmads,
-            params$min_genes,
-            params$max_mito
-          )
+        ceiling <- params$max_genes
+        ceiling <- if (is.null(ceiling) || is.na(ceiling)) {
+          "auto"
+        } else {
+          format(ceiling, big.mark = ",", trim = TRUE)
+        }
+        sprintf(
+          "%s MAD · genes ≥ %s · genes ≤ %s · mito ≤ %s%%",
+          params$nmads,
+          params$min_genes,
+          ceiling,
+          params$max_mito
         )
       }
       qc_modal_open(TRUE)
@@ -2440,46 +3131,59 @@ mod_data_server <- function(id, shared) {
         div(
           # The dialog is taller than a laptop viewport; .modal-xl .modal-body
           # already scrolls as a whole (styles.css), so no nested scroller.
-          p(
-            class = "text-muted",
-            "Each sample is filtered with its own median +/- nMAD fence ",
-            "instead of one fixed percentage. Blue = kept, red = removed. ",
-            "Dashed lines are the effective per-sample cut-offs for detected ",
-            "genes and mitochondrial %. Total counts has no cut-off and is ",
-            "shown for context."
-          ),
-          applied,
           div(
-            class = "qc-toolbar",
-            div(
-              style = "flex: 1;",
-              selectInput(
-                ns("qc_metric"),
-                NULL,
-                choices = c(
-                  "All metrics (pooled)" = "all",
-                  "Detected genes" = "Detected genes",
-                  "Total counts" = "Total counts",
-                  "Mitochondrial %" = "Mitochondrial %"
-                ),
-                selected = "all",
-                width = "100%"
-              )
-            ),
-            downloadButton(
-              ns("qc_download"),
-              "Download plot",
-              class = "btn-outline-primary qc-download-btn",
-              icon = icon("download")
+            class = "qc-stat-strip",
+            qc_stat(format(n_kept, big.mark = ","), "cells kept"),
+            qc_stat(paste0(pct, "%"), "removed"),
+            qc_stat(nrow(qc), if (nrow(qc) == 1L) "sample" else "samples"),
+            qc_stat(
+              sum(qc$n_clones),
+              if (sum(qc$n_clones) == 1L) "clone" else "clones"
             )
           ),
-          # The plot is created by renderUI so its height can follow the
-          # metric: a fixed plotOutput box cannot grow from 3 pooled panels to
-          # 4 rows of per-patient facets.
-          shiny::uiOutput(ns("qc_plot_ui")),
+          p(
+            class = "qc-cutoffs",
+            span(class = "qc-cutoffs-label", "Cut-offs"),
+            span(applied)
+          ),
+          # Toolbar and plot share one framed card: the select and the download
+          # button then live in the same flex row with a forced equal height,
+          # which is the only reliable way to keep their baselines together.
           div(
-            style = "max-height: 260px; overflow-y: auto; margin-top: 0.75rem;",
-            qc_table_ui(qc)
+            class = "qc-plot-card",
+            div(
+              class = "qc-toolbar",
+              div(
+                class = "qc-metric-select",
+                selectInput(
+                  ns("qc_metric"),
+                  NULL,
+                  choices = c(
+                    "All metrics (pooled)" = "all",
+                    "Detected genes" = "Detected genes",
+                    "Total counts" = "Total counts",
+                    "Mitochondrial %" = "Mitochondrial %"
+                  ),
+                  selected = "all",
+                  width = "100%"
+                )
+              ),
+              downloadButton(
+                ns("qc_download"),
+                "Download plot",
+                class = "btn-outline-primary qc-download-btn",
+                icon = icon("download")
+              )
+            ),
+            # The plot is created by renderUI so its height can follow the
+            # metric: a fixed plotOutput box cannot grow from 3 pooled panels
+            # to 4 rows of per-patient facets.
+            shiny::uiOutput(ns("qc_plot_ui"))
+          ),
+          div(
+            class = "qc-table-block",
+            div(class = "qc-table-head", "Per-sample cut-offs"),
+            div(class = "qc-table-scroll", qc_table_ui(qc))
           )
         )
       ))
@@ -2519,8 +3223,9 @@ mod_data_server <- function(id, shared) {
       suspendWhenHidden = FALSE
     )
 
-    # Same view as the modal, saved at print quality. Width/height mirror the
-    # on-screen proportions so the downloaded figure matches what was reviewed.
+    # Same view as the modal, saved at print quality. Both dimensions follow
+    # the on-screen size: a fixed 11-inch width stretched the two violins of
+    # the pooled view back into flat blobs in the exported file.
     output$qc_download <- shiny::downloadHandler(
       filename = function() {
         metric <- qc_metric_value()
@@ -2529,12 +3234,13 @@ mod_data_server <- function(id, shared) {
       },
       content = function(file) {
         p <- shiny::isolate(qc_plot_obj())
+        w <- shiny::isolate(qc_plot_width())
         h <- shiny::isolate(qc_plot_height())
         ggplot2::ggsave(
           file,
           plot = p,
-          width = 11,
-          height = max(4, h / 100),
+          width = max(3, w / 100),
+          height = max(3, h / 100),
           dpi = 300,
           bg = "white",
           limitsize = FALSE
@@ -2622,7 +3328,11 @@ mod_data_server <- function(id, shared) {
       items <- list(
         list(name = "Expression Matrix", loaded = !is.null(shared$user_expr)),
         list(
-          name = "Patient-Cell Mapping",
+          name = if (identical(input$expr_format, "clone")) {
+            "Patient-Clone Mapping"
+          } else {
+            "Patient-Cell Mapping"
+          },
           loaded = !is.null(shared$user_mapping)
         ),
         list(

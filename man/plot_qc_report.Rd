@@ -24,6 +24,14 @@ plot_qc_report(
 
 \item{base_size}{Numeric. Base font size. Default = 12.}
 
+\item{metric}{Character. \code{"all"} (default) pools every patient and
+stacks the three metrics in one column -- the only readable layout
+when a cohort has dozens of patients. Pass one of
+\code{"Detected genes"}, \code{"Total counts"} or
+\code{"Mitochondrial \%"} to get one panel per patient (wrapped into
+rows), each with that patient's own threshold line; this is the
+layout to use when per-patient QC needs to be inspected.}
+
 \item{ncol}{Integer. Number of facet columns in the per-patient layout.
 Default = 6.}
 }

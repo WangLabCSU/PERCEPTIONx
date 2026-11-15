@@ -139,8 +139,67 @@ div.card > .card-body.seurat-body {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* Top-aligned: centring made the text jump whenever the QC disclosure on
+     the right changed the card height, and left a band of empty space. */
+  justify-content: flex-start;
   min-width: 0;
+}
+.seurat-lede {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.seurat-help {
+  margin-top: 0.55rem;
+  border: 1px solid var(--border-light, #eef0f6);
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem;
+  background: rgba(22, 92, 145, 0.03);
+}
+.seurat-help > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.76rem;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  user-select: none;
+}
+.seurat-help > summary::-webkit-details-marker {
+  display: none;
+}
+.seurat-help > summary::after {
+  content: "▾";
+  margin-left: auto;
+  transition: transform 0.15s ease;
+}
+.seurat-help[open] > summary::after {
+  transform: rotate(180deg);
+}
+.seurat-help-list {
+  margin: 0.4rem 0 0;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.seurat-help-list dt {
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 0.3rem;
+}
+.seurat-help-list dd {
+  margin: 0.1rem 0 0;
+}
+.seurat-footnote {
+  margin: 0.6rem 0 0;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
 }
 .seurat-right {
   flex: 0 0 300px;
@@ -171,18 +230,23 @@ div.card > .card-body.seurat-body {
 }
 
 /* Collapsible QC knobs inside the preprocessing card: closed by default so
-   the card stays short, open for users who need to override the defaults. */
+   the card stays short, open for users who need to override the defaults.
+   Red accent = "this changes which cells survive", deliberately different
+   from the neutral blue chrome around it. */
 details.qc-settings {
-  border: 1px solid var(--border-light, #eef0f6);
+  margin-top: 0.7rem;
+  border: 1px solid rgba(193, 50, 50, 0.28);
+  border-left: 3px solid var(--accent);
   border-radius: 8px;
-  padding: 0.4rem 0.55rem;
-  background: rgba(22, 92, 145, 0.03);
+  padding: 0.42rem 0.6rem;
+  background: rgba(193, 50, 50, 0.045);
 }
 
 details.qc-settings > summary {
   cursor: pointer;
   font-size: 0.78rem;
-  color: var(--text-muted);
+  font-weight: 600;
+  color: var(--accent);
   list-style: none;
   display: flex;
   align-items: center;
@@ -190,13 +254,26 @@ details.qc-settings > summary {
   user-select: none;
 }
 
+details.qc-settings > summary:hover {
+  color: var(--accent-dark);
+}
+
 details.qc-settings > summary::-webkit-details-marker {
   display: none;
 }
 
+.qc-settings-hint {
+  margin-left: auto;
+  font-size: 0.64rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(193, 50, 50, 0.7);
+}
+
 details.qc-settings > summary::after {
   content: "▾";
-  margin-left: auto;
+  margin-left: 0.35rem;
   transition: transform 0.15s ease;
 }
 
@@ -204,17 +281,110 @@ details.qc-settings[open] > summary::after {
   transform: rotate(180deg);
 }
 
-details.qc-settings .qc-settings-note {
-  font-size: 0.72rem;
-  line-height: 1.45;
-  color: var(--text-muted);
-  margin: 0.35rem 0 0;
+/* Field label with a hoverable "i" badge instead of a paragraph of notes
+   stacked under the inputs. */
+.qc-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.22rem;
 }
 
-details.qc-settings .qc-settings-reset {
-  margin-top: 0.35rem;
-  padding: 0.1rem 0.45rem;
+.qc-info {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: rgba(22, 92, 145, 0.12);
+  color: var(--primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 9px;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+}
+
+.qc-info::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  z-index: 1080;
+  width: 190px;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  background: #1e2a4a;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.qc-info:hover::after,
+.qc-info:focus::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+.qc-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+/* Optional QC steps: checkboxes sit tighter than form groups and the marker
+   box is monospace so "name: GENE1, GENE2" lines are easy to scan. */
+.qc-extra {
+  margin-top: 0.55rem;
+}
+
+.qc-extra .form-group,
+.qc-extra .checkbox {
+  margin-bottom: 0.25rem;
+}
+
+.qc-extra label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.qc-extra textarea {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.qc-settings-actions .qc-settings-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.16rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text-muted);
+  font-size: 0.71rem;
+  line-height: 1.5;
+}
+
+.qc-settings-actions .qc-settings-reset:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #fff;
 }
 .seurat-run-btn {
   width: 100%;
@@ -2376,28 +2546,43 @@ table.dataTable thead th {
 /* ============================================================
    4. Parameter Sections
    ============================================================ */
+/* Each parameter group is a tinted block with a blue rail and a red title.
+   The container stays in the app's blue family so it sits next to the blue
+   info boxes without clashing; only the title carries the accent colour. */
 .param-section {
-  margin-bottom: 0.85rem;
-  padding-bottom: 0.6rem;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.7rem;
+  padding: 0.6rem 0.7rem 0.65rem;
+  border: 1px solid var(--primary-alpha-md);
+  border-left: 3px solid var(--primary);
+  border-radius: 10px;
+  background: var(--primary-alpha);
 }
 
 .param-section:last-of-type {
-  border-bottom: none;
   margin-bottom: 0;
-  padding-bottom: 0;
 }
 
 .param-section-title {
-  font-size: 0.8rem;
+  margin: 0 0 0.55rem;
+  padding: 0;
+  border: none;
+  font-size: 0.74rem;
   font-weight: 700;
-  color: var(--primary);
-  margin-bottom: 0.6rem;
-  padding-bottom: 0.3rem;
-  border-bottom: 2px solid var(--primary-alpha);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--accent);
   display: flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+/* Plain explanatory copy inside a parameter section. Replaces info boxes that
+   duplicated the container colour, which made the card look striped. */
+.param-note {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-muted);
 }
 
 /* ============================================================
@@ -3045,6 +3230,126 @@ table.dataTable thead th {
   width: 100%;
 }
 
+/* Format examples rendered as tables: columns line up whatever the font, and
+   required headers are red while optional ones stay in the normal colour. */
+.format-table {
+  width: 100%;
+  margin: 0.35rem 0 0;
+  border-collapse: collapse;
+}
+
+.format-table th {
+  padding: 0.15rem 0.45rem 0.2rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.format-table th.fmt-required {
+  color: var(--accent);
+}
+
+.format-table th.fmt-optional {
+  color: var(--text);
+}
+
+.format-table td {
+  padding: 0.14rem 0.45rem;
+  border-bottom: 1px dashed var(--border-light);
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.format-table tr:last-child td {
+  border-bottom: none;
+}
+
+.fmt-filelist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  width: 100%;
+  margin-top: 0.3rem;
+}
+
+.fmt-file {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.68rem;
+}
+
+.fmt-file code {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* Keyword markers (column names, file names) carry the same red as the
+   required-column headers, so "what do I have to provide" is one colour. */
+.card-body code,
+.data-format-hint code {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.fmt-file span {
+  color: var(--text-muted);
+}
+
+/* Divider between two accepted input shapes (loose files / one archive). */
+.fmt-or {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 0.45rem 0;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.fmt-or::before,
+.fmt-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.fmt-note {
+  width: 100%;
+  margin-top: 0.35rem;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* "count is optional" has to be impossible to miss: it changes what the
+   composition plots mean. */
+.fmt-note-optional {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  border-left: 3px solid var(--warning, #d97706);
+  border-radius: 0 6px 6px 0;
+  background: rgba(217, 119, 6, 0.07);
+  color: var(--text);
+}
+
+.fmt-note-optional i {
+  margin-top: 0.1rem;
+  color: var(--warning, #d97706);
+}
+
 /* ============================================================
    7. Help page — redesigned reference layout
    ============================================================ */
@@ -3207,22 +3512,225 @@ table.dataTable thead th {
   height: auto;
 }
 
+/* QC modal: a stat strip carries the headline numbers, the settings echo sits
+   under it as one line, and the plot gets its own framed card so the surrounding
+   chrome never competes with the chart. */
+.qc-stat-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-bottom: 0.7rem;
+}
+
+.qc-stat {
+  flex: 1 1 110px;
+  min-width: 96px;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border-light, #eef0f6);
+  border-radius: 10px;
+  background: var(--primary-alpha, rgba(22, 92, 145, 0.07));
+}
+
+.qc-stat-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text, #1e2a4a);
+}
+
+.qc-stat-label {
+  margin-top: 0.1rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted, #5a6a8a);
+}
+
+.qc-cutoffs {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0 0 0.7rem;
+  font-size: 0.78rem;
+  color: var(--text-muted, #5a6a8a);
+}
+
+.qc-cutoffs-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--primary, #165c91);
+}
+
+.qc-plot-card {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border-light, #eef0f6);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.qc-plot-card .shiny-plot-output {
+  margin: 0 auto;
+}
+
+/* QC toolbar: both controls are forced to the same 38 px box inside a single
+   flex row. Grid + baseline alignment still let the button drift whenever the
+   Bootstrap select carried extra padding. */
+.qc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.55rem;
+}
+
+.qc-toolbar .qc-metric-select {
+  flex: 0 0 250px;
+  width: 250px;
+  height: 38px;
+}
+
+.qc-toolbar .form-group,
+.qc-toolbar .shiny-input-container {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+}
+
+.qc-toolbar select.form-select {
+  height: 100%;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.qc-toolbar .qc-download-btn {
+  margin: 0 0 0 auto;
+  height: 38px;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+/* Export row above a result figure (same look as the QC toolbar button). */
+.figure-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.4rem;
+}
+
+.figure-toolbar .qc-download-btn {
+  height: 34px;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+/* QC summary card: the headline numbers as chips, the details button as the
+   single filled call-to-action on the right. */
+.qc-summary-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+}
+
+.qc-summary-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.6rem;
+}
+
+.qc-summary-value {
+  font-size: 1.2rem;
+  font-weight: 650;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.qc-summary-label {
+  margin-top: 0.1rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.qc-summary-body .qc-details-btn {
+  height: 38px;
+  padding: 0 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+
+.qc-table-block {
+  margin-top: 0.85rem;
+  border: 1px solid var(--border-light, #eef0f6);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.qc-table-head {
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--border-light, #eef0f6);
+  background: rgba(22, 92, 145, 0.04);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted, #5a6a8a);
+}
+
+.qc-table-scroll {
+  max-height: 250px;
+  overflow-y: auto;
+  padding: 0 0.75rem;
+}
+
+.qc-table-scroll table {
+  margin-bottom: 0;
+}
+
+.qc-table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #fff;
+  box-shadow: inset 0 -1px 0 var(--border-light, #eef0f6);
+  font-size: 0.76rem;
+}
+
 /* QC toolbar: the metric select and the download button share one baseline
    (Bootstrap gives .form-group a bottom margin, which used to lift the
    button off the select). */
 .qc-toolbar {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
 }
 
 .qc-toolbar .form-group,
 .qc-toolbar .shiny-input-container {
   margin-bottom: 0;
-  width: 100%;
+}
+
+.qc-toolbar .qc-metric-select {
+  flex: 0 0 240px;
+  width: 240px;
 }
 
 .qc-toolbar .qc-download-btn {
+  margin-left: auto;
   height: 38px;
   display: inline-flex;
   align-items: center;

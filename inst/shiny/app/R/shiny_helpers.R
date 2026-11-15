@@ -304,6 +304,9 @@ stage_text <- function(phase) {
   switch(
     phase,
     "seurat" = "Running Seurat clustering...",
+    "qc" = "Filtering low-quality cells...",
+    "doublets" = "Detecting doublets...",
+    "filtering" = "Excluding non-target cells...",
     "seurat-normalizing" = "Normalizing expression data...",
     "seurat-variable-features" = "Finding variable genes...",
     "seurat-scaling" = "Scaling expression data...",

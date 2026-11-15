@@ -1,0 +1,57 @@
+#!/bin/sh
+# Git pre-commit hook: format the staged R files with air, then lint them.
+#
+# Enable once per clone:
+#   git config core.hooksPath .githooks
+#
+# air rewrites the staged files and re-stages them (so the commit contains the
+# formatted version). jarl only reports and blocks the commit when it finds
+# something. If a tool is missing the hook warns instead of blocking, so a
+# fresh clone can still commit before installing anything.
+
+set -e
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- '*.R' '*.r')
+[ -z "$staged" ] && exit 0
+
+# ---------------------------------------------------------------- air -------
+# air is a standalone binary. It is not on PATH when it only comes from the
+# VS Code / Trae extension bundle, so look there as a fallback.
+find_air() {
+  if command -v air >/dev/null 2>&1; then
+    command -v air
+    return 0
+  fi
+  for candidate in \
+    "$HOME"/.trae-cn/extensions/posit.air-*/bundled/bin/air* \
+    "$HOME"/.vscode/extensions/posit.air-*/bundled/bin/air*
+  do
+    if [ -x "$candidate" ]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+AIR=$(find_air || true)
+if [ -z "$AIR" ]; then
+  echo "[pre-commit] air not found - skipping formatting." >&2
+  echo "             Install it: https://posit-dev.github.io/air/" >&2
+else
+  echo "[pre-commit] air format"
+  # Word splitting is intended: one path per staged file.
+  # shellcheck disable=SC2086
+  "$AIR" format $staged
+  echo "$staged" | tr '\n' '\0' | xargs -0 git add
+fi
+
+# --------------------------------------------------------------- jarl -------
+if command -v jarl >/dev/null 2>&1; then
+  echo "[pre-commit] jarl check"
+  jarl check $staged
+else
+  echo "[pre-commit] jarl not found - skipping lint." >&2
+fi
+
+exit 0

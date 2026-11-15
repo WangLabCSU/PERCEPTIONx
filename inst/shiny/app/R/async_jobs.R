@@ -777,11 +777,35 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
       counts = a$expression_matrix,
       patient_labels = patient,
       # QC thresholds are user-adjustable in the app; missing values fall back
-      # to the package defaults (3 MAD, 200 genes, 25% mito).
-      nmads = if (is.null(a$qc_nmads)) 3 else a$qc_nmads,
+      # to the package defaults (5 MAD, 200 genes, 25% mito).
+      nmads = if (is.null(a$qc_nmads)) 5 else a$qc_nmads,
+      # "Run QC" off keeps every cell, matching the original pipeline.
+      skip_qc = isTRUE(a$qc_skip),
       min_genes = if (is.null(a$qc_min_genes)) 200L else a$qc_min_genes,
       max_mito = if (is.null(a$qc_max_mito)) 25 else a$qc_max_mito,
+      # NULL / NA means "estimate the gene ceiling from the data"; a number
+      # pins it, which is how a user reproduces a fixed threshold like 2,500.
+      max_genes = if (is.null(a$qc_max_genes) || is.na(a$qc_max_genes)) {
+        NULL
+      } else {
+        a$qc_max_genes
+      },
+      # Optional steps, both off unless the user ticks them in QC settings.
+      remove_doublets = isTRUE(a$qc_remove_doublets),
+      exclude_markers = a$qc_exclude_markers,
+      exclude_min_expr = if (is.null(a$qc_exclude_min_expr)) {
+        1
+      } else {
+        a$qc_exclude_min_expr
+      },
       dims = if (is.null(a$seurat_dims)) 20L else a$seurat_dims,
+      # Global clustering matches the original PERCEPTION method; the app
+      # exposes it as "Cluster across patients".
+      cluster_scope = if (is.null(a$cluster_scope)) {
+        "global"
+      } else {
+        a$cluster_scope
+      },
       method = if (is.null(a$method)) "umap" else a$method,
       resolution = if (is.null(a$seurat_resolution)) {
         0.8
@@ -815,6 +839,8 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
     prepared$qc <- labels$qc
     prepared$qc_metrics <- labels$qc_metrics
     prepared$used_harmony <- labels$used_harmony
+    prepared$doublet_cells <- labels$doublet_cells
+    prepared$excluded_cells <- labels$excluded_cells
     prepared
   }
 
@@ -1048,7 +1074,12 @@ session_task_main <- function(pkg_root, jobs_dir, poll_secs = 0.25) {
       qc_metrics = labels$qc_metrics,
       # The demo uses a lower gene floor than the app default, so the QC modal
       # must show the settings this report actually used.
-      qc_params = list(nmads = 3, min_genes = 10, max_mito = 25),
+      qc_params = list(
+        nmads = 5,
+        min_genes = 10,
+        max_mito = 25,
+        max_genes = NULL
+      ),
       models = models
     )
   }

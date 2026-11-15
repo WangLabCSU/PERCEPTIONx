@@ -10,13 +10,14 @@
 NULL
 
 
-# Internal: shared Seurat clustering + 2D embedding pipeline.
+# Internal: normalise a single matrix and build clones with the shared core.
 #
-# Runs NormalizeData -> FindVariableFeatures -> ScaleData -> PCA -> neighbors ->
-# clusters -> UMAP/t-SNE, with PCA dimensions capped to what the (possibly
-# small) dataset can support. Used by both annotate_clones() and
-# plot_seurat_clustering() so they stay in sync and share the same safeguards.
-run_seurat_pipeline <- function(
+# This used to duplicate NormalizeData -> FindVariableFeatures -> ScaleData ->
+# PCA -> FindNeighbors -> FindClusters -> UMAP/t-SNE. It now delegates to
+# cluster_embedding() in preprocess.R, so annotate_clones(),
+# plot_seurat_clustering() and preprocess_sc() share one implementation --
+# including the small-dataset PCA cap and the adaptive UMAP epoch budget.
+cluster_cells_seurat <- function(
   expression_matrix,
   method,
   min_cells,
@@ -29,12 +30,10 @@ run_seurat_pipeline <- function(
   cluster_algorithm = 1L,
   variable_selection = c("vst", "dispersion", "mvp")
 ) {
-  lifecycle::deprecate_soft("0.3.1", "run_seurat_pipeline()")
+  variable_selection <- rlang::arg_match(variable_selection)
   notify <- function(phase) {
     if (is.function(progress_cb)) progress_cb(phase)
   }
-  variable_selection <- rlang::arg_match(variable_selection)
-  set.seed(seed)
 
   notify("normalizing")
   so <- Seurat::CreateSeuratObject(
@@ -48,109 +47,20 @@ run_seurat_pipeline <- function(
     normalization.method = "LogNormalize",
     scale.factor = 10000L
   )
-  notify("variable-features")
-  # vst is the most accurate but by far the slowest variable-feature method
-  # on large matrices; dispersion/mvp trade a little feature quality for a
-  # big speedup. The Seurat pipeline below works with any of them.
-  so <- Seurat::FindVariableFeatures(
-    so,
-    selection.method = variable_selection,
-    nfeatures = nfeatures
-  )
-  notify("scaling")
-  so <- Seurat::ScaleData(so, features = Seurat::VariableFeatures(object = so))
+  # Single patient: clone ids only need to be unique inside this matrix.
+  so$patient <- "patient1"
 
-  # PCA requires npcs < min(nrow, ncol) of the scaled matrix -- cap dims to the
-  # number actually available so small datasets do not error out.
-  max_pcs <- min(ncol(so), length(Seurat::VariableFeatures(object = so))) - 1L
-  actual_dims <- min(dims, max_pcs)
-  if (actual_dims < 1L) {
-    actual_dims <- 1L
-  }
-
-  if (actual_dims < dims) {
-    cli::cli_progress_step(
-      "Adjusting PCA dims from {dims} to {actual_dims} due to limited cells/features"
-    )
-  }
-
-  notify("pca")
-  so <- Seurat::RunPCA(
+  cluster_embedding(
     so,
-    features = Seurat::VariableFeatures(object = so),
-    npcs = actual_dims
-  )
-  notify("neighbors")
-  so <- Seurat::FindNeighbors(so, dims = seq_len(actual_dims))
-  # verbose = FALSE: FindClusters prints "Modularity Optimizer" progress to
-  # stdout, which pollutes worker logs / can leave stray files behind.
-  # algorithm = 1 is the default Louvain (no extra dependency). Leiden (4)
-  # is slightly faster on VERY large graphs but pulls in the 'leidenbase'
-  # package — not worth the dependency at PERCEPTIONx's typical cell counts.
-  notify("clustering")
-  so <- Seurat::FindClusters(
-    so,
+    nfeatures = nfeatures,
+    dims = dims,
     resolution = resolution,
-    algorithm = cluster_algorithm,
-    verbose = FALSE
-  )
-
-  notify(if (method == "umap") "umap" else "tsne")
-  if (method == "umap") {
-    # RunUMAP's uwot call is single-threaded and uses heavy defaults
-    # (n_neighbors = 30, n_epochs = 500, n_trees = 50) -- on small datasets
-    # the Annoy index build + calibration alone cost ~1-5 s of fixed
-    # overhead (measured: 5.0 s on 1500 cells, ~1.2 s on 400). The UMAP here
-    # is ONLY the 2D layout for the spatial plots; clone detection comes from
-    # FindClusters on the SNN graph, so we call uwot directly with reduced,
-    # still-valid settings (15/200/10 -> ~2.5x faster, measured). The result
-    # is attached as a normal "umap" reduction, so Embeddings(so, "umap")
-    # and everything downstream work unchanged.
-    pca_emb <- Seurat::Embeddings(so, "pca")[,
-      seq_len(actual_dims),
-      drop = FALSE
-    ]
-    n_threads <- max(
-      1L,
-      min(4L, as.integer(parallel::detectCores()), na.rm = TRUE)
-    )
-    # uwot requires n_neighbors < number of points; cap it for tiny datasets
-    # so a small test matrix (<= 15 cells) does not crash with an Annoy
-    # index error.
-    n_neighbors <- min(15L, max(2L, nrow(pca_emb) - 1L))
-    coords <- uwot::umap(
-      X = pca_emb,
-      n_neighbors = n_neighbors,
-      n_components = 2L,
-      n_epochs = 200L,
-      n_trees = 10L,
-      metric = "cosine",
-      learning_rate = 1L,
-      min_dist = 0.3,
-      spread = 1L,
-      set_op_mix_ratio = 1L,
-      local_connectivity = 1L,
-      repulsion_strength = 1L,
-      negative_sample_rate = 5L,
-      n_threads = n_threads,
-      verbose = FALSE
-    )
-    rownames(coords) <- colnames(so)
-    colnames(coords) <- c("UMAP_1", "UMAP_2")
-    so[["umap"]] <- Seurat::CreateDimReducObject(
-      embeddings = coords,
-      key = "UMAP_",
-      assay = Seurat::DefaultAssay(so)
-    )
-  } else {
-    so <- Seurat::RunTSNE(
-      so,
-      dims = seq_len(actual_dims),
-      check_duplicates = FALSE
-    )
-  }
-
-  so
+    method = method,
+    seed = seed,
+    cluster_algorithm = cluster_algorithm,
+    variable_selection = variable_selection,
+    progress_cb = function(phase, i = NULL, n = NULL) notify(phase)
+  )$so
 }
 
 
@@ -212,7 +122,7 @@ annotate_clones <- function(
   rlang::check_installed("Seurat", "for clone annotation.")
 
   # TODO: deprecated this function
-  so <- run_seurat_pipeline(
+  so <- cluster_cells_seurat(
     expression_matrix,
     method,
     min_cells,

@@ -40,6 +40,30 @@ test_that("qc_upper_threshold returns Inf when every value is identical", {
 })
 
 
+test_that("compute_qc_metrics detects mitochondrial genes given Ensembl IDs", {
+  # 10x GRCh38 references and many GEO uploads use Ensembl IDs as row names, so
+  # the "MT-" prefix never matches. If the fallback list were missing the mito
+  # fraction would be silently 0 and the mito fence would stop working.
+  counts <- matrix(
+    c(10, 10, 5, 5, 0, 0, 10, 5),
+    nrow = 4,
+    dimnames = list(
+      c(
+        "ENSG00000198888",
+        "ENSG00000198763",
+        "ENSG00000000003",
+        "ENSG00000000005"
+      ),
+      c("C1", "C2")
+    )
+  )
+  m <- compute_qc_metrics(counts)
+
+  expect_equal(m$pct_mito[1], 20 / 30 * 100, tolerance = 1e-8)
+  expect_equal(m$pct_mito[2], 0)
+})
+
+
 test_that("qc_filter_cells reports one row per patient", {
   sim <- make_mock_counts(n_cells = 40)
   res <- qc_filter_cells(sim$counts, sim$patient, nmads = 5)
@@ -109,7 +133,7 @@ test_that("detect_input_type accepts an integer matrix", {
 })
 
 
-test_that("preprocess_sc returns patient-local clones", {
+test_that("preprocess_sc labels every cell with a (patient, clone) pair", {
   skip_if_not_installed("Seurat")
   skip_if_not_installed("uwot")
 
@@ -129,6 +153,7 @@ test_that("preprocess_sc returns patient-local clones", {
       "qc",
       "qc_metrics",
       "excluded_cells",
+      "doublet_cells",
       "used_harmony",
       "label_source"
     )
@@ -149,14 +174,75 @@ test_that("preprocess_sc returns patient-local clones", {
     )
   )
 
-  # Cluster ids restart at 0 inside every patient, so the pair
-  # (patient, clone_id) must be unique even though clone_id alone is not.
+  # clone_key = "patient@@clone", so it is unique even when one clone id is
+  # shared by several patients (the default global clustering).
   pairs <- unique(res$cell_labels[, c("patient", "clone_id")])
   expect_equal(nrow(pairs), length(unique(res$cell_labels$clone_key)))
 
   expect_true(all(res$cell_labels$cluster_size_class %in% c("large", "small")))
   expect_true(all(res$cell_labels$patient %in% c("P1", "P2")))
   expect_equal(nrow(res$excluded_cells), 0L)
+})
+
+
+test_that("cluster_scope controls whether a clone can span patients", {
+  skip_if_not_installed("Seurat")
+  skip_if_not_installed("uwot")
+
+  sim <- make_mock_counts(n_genes = 300, n_cells = 80)
+  global <- preprocess_sc(
+    sim$counts,
+    sim$patient,
+    nmads = 5,
+    dims = 10,
+    resolution = 0.5
+  )
+  local <- preprocess_sc(
+    sim$counts,
+    sim$patient,
+    nmads = 5,
+    dims = 10,
+    resolution = 0.5,
+    cluster_scope = "patient"
+  )
+
+  # global (the default): at least one clone id contains cells of both patients
+  by_patient <- split(global$cell_labels$clone_id, global$cell_labels$patient)
+  expect_gt(length(intersect(by_patient$P1, by_patient$P2)), 0L)
+
+  # patient: numbers restart at 0 inside every patient, which is what makes the
+  # labels patient-local (the same id means different clusters in P1 and P2).
+  for (p in c("P1", "P2")) {
+    ids <- sort(unique(local$cell_labels$clone_id[
+      local$cell_labels$patient == p
+    ]))
+    expect_equal(ids, as.character(seq_along(ids) - 1L))
+  }
+  expect_equal(nrow(local$cell_labels), nrow(global$cell_labels))
+})
+
+
+test_that("skip_qc keeps every cell and marks the fences as off", {
+  skip_if_not_installed("Seurat")
+  skip_if_not_installed("uwot")
+
+  sim <- make_mock_counts(n_genes = 300, n_cells = 60)
+  # A gene floor above the panel size would normally remove every cell.
+  res <- preprocess_sc(
+    sim$counts,
+    sim$patient,
+    nmads = 5,
+    min_genes = 1e6,
+    dims = 10,
+    resolution = 0.5,
+    skip_qc = TRUE
+  )
+
+  expect_equal(nrow(res$cell_labels), ncol(sim$counts))
+  expect_equal(sum(res$qc$n_input), ncol(sim$counts))
+  expect_equal(sum(res$qc$n_kept), ncol(sim$counts))
+  expect_true(all(is.na(res$qc$genes_max)))
+  expect_true(all(res$qc$main_reason == "-"))
 })
 
 
@@ -183,6 +269,39 @@ test_that("exclude_markers removes cells that score high for a marker set", {
   expect_equal(unique(res$excluded_cells$set), "immune")
   expect_false(
     any(res$excluded_cells$cell_id %in% res$cell_labels$cell_id)
+  )
+})
+
+
+test_that("remove_doublets reports what it removed and keeps the counts consistent", {
+  skip_if_not_installed("Seurat")
+  skip_if_not_installed("uwot")
+  skip_if_not_installed("scDblFinder")
+  skip_if_not_installed("SingleCellExperiment")
+
+  sim <- make_mock_counts(n_genes = 300, n_cells = 120)
+  # Artificial doublets: sums of two random cells, the signal scDblFinder
+  # is designed to detect.
+  set.seed(7)
+  for (i in seq_len(10)) {
+    sim$counts[, i] <- sim$counts[, sample(ncol(sim$counts), 1)] +
+      sim$counts[, sample(ncol(sim$counts), 1)]
+  }
+
+  res <- suppressWarnings(preprocess_sc(
+    sim$counts,
+    sim$patient,
+    nmads = 5,
+    dims = 10,
+    resolution = 0.5,
+    remove_doublets = TRUE
+  ))
+
+  expect_true("n_doublet_removed" %in% names(res$qc))
+  expect_named(res$doublet_cells, c("cell_id", "patient", "score"))
+  expect_equal(
+    nrow(res$cell_labels),
+    sum(res$qc$n_kept) - sum(res$qc$n_doublet_removed)
   )
 })
 
@@ -319,12 +438,14 @@ test_that("a patient too small to cluster becomes a single clone", {
   # Two cells cannot support a neighbour graph; they must not abort the run.
   patient[colnames(sim$counts)[1:2]] <- "P_tiny"
 
+  # The single-clone fallback is part of the per-patient clustering path.
   res <- preprocess_sc(
     sim$counts,
     patient,
     nmads = 5,
     dims = 10,
-    resolution = 0.5
+    resolution = 0.5,
+    cluster_scope = "patient"
   )
 
   tiny <- res$cell_labels[res$cell_labels$patient == "P_tiny", ]

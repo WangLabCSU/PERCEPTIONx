@@ -253,7 +253,7 @@ mod_help_ui <- function(id) {
               ),
               strong("Expression Matrix"),
               p(
-                "A gene x cell single-cell expression matrix. Raw counts or normalized values. Rank normalization is applied automatically during Seurat clustering."
+                "A gene x cell single-cell expression matrix. Raw counts or normalized values. Accepts CSV / TSV / TXT / Excel / RDS, a 10x triplet (matrix.mtx + barcodes + features, loose or archived), or a Seurat object (.rds), whose counts layer is used and whose patient column fills the mapping automatically. Rank normalization is applied automatically during Seurat clustering."
               ),
               tags$span(class = "status-badge unloaded", "User upload")
             ),

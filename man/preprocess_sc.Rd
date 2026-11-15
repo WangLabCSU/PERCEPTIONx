@@ -8,9 +8,12 @@ preprocess_sc(
   counts,
   patient_labels,
   sample_labels = NULL,
-  nmads = 3,
+  nmads = 5,
   min_genes = 200,
   max_mito = 25,
+  max_genes = NULL,
+  skip_qc = FALSE,
+  remove_doublets = FALSE,
   exclude_markers = NULL,
   exclude_min_expr = 1,
   nfeatures = 2000,
@@ -19,6 +22,7 @@ preprocess_sc(
   resolution = 0.8,
   min_clone_cells = 10,
   integrate = c("auto", "none", "harmony"),
+  cluster_scope = c("global", "patient"),
   seed = 42,
   progress_cb = NULL
 )
@@ -36,13 +40,39 @@ or batch a cell belongs to. Required only when a patient has multiple
 samples. Default = \code{NULL}.}
 
 \item{nmads}{Numeric. Width of the MAD-based QC fence, in median absolute
-deviations. Default = 3.}
+deviations. Default = 5. Tumour tissue has genuinely higher
+mitochondrial content and larger cells than blood, so a 3-MAD fence
+removes real cells: against CellRanger's own calls on a real lung
+squamous carcinoma sample, 5 MAD recovers ~88\% of its cells versus
+~78\% at 3 MAD, with precision unchanged.}
 
 \item{min_genes}{Integer. Minimum detected genes per cell. Default = 200.}
 
 \item{max_mito}{Numeric. Hard cap on the mitochondrial fraction (\%). The
 effective threshold is the smaller of this and the MAD fence.
 Default = 25.}
+
+\item{max_genes}{Integer. Fixed upper bound on detected genes per cell. When
+\code{NULL} (default) the bound is estimated per patient as
+\code{median + nmads * MAD}, which is what removes empty droplets and
+high-complexity doublets. Set it to reproduce a fixed threshold such
+as the 2,500 genes used in most tutorials.}
+
+\item{skip_qc}{Logical. When \code{TRUE}, the MAD fences are not applied and
+every cell is kept; the QC table then only describes the input. This
+reproduces the original PERCEPTION pipeline, which expects an
+already-curated matrix (e.g. malignant cells downloaded from a paper),
+where an extra per-patient fence only perturbs the result. Default
+\code{FALSE} -- raw 10x data always needs the fences.}
+
+\item{remove_doublets}{Logical. When \code{TRUE}, cells classified as
+doublets by \pkg{scDblFinder} are removed after QC, one patient at a
+time. Doublets can pass every QC threshold -- they have normal gene
+counts and mitochondrial fractions -- yet they inflate the
+high-complexity tail and can form a spurious "resistant clone" made of
+two fused clones. Requires the optional \pkg{scDblFinder} package;
+without it the step is skipped with a warning. Default = \code{FALSE},
+because detection is probabilistic and should be opted into.}
 
 \item{exclude_markers}{Optional named list of gene vectors, e.g.
 \code{list(immune = c("PTPRC", "CD3D"), stromal = c("COL1A1"))}.
@@ -74,7 +104,13 @@ embedding; this only changes the coordinates returned in
 \item{integrate}{Character. Sample integration strategy within a patient:
 \code{"auto"} (default) applies harmony when a patient has multiple
 samples, \code{"none"} never integrates, \code{"harmony"} behaves
-like \code{"auto"}.}
+like \code{"auto"}. Only used when \code{cluster_scope = "patient"}.}
+
+\item{cluster_scope}{Character. \code{"global"} (default) clusters all cells
+together, matching the original PERCEPTION method, so one clone can
+span several patients. \code{"patient"} clusters inside each patient
+only, so clone labels are patient-specific. Identical for a
+single-patient dataset.}
 
 \item{seed}{Integer. Random seed. Default = 42.}
 
@@ -91,28 +127,39 @@ A list with:
 \code{dim_1}/\code{dim_2}. This is the \code{clone_labels} argument
 of \code{prepare_data()}.}
 \item{qc}{Data frame. Per-patient QC summary, including
-\code{n_marker_removed} when \code{exclude_markers} was used.}
+\code{n_marker_removed} when \code{exclude_markers} was used and
+\code{n_doublet_removed} when \code{remove_doublets = TRUE}.}
 \item{qc_metrics}{Data frame. Per-cell QC metrics before filtering.}
 \item{excluded_cells}{Data frame. Cells removed by \code{exclude_markers}
 (columns \code{cell_id}, \code{set}, \code{score}); empty when no
 marker filtering was requested.}
+\item{doublet_cells}{Data frame. Cells removed by \code{remove_doublets}
+(columns \code{cell_id}, \code{patient}, \code{score}); empty when
+the step was not requested or no doublets were found.}
 \item{used_harmony}{Logical. Whether harmony was applied.}
 \item{label_source}{Character. Always \code{"auto_cluster"}.}
 }
 }
 \description{
 End-to-end preprocessing for users who only have a raw count matrix: quality
-control, normalisation, variable-feature selection, PCA, and per-patient
-clustering, followed by a QC report. No tissue-specific thresholds are
+control, normalisation, variable-feature selection, PCA, and clustering,
+followed by a QC report. No tissue-specific thresholds are
 required; the QC fences adapt to each patient's own distribution.
 }
 \details{
-Clustering is performed \strong{within each patient} on a shared PCA embedding,
-so transcriptional clones can never span two patients. When a patient has
-more than one sample (e.g. longitudinal biopsies), harmony is applied inside
-that patient to prevent one biological clone from being split in two by a
-technical batch effect. \pkg{harmony} is an optional dependency: without it,
-the step is skipped with a warning.
+Clustering is performed on a shared PCA embedding. By default
+(\code{cluster_scope = "global"}) every cell is clustered together, which is
+what the original PERCEPTION method does: a clone is a transcriptional state
+that can appear in several patients. With \code{cluster_scope = "patient"}
+neighbours are searched inside each patient only, so a clone can never span
+two patients -- useful when clone labels are meant to be patient-specific.
+For a single-patient dataset the two settings are identical.
+
+When a patient has more than one sample (e.g. longitudinal biopsies) and
+\code{cluster_scope = "patient"}, harmony is applied inside that patient to
+prevent one biological clone from being split in two by a technical batch
+effect. \pkg{harmony} is an optional dependency: without it, the step is
+skipped with a warning.
 }
 \section{What "clone" means here}{
 

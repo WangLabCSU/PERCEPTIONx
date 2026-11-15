@@ -4,11 +4,18 @@
 
 - `preprocess_sc()` implements the full raw-counts to clone-label workflow:
   MAD-based per-patient quality control, normalisation, variable-feature
-  selection, a shared PCA embedding, and clustering **inside each patient**, so
-  a clone can never span two patients. When a patient has more than one sample
-  (e.g. longitudinal biopsies), harmony is applied within that patient so a
-  batch effect cannot split one clone in two. `harmony` is an optional
-  dependency and the step is skipped with a warning when it is absent.
+  selection, a shared PCA embedding, and clustering. `cluster_scope = "global"`
+  (default) clusters all cells together, as in the original PERCEPTION method,
+  so a clone id can occur in several patients; `cluster_scope = "patient"`
+  clusters inside each patient only, so a clone can never span two patients.
+  The two are identical for a single-patient dataset. With the patient scope,
+  harmony is applied inside a patient that has more than one sample
+  (e.g. longitudinal biopsies) so a batch effect cannot split one clone in two;
+  `harmony` is optional and the step is skipped with a warning when absent.
+- `preprocess_sc()` gains `skip_qc = FALSE`. With `skip_qc = TRUE` the MAD
+  fences are not applied and every cell is kept, which reproduces the original
+  PERCEPTION pipeline on an already-curated matrix; the QC table still reports
+  the input but marks the fences as `off`.
 - `plot_qc_report()` draws the per-patient QC fences, so the automatic
   filtering can be audited without knowing the MAD rule.
 - `prepare_data()` gains two alternative inputs. `data = <Seurat object>` reads
@@ -18,6 +25,13 @@
 - `prepare_data()` now records where the clone labels came from in
   `$label_source`: `auto_cluster`, `user_labels`, `seurat_idents`,
   `seurat_metadata`, or `provided_matrix_columns`.
+- `preprocess_sc()` gains `remove_doublets = FALSE`: when enabled, cells
+  classified as doublets by `scDblFinder` are removed after QC, one patient at
+  a time. Doublets pass every QC fence (normal gene counts and mitochondrial
+  fraction) yet can form a spurious clone made of two fused clones.
+  `scDblFinder` and `SingleCellExperiment` are optional (`Suggests`); without
+  them the step warns and is skipped. Removed cells are returned in
+  `$doublet_cells` and counted in `qc$n_doublet_removed`.
 - `preprocess_sc()` gains `exclude_markers` / `exclude_min_expr`: cells that
   strongly express a user-supplied marker set are removed before clustering, so
   immune and stromal populations do not form clusters that later read as
@@ -30,10 +44,21 @@
 
 ## Improvements
 
+- The MAD fence default is now `nmads = 5` (was 3). Benchmarked against
+  CellRanger's own cell calls on real unfiltered matrices: PBMC 3k Jaccard
+  0.914 -> 0.969, lung squamous carcinoma 0.711 -> 0.806, precision unchanged
+  in both. On the labelled Maynard cohort the patient-level AUC returns to the
+  no-QC value (0.821) instead of dropping to 0.750, i.e. QC stops deleting
+  real tumour cells.
+- Mitochondrial genes are now detected when row names are Ensembl IDs
+  (10x GRCh38 `features.tsv` column 1, many GEO uploads). Previously the
+  `MT-` prefix never matched, so `pct_mito` was silently 0 and the
+  mitochondrial fence did nothing.
 - Internal code migrated to `data.table`; user-facing results remain
   `data.frame`.
-- Messages and errors use `cli`; `run_seurat_pipeline()` is marked
-  `lifecycle::deprecate_soft()`.
+- Messages and errors use `cli`; `run_seurat_pipeline()` and its
+  `lifecycle` dependency were removed in favour of `prepare_data()` and the
+  shared `cluster_embedding()` core.
 - Drug catalogues are exported as documented objects:
   `perception_depmap_drugs`, `perception_fda_approved_drugs`,
   `perception_all_drugs`.
