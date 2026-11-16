@@ -82,9 +82,11 @@ you to use `t(counts)` instead of silently producing nonsense.
 
 # 3. What it does, in order
 
-1. **Quality control.** For each patient separately, cells are kept when their
-   gene count and mitochondrial fraction fall inside a fence at
-   `median ± nmads × MAD` (`nmads` defaults to 5). Tumour tissue carries more
+1. **Quality control.** For each patient separately, the gene count gets an
+   upper fence at `median + nmads × MAD` and the mitochondrial fraction an
+   upper fence at `min(median + nmads × MAD, max_mito)`; the lower gene bound is
+   the absolute `min_genes` (default 200), not a MAD fence. `nmads` defaults to
+   5. Tumour tissue carries more
    mitochondrial reads and larger cells than blood, so a narrow 3-MAD fence
    deletes real cells: on a real lung squamous carcinoma raw matrix, 5 MAD
    recovers ~88% of the cells CellRanger calls versus ~78% at 3 MAD, with

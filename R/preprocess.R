@@ -234,8 +234,9 @@ compute_qc_metrics <- function(counts) {
 # Filter low-quality cells, one patient at a time.
 #
 # Thresholds are derived from each patient's own distribution
-# (median +/- nmads * MAD) and then capped by absolute limits, so a sample
-# with >50% bad cells cannot silently widen the fence.
+# (upper fences at median + nmads * MAD, lower gene bound at min_genes) and
+# then capped by absolute limits, so a sample with >50% bad cells cannot
+# silently widen the fence.
 qc_filter_cells <- function(
   counts,
   patient,
@@ -1371,7 +1372,7 @@ plot_qc_report <- function(
     )
   } else {
     paste0(
-      "Dashed lines mark each sample's effective cut-off (median ± n×MAD).\n",
+      "Dashed lines mark each sample's effective cut-off (upper fences at median + n×MAD, lower gene bound at min_genes).\n",
       "Total counts has no cut-off and is shown for context."
     )
   }
