@@ -14,7 +14,7 @@ MIT + file LICENSE
 
 Useful links:
 
-- <https://wanglabcsu.github.io/PERCEPTIONx>
+- <https://wanglabcsu.github.io/PERCEPTIONx/>
 
 - <https://github.com/WangLabCSU/PERCEPTIONx>
 
