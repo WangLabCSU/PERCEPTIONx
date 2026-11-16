@@ -99,9 +99,10 @@ drug)} with the current pipeline stage (e.g. \code{"seurat-pca"},
 
 \item{data}{Optional \code{Seurat} object. When supplied, the expression
 matrix is read from \code{assay}/\code{layer}, clone labels from
-\code{clone_col} (or \code{Idents()}), and patient IDs from
-\code{patient_col}. Use this instead of \code{expression_matrix} plus
-\code{patient_mapping}.}
+\code{clone_col} (a metadata column, a label vector, or \code{Idents()}),
+and patient IDs from \code{patient_col} or, when the object has no such
+column, from \code{patient_mapping}. Use this instead of
+\code{expression_matrix} plus \code{patient_mapping}.}
 
 \item{clone_labels}{Optional data frame with \code{cell_id} and
 \code{clone_id} columns mapping every cell to a clone. Skips clustering.
@@ -119,7 +120,8 @@ otherwise \code{data}. Set it explicitly to override, e.g.
 \code{layer = "data"} to use normalised values.}
 
 \item{clone_col}{Character. Metadata column in \code{data} holding clone
-labels. When \code{NULL}, \code{Seurat::Idents(data)} is used.}
+labels, or a vector of labels with one entry per cell (in matrix column
+order). When \code{NULL}, \code{Seurat::Idents(data)} is used.}
 }
 \value{
 A named list with:
@@ -194,6 +196,9 @@ The pipeline performs:
   # Seurat object: patient IDs from metadata, or from a vector
   prepared <- prepare_data(data = so, patient_col = "patient_id")
   prepared <- prepare_data(data = so, patient_mapping = my_patients)
+
+  # Clone labels as a vector, one per cell (same length as ncol(so))
+  prepared <- prepare_data(data = so, clone_col = my_clones)
 }
 
 }

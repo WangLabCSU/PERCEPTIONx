@@ -69,6 +69,11 @@
   `patient_mapping` can be omitted, and the unfiltered matrix can be passed
   directly because unlabelled cells (removed by QC) are dropped with an
   informational message instead of an error.
+- `prepare_data()` also accepts patient and clone IDs as plain vectors
+  (`patient_mapping = my_patients`, `clone_col = my_clones`), so a Seurat
+  object does not need those columns in its metadata. While adding this, a bug
+  was fixed where the clone-level refinement overwrote Seurat-derived clone
+  labels with matrix column names.
 - DepMap now caches under `tools::R_user_dir("PERCEPTIONx", "cache")`, the
   platform cache directory, instead of the roaming user data directory. It is
   a regenerable 567 MB download, so it should not be synced or backed up with

@@ -348,6 +348,9 @@ seurat_expression_matrix <- function(data, assay = NULL, layer = NULL) {
 #'   # Seurat object: patient IDs from metadata, or from a vector
 #'   prepared <- prepare_data(data = so, patient_col = "patient_id")
 #'   prepared <- prepare_data(data = so, patient_mapping = my_patients)
+#'
+#'   # Clone labels as a vector, one per cell (same length as ncol(so))
+#'   prepared <- prepare_data(data = so, clone_col = my_clones)
 #' }
 #'
 #' @param parse_patient Logical. If TRUE, parse patient ID from cell_col using separator.
@@ -367,10 +370,10 @@ seurat_expression_matrix <- function(data, assay = NULL, layer = NULL) {
 #'   \code{"mapping"}). Used to show live progress in the Shiny app.
 #' @param data Optional \code{Seurat} object. When supplied, the expression
 #'   matrix is read from \code{assay}/\code{layer}, clone labels from
-#'   \code{clone_col} (or \code{Idents()}), and patient IDs from
-#'   \code{patient_col} or, when the object has no such column, from
-#'   \code{patient_mapping}. Use this instead of \code{expression_matrix} plus
-#'   \code{patient_mapping}.
+#'   \code{clone_col} (a metadata column, a label vector, or \code{Idents()}),
+#'   and patient IDs from \code{patient_col} or, when the object has no such
+#'   column, from \code{patient_mapping}. Use this instead of
+#'   \code{expression_matrix} plus \code{patient_mapping}.
 #' @param clone_labels Optional data frame with \code{cell_id} and
 #'   \code{clone_id} columns mapping every cell to a clone. Skips clustering.
 #'   This is the \code{cell_labels} element returned by \code{preprocess_sc()},
@@ -384,7 +387,8 @@ seurat_expression_matrix <- function(data, assay = NULL, layer = NULL) {
 #'   otherwise \code{data}. Set it explicitly to override, e.g.
 #'   \code{layer = "data"} to use normalised values.
 #' @param clone_col Character. Metadata column in \code{data} holding clone
-#'   labels. When \code{NULL}, \code{Seurat::Idents(data)} is used.
+#'   labels, or a vector of labels with one entry per cell (in matrix column
+#'   order). When \code{NULL}, \code{Seurat::Idents(data)} is used.
 #'
 #' @export
 prepare_data <- function(
@@ -456,15 +460,20 @@ prepare_data <- function(
           "i" = "Pass {.arg clone_col} to use a curated label column instead."
         ))
       }
-    } else {
-      if (!clone_col %in% colnames(metadata)) {
-        cli::cli_abort(c(
-          "Column {.val {clone_col}} not found in the Seurat object metadata.",
-          "i" = "Available columns: {.val {colnames(metadata)}}."
-        ))
-      }
+    } else if (length(clone_col) == 1L && clone_col %in% colnames(metadata)) {
       clone_ids <- as.character(metadata[[clone_col]])
       label_source <- "seurat_metadata"
+    } else if (length(clone_col) == ncol(expression_matrix)) {
+      # A vector of labels is the shortcut for labels that live outside the
+      # object, mirroring patient_mapping = my_patients.
+      clone_ids <- as.character(clone_col)
+      label_source <- "user_labels"
+    } else {
+      cli::cli_abort(c(
+        "{.arg clone_col} is neither a metadata column nor one label per cell.",
+        "x" = "Got {length(clone_col)} value{?s} for {ncol(expression_matrix)} cells.",
+        "i" = "Available columns: {.val {colnames(metadata)}}."
+      ))
     }
 
     clone_labels <- data.frame(
@@ -671,6 +680,10 @@ prepare_data <- function(
   }
 
   # --- Step 1: Define clones ------------------------------------------------
+  # Clone-level matrix mode: each column *is* a clone. Seurat input also sets
+  # skip_clustering, but its labels come from metadata/Idents (clone_labels is
+  # non-NULL there), so they must not be re-derived from column names.
+  clone_level_matrix <- isTRUE(skip_clustering) && is.null(clone_labels)
   if (!is.null(clone_labels)) {
     notify_stage("clones", 1L, 5L)
     cli::cli_progress_step("[1/5] Using supplied cell-to-clone labels...")
@@ -841,7 +854,7 @@ prepare_data <- function(
   # become "Kydar01@@c1" instead of "Kydar01@@Kydar01_c1". This only strips
   # when the cell name actually starts with its patient id; any other naming
   # scheme keeps the full name, so the behavior is universal.
-  if (isTRUE(skip_clustering)) {
+  if (clone_level_matrix) {
     clone_id <- patient <- cell_id <- NULL # ease checking NOTE
     cell_clone_map[,
       clone_id := {

@@ -573,6 +573,9 @@ test_that("prepare_data extracts labels from a Seurat object", {
 
   expect_equal(prepared$label_source, "seurat_idents")
   expect_true("clone_counts" %in% names(prepared))
+  # Regression guard: the clone-level refinement must not overwrite Idents labels
+  # with matrix column names.
+  expect_setequal(unique(prepared$cell_clone_map$clone_id), c("c1", "c2"))
 })
 
 
@@ -609,5 +612,36 @@ test_that("prepare_data accepts patient IDs as a vector for a Seurat object", {
   expect_error(
     prepare_data(data = so, patient_mapping = "P1", clone_col = "clone"),
     "one entry per cell"
+  )
+})
+
+
+test_that("prepare_data accepts clone IDs as a vector for a Seurat object", {
+  skip_if_not_installed("Seurat")
+
+  sim <- make_mock_counts(n_genes = 100, n_cells = 20)
+  so <- Seurat::CreateSeuratObject(
+    counts = sim$counts,
+    meta.data = data.frame(
+      patient = as.character(sim$patient),
+      row.names = colnames(sim$counts)
+    )
+  )
+  so <- Seurat::NormalizeData(so, verbose = FALSE)
+
+  clones <- rep(c("c1", "c2"), length.out = ncol(so))
+
+  prepared <- prepare_data(
+    data = so,
+    patient_col = "patient",
+    clone_col = clones
+  )
+
+  expect_equal(prepared$label_source, "user_labels")
+  expect_setequal(unique(prepared$cell_clone_map$clone_id), unique(clones))
+
+  expect_error(
+    prepare_data(data = so, patient_col = "patient", clone_col = clones[-1]),
+    "neither a metadata column"
   )
 })
