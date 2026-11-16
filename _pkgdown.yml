@@ -45,6 +45,7 @@ reference:
       - reset_mirrors
   - title: Preprocessing
     contents:
+      - read_10x
       - preprocess_sc
       - prepare_data
   - title: Model Training

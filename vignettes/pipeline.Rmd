@@ -312,6 +312,8 @@ patient_pred <- predict_patients(clone_pred, prepared)
 
 Useful options: `seurat_resolution` (Seurat clustering resolution), `genes_to_use` (restrict the gene space before clustering), and `skip_clustering = TRUE` — if your data is already clone-level (one column per clone), `prepare_data()` skips clustering and only builds the normalized clone matrix and counts.
 
+Two alternative inputs also skip clustering. `data = <Seurat object>` reads the matrix from `assay`/`layer` (the `counts` layer by default) and takes clone labels from `clone_col` — either a metadata column or a vector with one label per cell — falling back to `Idents()`; patient IDs come from `patient_col` or from a vector passed as `patient_mapping`. `clone_labels = <data.frame>` takes a cell-to-clone table such as `labels$cell_labels` from `preprocess_sc()`; cells without a label, for example the ones QC removed, are dropped instead of causing a size mismatch. The [raw-counts vignette](preprocess_from_raw_counts.html) covers the from-CellRanger path end to end.
+
 Clone identity is carried in the row names as `Patient@@Clone`; `parse_clone_keys()` splits them, and `clone_mean_expression()` / `build_clone_counts()` work on the cloned data for downstream analyses.
 
 ---

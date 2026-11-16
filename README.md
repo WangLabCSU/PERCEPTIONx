@@ -150,6 +150,8 @@ cp -r .claude/skills/perceptionx-result ~/.codex/skills/
 
 | Function | Description |
 |----|----|
+| `read_10x()` | Read a CellRanger folder, `.h5` file, or the three files into a count matrix |
+| `preprocess_sc()` | QC + clustering from raw counts → clone labels |
 | `prepare_data()` | Seurat clustering + rank normalization → clone-level inputs |
 
 ### 5.3 Model Training
@@ -186,6 +188,7 @@ cp -r .claude/skills/perceptionx-result ~/.codex/skills/
 | `plot_model_roc()` | Validation ROC curves after training |
 | `plot_seurat_clustering()` | Seurat clustering and UMAP visualization |
 | `plot_patient_response_panel()` | Composite patient response panel |
+| `plot_qc_report()` | QC metrics before/after filtering, per patient |
 
 ## 6. Workflow
 
