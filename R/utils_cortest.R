@@ -83,7 +83,11 @@ cor.test_trimmed_v0.default <-
       }
       method <- "Pearson's product-moment correlation"
       names(NVAL) <- "correlation"
-      r <- if (rlang::is_installed("WGCNA")) WGCNA::cor(x, y) else stats::cor(x, y)
+      r <- if (rlang::is_installed("WGCNA")) {
+        WGCNA::cor(x, y)
+      } else {
+        stats::cor(x, y)
+      }
       df <- n - 2L
       ESTIMATE <- c(cor = r)
       PARAMETER <- c(df = df)
@@ -111,7 +115,10 @@ cor.test_trimmed_v0.default <-
         "less" = stats::pt(STATISTIC, df),
         "greater" = stats::pt(STATISTIC, df, lower.tail = FALSE),
         "two.sided" = 2L *
-          min(stats::pt(STATISTIC, df), stats::pt(STATISTIC, df, lower.tail = FALSE))
+          min(
+            stats::pt(STATISTIC, df),
+            stats::pt(STATISTIC, df, lower.tail = FALSE)
+          )
       )
     }
 

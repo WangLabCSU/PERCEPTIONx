@@ -17,17 +17,17 @@ test_that("core pipeline runs end-to-end on mock DepMap", {
   genes <- rownames(DepMap$expression_rnorm)
 
   models <- train_models(
-    drug_list       = "erlotinib",
-    cancer_type     = "PanCan",
-    exclude_cancer  = "PanCan",
-    GOI             = head(genes, 20),
-    k_features_values = c(5, 10),   # small: 60 genes would otherwise give k = 0
-    ncores          = 1,
-    model_type      = "glmnet",
-    num_folds       = 2,
-    alpha_gradient  = 0.5,          # shrink the tuning grid for speed
+    drug_list = "erlotinib",
+    cancer_type = "PanCan",
+    exclude_cancer = "PanCan",
+    GOI = head(genes, 20),
+    k_features_values = c(5, 10), # small: 60 genes would otherwise give k = 0
+    ncores = 1,
+    model_type = "glmnet",
+    num_folds = 2,
+    alpha_gradient = 0.5, # shrink the tuning grid for speed
     lambda_gradient = 5,
-    output_dir      = tempdir()
+    output_dir = tempdir()
   )
 
   expect_type(models, "list")
@@ -41,9 +41,9 @@ test_that("core pipeline runs end-to-end on mock DepMap", {
   expect_equal(nrow(pred), 2)
 
   # Aggregate to patient level with the weighted_max default.
-  clone_ids <- colnames(expr_test)   # clone/sample names from the mock matrix
+  clone_ids <- colnames(expr_test) # clone/sample names from the mock matrix
   clone_viability_df <- data.frame(
-    patient  = rep("P1", length(clone_ids)),
+    patient = rep("P1", length(clone_ids)),
     clone_id = clone_ids,
     erlotinib = as.numeric(pred[, 1]),
     check.names = FALSE

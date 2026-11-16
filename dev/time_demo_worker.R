@@ -15,20 +15,32 @@ dir.create(jobs_dir, recursive = TRUE, showWarnings = FALSE)
 t_spawn <- proc.time()[3]
 worker <- callr::r_bg(
   func = session_task_main,
-  args = list(pkg_root = "c:/Users/Lenovo/Desktop/PERCEPTION", jobs_dir = jobs_dir),
-  supervise = TRUE, poll_connection = FALSE,
-  stdout = FALSE, stderr = file.path(jobs_dir, "worker.log"))
+  args = list(
+    pkg_root = "c:/Users/Lenovo/Desktop/PERCEPTION",
+    jobs_dir = jobs_dir
+  ),
+  supervise = TRUE,
+  poll_connection = FALSE,
+  stdout = FALSE,
+  stderr = file.path(jobs_dir, "worker.log")
+)
 cat(sprintf("worker spawned (returned): %.1fs\n", proc.time()[3] - t_spawn))
 
 deadline <- proc.time()[3] + 120
 while (proc.time()[3] < deadline) {
   if (file.exists(file.path(jobs_dir, "worker.log"))) {
-    log <- tryCatch(readLines(file.path(jobs_dir, "worker.log"), warn = FALSE), error = function(e) "")
+    log <- tryCatch(
+      readLines(file.path(jobs_dir, "worker.log"), warn = FALSE),
+      error = function(e) ""
+    )
     if (any(grepl("started, polling", log))) break
   }
   Sys.sleep(0.5)
 }
-cat(sprintf("worker ready (PERCEPTIONx loaded, polling): %.1fs\n", proc.time()[3] - t_spawn))
+cat(sprintf(
+  "worker ready (PERCEPTIONx loaded, polling): %.1fs\n",
+  proc.time()[3] - t_spawn
+))
 
 # Helper: submit a task and wait for done (mirrors app behaviour)
 submit_wait <- function(task, args) {
@@ -43,10 +55,14 @@ submit_wait <- function(task, args) {
     sf <- file.path(job_dir, "status.txt")
     if (file.exists(sf)) {
       s <- readLines(sf, warn = FALSE)
-      if (length(s) > 0 && s[1] == "done") break
+      if (length(s) > 0 && s[1] == "done") {
+        break
+      }
       if (length(s) > 0 && startsWith(s[1], "error")) stop("task error: ", s[1])
     }
-    if (proc.time()[3] - t0 > 300) stop("timeout")
+    if (proc.time()[3] - t0 > 300) {
+      stop("timeout")
+    }
     Sys.sleep(0.2)
   }
   proc.time()[3] - t0

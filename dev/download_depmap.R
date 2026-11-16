@@ -12,7 +12,11 @@
 .libPaths(c('/data/home/dingjia/R/library', .libPaths()))
 
 args <- commandArgs(trailingOnly = TRUE)
-dest <- if (length(args) >= 1) args[1] else file.path(Sys.getenv('HOME'), 'DepMap_cache')
+dest <- if (length(args) >= 1) {
+  args[1]
+} else {
+  file.path(Sys.getenv('HOME'), 'DepMap_cache')
+}
 dir.create(dest, recursive = TRUE, showWarnings = FALSE)
 
 suppressMessages(library(PERCEPTIONx))
@@ -23,8 +27,13 @@ cat('dest:', dest, '\n')
 # mirror = TRUE: direct GitHub is ~0 on this server, the gh-proxy mirrors are
 # usable (~50KB/s). The app's "Download & Load" button passes the same flag
 # when the user enables 'Use mirror'.
-PERCEPTIONx::load_depmap(dest = dest, read = FALSE, mirror = TRUE,
-                         timeout_seconds = 600, retries = 2)
+PERCEPTIONx::load_depmap(
+  dest = dest,
+  read = FALSE,
+  mirror = TRUE,
+  timeout_seconds = 600,
+  retries = 2
+)
 
 f <- file.path(dest, 'DepMap.RDS')
 if (file.exists(f)) {

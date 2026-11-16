@@ -14,9 +14,9 @@ test_that("train_models returns a list with expected structure", {
     cancer_type = "PanCan",
     exclude_cancer = "PanCan",
     GOI = head(rownames(DepMap$expression_rnorm), 20),
-    k_features_values = c(5, 10),   # small: default would give k = 0 on 60 genes
+    k_features_values = c(5, 10), # small: default would give k = 0 on 60 genes
     ncores = 1,
-    output_dir = tempdir()   # do not leave large model RDS in tests/testthat
+    output_dir = tempdir() # do not leave large model RDS in tests/testthat
   )
 
   expect_type(models, "list")

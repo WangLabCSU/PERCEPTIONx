@@ -11,13 +11,29 @@ library(testthat)
 # 3 drugs x 6 clones (2 patients, 3 clones each), row names = canonical keys
 make_pred_matrix <- function() {
   m <- matrix(
-    c(-1.2, -0.8,  0.5,   # P1_c1 erlo / gefi / osi
-      -0.5, -0.1,  0.2,   # P1_c2
-       0.3,  0.7, -0.4,   # P1_c3
-      -2.1, -1.5,  0.1,   # P2_c1
-       0.0,  0.4,  0.8,   # P2_c2
-       1.5, -0.2, -0.9),  # P2_c3
-    nrow = 6, ncol = 3, byrow = TRUE,
+    c(
+      -1.2,
+      -0.8,
+      0.5, # P1_c1 erlo / gefi / osi
+      -0.5,
+      -0.1,
+      0.2, # P1_c2
+      0.3,
+      0.7,
+      -0.4, # P1_c3
+      -2.1,
+      -1.5,
+      0.1, # P2_c1
+      0.0,
+      0.4,
+      0.8, # P2_c2
+      1.5,
+      -0.2,
+      -0.9
+    ), # P2_c3
+    nrow = 6,
+    ncol = 3,
+    byrow = TRUE,
     dimnames = list(
       c("P1@@c1", "P1@@c2", "P1@@c3", "P2@@c1", "P2@@c2", "P2@@c3"),
       c("erlotinib", "gefitinib", "osimertinib")
@@ -29,8 +45,12 @@ make_pred_matrix <- function() {
 # weights for predict_patients
 clone_counts_for <- function() {
   data.frame(
-    P1_c1 = 200, P1_c2 = 300, P1_c3 = 100,
-    P2_c1 = 150, P2_c2 = 100, P2_c3 = 250,
+    P1_c1 = 200,
+    P1_c2 = 300,
+    P1_c3 = 100,
+    P2_c1 = 150,
+    P2_c2 = 100,
+    P2_c3 = 250,
     patients = c("P1", "P2")
   )
 }
@@ -43,7 +63,7 @@ clone_counts_for <- function() {
 test_that("row-name clone keys are parsed correctly (matrix input)", {
   m <- make_pred_matrix()
   out <- combine_drugs(m)
-  expect_equal(out$patient,  c("P1", "P1", "P1", "P2", "P2", "P2"))
+  expect_equal(out$patient, c("P1", "P1", "P1", "P2", "P2", "P2"))
   expect_equal(out$clone_id, c("c1", "c2", "c3", "c1", "c2", "c3"))
   expect_equal(nrow(out), 6)
   expect_true("comb_viability" %in% names(out))
@@ -51,36 +71,41 @@ test_that("row-name clone keys are parsed correctly (matrix input)", {
 
 test_that("explicit patient/clone_id vectors override row-name parsing", {
   m <- make_pred_matrix()
-  out <- combine_drugs(m, patient = rep(c("X", "Y"), each = 3),
-                           clone_id = rep(c("a", "b", "c"), 2))
-  expect_equal(out$patient,  rep(c("X", "Y"), each = 3))
+  out <- combine_drugs(
+    m,
+    patient = rep(c("X", "Y"), each = 3),
+    clone_id = rep(c("a", "b", "c"), 2)
+  )
+  expect_equal(out$patient, rep(c("X", "Y"), each = 3))
   expect_equal(out$clone_id, rep(c("a", "b", "c"), 2))
 })
 
 test_that("data.frame input with patient/clone_id columns works", {
   m <- make_pred_matrix()
   df <- data.frame(
-    patient  = rep(c("P1", "P2"), each = 3),
+    patient = rep(c("P1", "P2"), each = 3),
     clone_id = rep(c("c1", "c2", "c3"), 2),
-    erlotinib     = m[, "erlotinib"],
-    gefitinib     = m[, "gefitinib"],
-    osimertinib   = m[, "osimertinib"],
+    erlotinib = m[, "erlotinib"],
+    gefitinib = m[, "gefitinib"],
+    osimertinib = m[, "osimertinib"],
     stringsAsFactors = FALSE
   )
   out <- combine_drugs(df)
-  expect_equal(out$patient,  df$patient)
+  expect_equal(out$patient, df$patient)
   expect_equal(out$clone_id, df$clone_id)
 })
 
 test_that("missing row names and no patient args raises error", {
   m <- matrix(1:6, nrow = 2, ncol = 3)
-  expect_error(combine_drugs(m), "row names must be canonical PERCEPTION clone keys")
+  expect_error(
+    combine_drugs(m),
+    "row names must be canonical PERCEPTION clone keys"
+  )
 })
 
 test_that("wrong-length patient args raises error", {
   m <- make_pred_matrix()
-  expect_error(combine_drugs(m, patient = "P1", clone_id = "c1"),
-               "lengths")
+  expect_error(combine_drugs(m, patient = "P1", clone_id = "c1"), "lengths")
 })
 
 test_that("zero-drug input raises error", {
@@ -116,7 +141,11 @@ test_that("combine_rule = 'max' matches apply(z,1,max)", {
   out <- combine_drugs(m, combine_rule = "max")
 
   z <- scale(m)
-  expect_equal(out$comb_viability, as.numeric(apply(z, 1, max)), tolerance = 1e-12)
+  expect_equal(
+    out$comb_viability,
+    as.numeric(apply(z, 1, max)),
+    tolerance = 1e-12
+  )
 })
 
 test_that("combine_rule = 'median' matches apply(z,1,median)", {
@@ -124,8 +153,11 @@ test_that("combine_rule = 'median' matches apply(z,1,median)", {
   out <- combine_drugs(m, combine_rule = "median")
 
   z <- scale(m)
-  expect_equal(out$comb_viability,
-               as.numeric(apply(z, 1, stats::median)), tolerance = 1e-12)
+  expect_equal(
+    out$comb_viability,
+    as.numeric(apply(z, 1, stats::median)),
+    tolerance = 1e-12
+  )
 })
 
 
@@ -143,10 +175,15 @@ test_that("single-drug input: comb_viability equals that drug's z-score", {
 
 test_that("constant drug column (sd=0) gets z=0; non-constant column z-scores normally", {
   # Both columns constant → sd=0 for both → all z=0 → min(0,0)=0
-  m <- matrix(c(1, 1, 1, 2, 2, 2), nrow = 6, ncol = 2,
-              dimnames = list(
-                paste0("P", rep(1:2, each = 3), "@@c", 1:3),
-                c("a", "b")))
+  m <- matrix(
+    c(1, 1, 1, 2, 2, 2),
+    nrow = 6,
+    ncol = 2,
+    dimnames = list(
+      paste0("P", rep(1:2, each = 3), "@@c", 1:3),
+      c("a", "b")
+    )
+  )
   m[, 1] <- 5
   m[, 2] <- -1
   out <- combine_drugs(m)
@@ -155,11 +192,11 @@ test_that("constant drug column (sd=0) gets z=0; non-constant column z-scores no
 
 test_that("NA handling respects na.rm", {
   m <- make_pred_matrix()
-  m[1, 2] <- NA   # P1_c1 gefitinib = NA
+  m[1, 2] <- NA # P1_c1 gefitinib = NA
 
   # na.rm = TRUE (default): z-score computed on remaining, then min across
   out_keep <- combine_drugs(m, na.rm = TRUE)
-  z_full <- scale(m)                         # R scale() uses na.rm=FALSE → P1_c1 row 2 is NA
+  z_full <- scale(m) # R scale() uses na.rm=FALSE → P1_c1 row 2 is NA
   # Our per-col z loops set sd(NA...) → NA → whole col z is NA. Fix: we should
   # compute z-score per-column correctly with na.rm=TRUE. This will fail until
   # we fix the per-col sd call.
@@ -170,13 +207,13 @@ test_that("include_single_z returns per-drug z-score columns", {
   out <- combine_drugs(m, include_single_z = TRUE)
 
   expect_true("comb_viability" %in% names(out))
-  expect_true("erlotinib.z"    %in% names(out))
-  expect_true("gefitinib.z"    %in% names(out))
-  expect_true("osimertinib.z"  %in% names(out))
+  expect_true("erlotinib.z" %in% names(out))
+  expect_true("gefitinib.z" %in% names(out))
+  expect_true("osimertinib.z" %in% names(out))
 
   z <- scale(m)
-  expect_equal(out$erlotinib.z,   as.numeric(z[, 1]), tolerance = 1e-12)
-  expect_equal(out$gefitinib.z,   as.numeric(z[, 2]), tolerance = 1e-12)
+  expect_equal(out$erlotinib.z, as.numeric(z[, 1]), tolerance = 1e-12)
+  expect_equal(out$gefitinib.z, as.numeric(z[, 2]), tolerance = 1e-12)
   expect_equal(out$osimertinib.z, as.numeric(z[, 3]), tolerance = 1e-12)
 })
 

@@ -14,11 +14,13 @@ fake_roc_model <- function(seed = 1) {
     obs <- rnorm(n)
     data.frame(Observed = obs, Pred = 0.5 * obs + rnorm(n))
   }
-  list(predVSgroundTruth = list(
-    pred_gt_bulk   = mk(),
-    pred_gt_mscRNA = mk(),
-    pred_gt_scRNA  = mk()
-  ))
+  list(
+    predVSgroundTruth = list(
+      pred_gt_bulk = mk(),
+      pred_gt_mscRNA = mk(),
+      pred_gt_scRNA = mk()
+    )
+  )
 }
 
 test_that("plot_model_roc builds a ROC plot from model objects", {
@@ -29,14 +31,17 @@ test_that("plot_model_roc builds a ROC plot from model objects", {
 
 test_that("plot_clone_umap returns ggplot with tooltip handling", {
   tsne_data <- data.frame(
-    X = rnorm(50), Y = rnorm(50),
+    X = rnorm(50),
+    Y = rnorm(50),
     clone_id = sample(paste0("c", 1:4), 50, replace = TRUE)
   )
   p <- plot_clone_umap(tsne_data)
   expect_s3_class(p, "ggplot")
 
-  expect_error(plot_clone_umap(data.frame(X = 1:5, Y = 1:5)),
-               "must contain columns")
+  expect_error(
+    plot_clone_umap(data.frame(X = 1:5, Y = 1:5)),
+    "must contain columns"
+  )
 })
 
 test_that("plot_seurat_clustering returns embedding plot and cluster ids", {
@@ -44,21 +49,31 @@ test_that("plot_seurat_clustering returns embedding plot and cluster ids", {
   set.seed(7)
   genes <- sprintf("GENE%03d", seq_len(60))
   cells <- paste0("C", seq_len(30))
-  expr <- matrix(rpois(60 * 30, lambda = 5), nrow = 60,
-                 dimnames = list(genes, cells))
+  expr <- matrix(
+    rpois(60 * 30, lambda = 5),
+    nrow = 60,
+    dimnames = list(genes, cells)
+  )
 
-  res <- plot_seurat_clustering("umap", expr,
-                                min_cells = 3, min_features = 5,
-                                nfeatures = 60, dims = 5)
+  res <- plot_seurat_clustering(
+    "umap",
+    expr,
+    min_cells = 3,
+    min_features = 5,
+    nfeatures = 60,
+    dims = 5
+  )
   expect_type(res, "list")
-  expect_true(all(c("seurat_object", "embedding_plot", "cluster_ids") %in% names(res)))
+  expect_true(all(
+    c("seurat_object", "embedding_plot", "cluster_ids") %in% names(res)
+  ))
 })
 
 test_that("plot_patient_response_panel arranges all panels", {
   clone_dist <- data.frame(
     patients = c("P1", "P1", "P2", "P2"),
-    clones   = c("c1", "c2", "c1", "c2"),
-    weights  = c(0.6, 0.4, 0.7, 0.3),
+    clones = c("c1", "c2", "c1", "c2"),
+    weights = c(0.6, 0.4, 0.7, 0.3),
     response = c("R", "R", "NR", "NR")
   )
   clone_viab <- data.frame(
@@ -79,7 +94,8 @@ test_that("plot_patient_response_panel arranges all panels", {
 
 test_that("plot_tsne_biomarker_viability arranges two UMAP panels", {
   tsne_data <- data.frame(
-    X = rnorm(50), Y = rnorm(50),
+    X = rnorm(50),
+    Y = rnorm(50),
     biomarker_scaled = runif(50),
     viability_scaled = runif(50)
   )
@@ -97,8 +113,8 @@ test_that("internal response tag and p-value helpers behave", {
 })
 
 test_that("export_plot_cairo writes a file", {
-  p <- ggplot2::ggplot(data.frame(x = 1:5, y = 1:5),
-                       ggplot2::aes(x, y)) + ggplot2::geom_point()
+  p <- ggplot2::ggplot(data.frame(x = 1:5, y = 1:5), ggplot2::aes(x, y)) +
+    ggplot2::geom_point()
   f <- tempfile(fileext = ".png")
   export_plot_cairo(f, p, format = "png")
   expect_true(file.exists(f))

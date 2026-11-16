@@ -12,11 +12,14 @@ test_that("prepare_data runs the full clustering pipeline on mock data", {
   set.seed(7)
   genes <- sprintf("GENE%03d", seq_len(60))
   cells <- paste0("C", seq_len(30))
-  expr <- matrix(rpois(60 * 30, lambda = 5), nrow = 60,
-                 dimnames = list(genes, cells))
+  expr <- matrix(
+    rpois(60 * 30, lambda = 5),
+    nrow = 60,
+    dimnames = list(genes, cells)
+  )
 
   patient_mapping <- data.frame(
-    cell_id    = cells,
+    cell_id = cells,
     patient_id = c(rep("P1", 15), rep("P2", 15)),
     stringsAsFactors = FALSE
   )
@@ -46,8 +49,11 @@ test_that("prepare_data skip_clustering treats each column as a clone", {
   set.seed(7)
   genes <- sprintf("GENE%03d", seq_len(60))
   clones <- c("P1_c1", "P1_c2", "P2_c1")
-  expr <- matrix(rpois(60 * 3, lambda = 5), nrow = 60,
-                 dimnames = list(genes, clones))
+  expr <- matrix(
+    rpois(60 * 3, lambda = 5),
+    nrow = 60,
+    dimnames = list(genes, clones)
+  )
 
   prepared <- prepare_data(
     expression_matrix = expr,

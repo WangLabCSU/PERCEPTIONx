@@ -14,7 +14,9 @@ test_that("extract_depmap_meta reads metadata from a mock DepMap RDS", {
   expect_true(length(meta$genes) == 60)
   expect_equal(meta$drugs, c("erlotinib", "gefitinib"))
   expect_equal(meta$lineages, "Lung")
-  expect_true(all(c("expression_rnorm", "secondary_prism") %in% names(meta$components)))
+  expect_true(all(
+    c("expression_rnorm", "secondary_prism") %in% names(meta$components)
+  ))
 })
 
 test_that("extract_depmap_meta uses a fresh cache file", {
