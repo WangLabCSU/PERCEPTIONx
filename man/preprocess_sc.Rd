@@ -177,7 +177,6 @@ evidence is required to call true clones.
   labels <- preprocess_sc(counts, patient_labels = cell_patients)
   prepared <- prepare_data(
     expression_matrix = counts,
-    patient_mapping = labels$cell_labels[, c("cell_id", "patient")],
     clone_labels = labels$cell_labels
   )
 }
