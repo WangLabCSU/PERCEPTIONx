@@ -574,3 +574,40 @@ test_that("prepare_data extracts labels from a Seurat object", {
   expect_equal(prepared$label_source, "seurat_idents")
   expect_true("clone_counts" %in% names(prepared))
 })
+
+
+test_that("prepare_data accepts patient IDs as a vector for a Seurat object", {
+  skip_if_not_installed("Seurat")
+
+  sim <- make_mock_counts(n_genes = 100, n_cells = 20)
+  so <- Seurat::CreateSeuratObject(
+    counts = sim$counts,
+    meta.data = data.frame(
+      clone = rep(c("c1", "c2"), length.out = ncol(sim$counts)),
+      row.names = colnames(sim$counts)
+    )
+  )
+  so <- Seurat::NormalizeData(so, verbose = FALSE)
+
+  # No patient column in the metadata: the vector is the only grouping source.
+  expect_error(
+    prepare_data(data = so, patient_col = "patient"),
+    "not found"
+  )
+
+  prepared <- prepare_data(
+    data = so,
+    patient_mapping = as.character(sim$patient),
+    clone_col = "clone"
+  )
+
+  expect_setequal(
+    prepared$clone_counts$patients,
+    unique(as.character(sim$patient))
+  )
+
+  expect_error(
+    prepare_data(data = so, patient_mapping = "P1", clone_col = "clone"),
+    "one entry per cell"
+  )
+})

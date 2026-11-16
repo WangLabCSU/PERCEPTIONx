@@ -262,7 +262,8 @@ seurat_expression_matrix <- function(data, assay = NULL, layer = NULL) {
 #'        t-SNE emphasizes local neighborhoods.
 #' @param expression_matrix Matrix. Gene expression matrix with genes as rows
 #'        and cells as columns.
-#' @param patient_mapping List or data frame. Patient-cell mapping in one of two formats:
+#' @param patient_mapping List, data frame, or character vector. Patient-cell
+#'   mapping in one of three formats:
 #'   \describe{
 #'     \item{List format}{Named list where each element is a patient ID and
 #'        contains a character vector of cell IDs. Example:
@@ -270,6 +271,9 @@ seurat_expression_matrix <- function(data, assay = NULL, layer = NULL) {
 #'     \item{Data frame format}{Metadata with cell ID and patient ID columns.
 #'        Specify column names via \code{cell_col} and \code{patient_col}.
 #'        Example: \code{data.frame(cell_id = c("Cell_1", "Cell_2"), patient_id = c("P1", "P1"))}}
+#'     \item{Vector format}{One patient ID per cell, in the column order of the
+#'        expression matrix; a named vector is matched by cell ID instead. Use
+#'        this when the IDs already exist as a variable, e.g. \code{my_patients}.}
 #'   }
 #'   If NULL and \code{clone_labels} carries a \code{patient} (or
 #'   \code{patient_id}) column, the grouping is taken from those labels.
@@ -340,6 +344,10 @@ seurat_expression_matrix <- function(data, assay = NULL, layer = NULL) {
 #'     expression_matrix = counts,
 #'     clone_labels = labels$cell_labels
 #'   )
+#'
+#'   # Seurat object: patient IDs from metadata, or from a vector
+#'   prepared <- prepare_data(data = so, patient_col = "patient_id")
+#'   prepared <- prepare_data(data = so, patient_mapping = my_patients)
 #' }
 #'
 #' @param parse_patient Logical. If TRUE, parse patient ID from cell_col using separator.
@@ -360,7 +368,8 @@ seurat_expression_matrix <- function(data, assay = NULL, layer = NULL) {
 #' @param data Optional \code{Seurat} object. When supplied, the expression
 #'   matrix is read from \code{assay}/\code{layer}, clone labels from
 #'   \code{clone_col} (or \code{Idents()}), and patient IDs from
-#'   \code{patient_col}. Use this instead of \code{expression_matrix} plus
+#'   \code{patient_col} or, when the object has no such column, from
+#'   \code{patient_mapping}. Use this instead of \code{expression_matrix} plus
 #'   \code{patient_mapping}.
 #' @param clone_labels Optional data frame with \code{cell_id} and
 #'   \code{clone_id} columns mapping every cell to a clone. Skips clustering.
@@ -458,23 +467,31 @@ prepare_data <- function(
       label_source <- "seurat_metadata"
     }
 
-    if (!patient_col %in% colnames(metadata)) {
-      cli::cli_abort(c(
-        "Column {.val {patient_col}} not found in the Seurat object metadata.",
-        "i" = "Use {.arg patient_col} to name the column that holds patient IDs.",
-        "i" = "Available columns: {.val {colnames(metadata)}}."
-      ))
-    }
-
     clone_labels <- data.frame(
       cell_id = colnames(expression_matrix),
       clone_id = clone_ids,
       stringsAsFactors = FALSE
     )
-    # Name the patient column exactly as `patient_col` so the downstream
-    # split() below finds it without a second lookup table.
-    clone_labels[[patient_col]] <- as.character(metadata[[patient_col]])
-    patient_mapping <- clone_labels[, c("cell_id", patient_col)]
+    has_patient_col <- patient_col %in% colnames(metadata)
+    if (has_patient_col) {
+      # Name the patient column exactly as `patient_col` so the downstream
+      # split() below finds it without a second lookup table.
+      clone_labels[[patient_col]] <- as.character(metadata[[patient_col]])
+    }
+
+    # An explicit mapping wins, so the object does not have to carry patient
+    # IDs: e.g. prepare_data(data = so, patient_mapping = my_patients).
+    if (is.null(patient_mapping)) {
+      if (!has_patient_col) {
+        cli::cli_abort(c(
+          "Column {.val {patient_col}} not found in the Seurat object metadata.",
+          "i" = "Set {.arg patient_col} to the column that holds patient IDs, or",
+          "i" = "pass {.arg patient_mapping} with one ID per cell.",
+          "i" = "Available columns: {.val {colnames(metadata)}}."
+        ))
+      }
+      patient_mapping <- clone_labels[, c("cell_id", patient_col)]
+    }
     skip_clustering <- TRUE
   }
 
@@ -482,6 +499,31 @@ prepare_data <- function(
     cli::cli_abort(
       "Supply either {.arg data} (a Seurat object) or {.arg expression_matrix}."
     )
+  }
+
+  # A plain vector is the shortest way to pass patient IDs that already exist as
+  # a variable (e.g. `my_patients`). A named vector is matched by cell name; an
+  # unnamed one is taken in the column order of the matrix.
+  if (is.factor(patient_mapping)) {
+    patient_mapping <- as.character(patient_mapping)
+  }
+  if (is.character(patient_mapping)) {
+    if (length(patient_mapping) != ncol(expression_matrix)) {
+      cli::cli_abort(c(
+        "{.arg patient_mapping} as a vector must have one entry per cell.",
+        "x" = "Got {length(patient_mapping)} IDs for {ncol(expression_matrix)} cells."
+      ))
+    }
+    cell_ids <- names(patient_mapping)
+    if (is.null(cell_ids)) {
+      cell_ids <- colnames(expression_matrix)
+    }
+    patient_mapping <- data.frame(
+      cell_id = cell_ids,
+      patient = unname(patient_mapping),
+      stringsAsFactors = FALSE
+    )
+    names(patient_mapping) <- c(cell_col, patient_col)
   }
 
   # Labels from preprocess_sc() already carry the patient of every cell, so a

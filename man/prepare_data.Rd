@@ -38,7 +38,8 @@ t-SNE emphasizes local neighborhoods.}
 \item{expression_matrix}{Matrix. Gene expression matrix with genes as rows
 and cells as columns.}
 
-\item{patient_mapping}{List or data frame. Patient-cell mapping in one of two formats:
+\item{patient_mapping}{List, data frame, or character vector. Patient-cell
+mapping in one of three formats:
 \describe{
 \item{List format}{Named list where each element is a patient ID and
 contains a character vector of cell IDs. Example:
@@ -46,6 +47,9 @@ contains a character vector of cell IDs. Example:
 \item{Data frame format}{Metadata with cell ID and patient ID columns.
 Specify column names via \code{cell_col} and \code{patient_col}.
 Example: \code{data.frame(cell_id = c("Cell_1", "Cell_2"), patient_id = c("P1", "P1"))}}
+\item{Vector format}{One patient ID per cell, in the column order of the
+expression matrix; a named vector is matched by cell ID instead. Use
+this when the IDs already exist as a variable, e.g. \code{my_patients}.}
 }
 If NULL and \code{clone_labels} carries a \code{patient} (or
 \code{patient_id}) column, the grouping is taken from those labels.
@@ -186,6 +190,10 @@ The pipeline performs:
     expression_matrix = counts,
     clone_labels = labels$cell_labels
   )
+
+  # Seurat object: patient IDs from metadata, or from a vector
+  prepared <- prepare_data(data = so, patient_col = "patient_id")
+  prepared <- prepare_data(data = so, patient_mapping = my_patients)
 }
 
 }
