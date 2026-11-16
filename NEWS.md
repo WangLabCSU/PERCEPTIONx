@@ -2,6 +2,11 @@
 
 ## New features
 
+- `read_10x()` reads a CellRanger output folder, a `.h5` file, or the three
+  files passed explicitly, and returns the sparse genes x cells matrix that
+  `preprocess_sc()` expects. The Shiny upload path now calls this function, so
+  app users and package users share one 10x reader instead of the app owning a
+  private copy.
 - `preprocess_sc()` implements the full raw-counts to clone-label workflow:
   MAD-based per-patient quality control, normalisation, variable-feature
   selection, a shared PCA embedding, and clustering. `cluster_scope = "global"`
@@ -54,6 +59,16 @@
   (10x GRCh38 `features.tsv` column 1, many GEO uploads). Previously the
   `MT-` prefix never matched, so `pct_mito` was silently 0 and the
   mitochondrial fence did nothing.
+- `prepare_data(data = <Seurat>)` now reads the `counts` layer by default and
+  falls back to `data`, matching what the app does on upload. Before, the
+  package default was `data`, so the Seurat path averaged log-normalised
+  values while the raw-counts path averaged counts. Pass `layer = "data"` to
+  keep the old behaviour.
+- `prepare_data()` now accepts the output of `preprocess_sc()` on its own: the
+  `patient` column of `clone_labels` supplies the patient grouping, so
+  `patient_mapping` can be omitted, and the unfiltered matrix can be passed
+  directly because unlabelled cells (removed by QC) are dropped with an
+  informational message instead of an error.
 - DepMap now caches under `tools::R_user_dir("PERCEPTIONx", "cache")`, the
   platform cache directory, instead of the roaming user data directory. It is
   a regenerable 567 MB download, so it should not be synced or backed up with

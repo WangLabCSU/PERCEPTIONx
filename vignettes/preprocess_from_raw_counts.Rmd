@@ -37,7 +37,7 @@ genes x cells (raw counts, no QC, no clustering)
 into
 
 ```
-cell_id, clone_id, patient, confidence, UMAP coordinates
+cell_id, clone_id, patient, cluster_size_class, UMAP coordinates
 ```
 
 which is exactly the `clone_labels` argument of `prepare_data()`.
@@ -59,6 +59,16 @@ A third is optional but important:
 | Argument | When to supply it |
 |---|---|
 | `sample_labels` | A patient has several samples (e.g. biopsies before and after treatment). |
+
+If the counts are still in CellRanger files, `read_10x()` reads a folder, an
+`.h5` file, or the three files directly and returns the matrix described above:
+
+```r
+my_counts <- read_10x("path/to/filtered_feature_bc_matrix")
+# or: read_10x("path/to/filtered_feature_bc_matrix.h5")
+# or: read_10x(mtx = "matrix.mtx.gz", barcodes = "barcodes.tsv.gz",
+#              features = "features.tsv.gz")
+```
 
 ```r
 labels <- preprocess_sc(
@@ -148,10 +158,6 @@ median that was pulled down by a large low-quality population.
 ```r
 prepared <- prepare_data(
   expression_matrix = my_counts,
-  patient_mapping = data.frame(
-    cell_id = labels$cell_labels$cell_id,
-    patient_id = labels$cell_labels$patient
-  ),
   clone_labels = labels$cell_labels
 )
 

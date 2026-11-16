@@ -205,6 +205,41 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 }
 
 
+# Pull the expression matrix out of a Seurat object.
+#
+# `layer = NULL` means "counts when the object has them, otherwise data". That
+# is also what the app does on upload, and it keeps the Seurat path on the same
+# scale as the raw-counts path: averaging log-normalised values gives a
+# different clone profile than averaging counts.
+seurat_expression_matrix <- function(data, assay = NULL, layer = NULL) {
+  if (is.null(assay)) {
+    assay <- Seurat::DefaultAssay(data)
+  }
+  get_layer <- function(nm) {
+    tryCatch(
+      Seurat::GetAssayData(data, assay = assay, layer = nm),
+      error = function(e) {
+        Seurat::GetAssayData(data, assay = assay, slot = nm)
+      }
+    )
+  }
+
+  if (!is.null(layer)) {
+    return(get_layer(layer))
+  }
+  for (candidate in c("counts", "data")) {
+    out <- tryCatch(get_layer(candidate), error = function(e) NULL)
+    if (!is.null(out) && nrow(out) > 0L) {
+      return(out)
+    }
+  }
+  cli::cli_abort(c(
+    "The Seurat object has neither a {.field counts} nor a {.field data} layer.",
+    "i" = "Assay {.val {assay}}; supply an object that carries an expression matrix."
+  ))
+}
+
+
 #' Prepare patient data for PERCEPTIONx prediction
 #'
 #' End-to-end preprocessing pipeline that takes raw single-cell expression data
@@ -236,7 +271,9 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 #'        Specify column names via \code{cell_col} and \code{patient_col}.
 #'        Example: \code{data.frame(cell_id = c("Cell_1", "Cell_2"), patient_id = c("P1", "P1"))}}
 #'   }
-#'   If NULL, all cells are assigned to a single patient "patient1".
+#'   If NULL and \code{clone_labels} carries a \code{patient} (or
+#'   \code{patient_id}) column, the grouping is taken from those labels.
+#'   Otherwise all cells are assigned to a single patient "patient1".
 #' @param cell_col Character. Cell ID column name in patient_mapping data frame.
 #'        Default = "cell_id". Only used when patient_mapping is a data frame.
 #' @param patient_col Character. Patient ID column name in patient_mapping data frame.
@@ -294,6 +331,15 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 #'   # Use directly with prediction functions
 #'   clone_pred <- predict_drugs(models, prepared$clone_expression_rnorm)
 #'   patient_pred <- predict_patients(clone_pred, prepared)
+#'
+#'   # After preprocess_sc(): the labels alone are enough, because they already
+#'   # carry the patient of every cell. The unfiltered matrix can be passed as
+#'   # is; cells without a label are dropped.
+#'   labels <- preprocess_sc(counts, cell_patients)
+#'   prepared <- prepare_data(
+#'     expression_matrix = counts,
+#'     clone_labels = labels$cell_labels
+#'   )
 #' }
 #'
 #' @param parse_patient Logical. If TRUE, parse patient ID from cell_col using separator.
@@ -318,11 +364,16 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
 #'   \code{patient_mapping}.
 #' @param clone_labels Optional data frame with \code{cell_id} and
 #'   \code{clone_id} columns mapping every cell to a clone. Skips clustering.
-#'   This is the \code{cell_labels} element returned by \code{preprocess_sc()}.
+#'   This is the \code{cell_labels} element returned by \code{preprocess_sc()},
+#'   and its \code{patient} column makes \code{patient_mapping} optional. Cells
+#'   of \code{expression_matrix} without a label (for example cells removed by
+#'   QC) are dropped, so the unfiltered matrix can be passed directly.
 #' @param assay Character. Assay to read when \code{data} is a Seurat object.
 #'   Default = \code{Seurat::DefaultAssay(data)}.
 #' @param layer Character. Layer (Seurat v5) or slot (Seurat v4) to read.
-#'   Default = \code{"data"}.
+#'   Default = \code{NULL}: the \code{counts} layer when the object has one,
+#'   otherwise \code{data}. Set it explicitly to override, e.g.
+#'   \code{layer = "data"} to use normalised values.
 #' @param clone_col Character. Metadata column in \code{data} holding clone
 #'   labels. When \code{NULL}, \code{Seurat::Idents(data)} is used.
 #'
@@ -348,7 +399,7 @@ prepare_data <- function(
   data = NULL,
   clone_labels = NULL,
   assay = NULL,
-  layer = "data",
+  layer = NULL,
   clone_col = NULL
 ) {
   method <- rlang::arg_match(method)
@@ -383,12 +434,7 @@ prepare_data <- function(
     if (is.null(assay)) {
       assay <- Seurat::DefaultAssay(data)
     }
-    expression_matrix <- tryCatch(
-      Seurat::GetAssayData(data, assay = assay, layer = layer),
-      error = function(e) {
-        Seurat::GetAssayData(data, assay = assay, slot = layer)
-      }
-    )
+    expression_matrix <- seurat_expression_matrix(data, assay, layer)
 
     metadata <- data[[]]
 
@@ -436,6 +482,29 @@ prepare_data <- function(
     cli::cli_abort(
       "Supply either {.arg data} (a Seurat object) or {.arg expression_matrix}."
     )
+  }
+
+  # Labels from preprocess_sc() already carry the patient of every cell, so a
+  # separate cell-to-patient table would just repeat that information. An
+  # explicit mapping still wins when both are supplied.
+  if (is.null(patient_mapping) && !is.null(clone_labels)) {
+    patient_from_labels <- intersect(
+      c("patient", "patient_id"),
+      colnames(clone_labels)
+    )
+    if (length(patient_from_labels) > 0L) {
+      patient_mapping <- data.frame(
+        as.character(clone_labels$cell_id),
+        as.character(clone_labels[[patient_from_labels[1]]]),
+        stringsAsFactors = FALSE
+      )
+      names(patient_mapping) <- c(cell_col, patient_col)
+    } else {
+      cli::cli_warn(c(
+        "{.arg clone_labels} has no {.field patient} column and no {.arg patient_mapping} was supplied.",
+        "i" = "All cells will be treated as one patient."
+      ))
+    }
   }
 
   # --- Auto-enable parse_patient if patient_sep or patient_pos is provided ---
@@ -599,8 +668,8 @@ prepare_data <- function(
     }
     unlabelled <- setdiff(colnames(expression_matrix), cell_clone_map$cell_id)
     if (length(unlabelled) > 0L) {
-      cli::cli_warn(
-        "{length(unlabelled)} cell{?s} have no clone label and will be dropped."
+      cli::cli_alert_info(
+        "Dropping {length(unlabelled)} cell{?s} without a clone label (e.g. removed by QC)."
       )
     }
 

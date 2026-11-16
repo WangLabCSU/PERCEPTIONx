@@ -18,6 +18,155 @@
 #     technical batch effects split a real clone in two.
 # ===========================================================================
 
+# ---------------------------------------------------------------------------
+# Reading 10x Genomics count matrices
+#
+# The entry point of path A. The Shiny upload uses the same function, so there
+# is one implementation of "10x files in, sparse matrix out" for both users.
+# ---------------------------------------------------------------------------
+
+# Read a text file, transparently handling gzip.
+read_10x_lines <- function(path) {
+  if (grepl("[.]gz$", path, ignore.case = TRUE)) {
+    con <- gzfile(path, "rt")
+    on.exit(close(con))
+    readLines(con, warn = FALSE)
+  } else {
+    readLines(path, warn = FALSE)
+  }
+}
+
+# Turn the three files of a 10x triplet into a sparse genes x cells matrix.
+# Stays sparse end to end: a raw matrix has hundreds of thousands of barcodes
+# and densifying it is not an option.
+read_10x_triplet_files <- function(mtx, barcodes, features) {
+  feat <- utils::read.delim(
+    text = read_10x_lines(features),
+    header = FALSE,
+    stringsAsFactors = FALSE,
+    quote = ""
+  )
+  bc <- read_10x_lines(barcodes)
+  # Column 2 is the gene symbol; column 1 is the Ensembl ID. Fall back to
+  # column 1 when a file carries only one column.
+  genes <- if (ncol(feat) >= 2L) feat[[2]] else feat[[1]]
+
+  mat <- if (grepl("[.]gz$", mtx, ignore.case = TRUE)) {
+    con <- gzfile(mtx, "rt")
+    on.exit(close(con), add = TRUE)
+    Matrix::readMM(con)
+  } else {
+    Matrix::readMM(mtx)
+  }
+  mat <- methods::as(mat, "CsparseMatrix")
+
+  if (nrow(mat) != length(genes) || ncol(mat) != length(bc)) {
+    cli::cli_abort(c(
+      "The 10x files do not belong together.",
+      "x" = "The matrix is {nrow(mat)} genes x {ncol(mat)} cells, but features/barcodes give {length(genes)} x {length(bc)}."
+    ))
+  }
+
+  # Feature files repeat symbols occasionally; Seurat needs unique row names.
+  rownames(mat) <- make.unique(as.character(genes))
+  colnames(mat) <- bc
+  mat
+}
+
+# Locate the triplet inside a directory, e.g. the `filtered_feature_bc_matrix`
+# folder CellRanger writes.
+find_10x_triplet <- function(dir) {
+  files <- list.files(dir, recursive = TRUE, full.names = TRUE)
+  nm <- tolower(basename(files))
+
+  pick <- function(pattern) {
+    hit <- which(grepl(pattern, nm))
+    if (length(hit) == 1L) files[[hit]] else NULL
+  }
+  found <- list(
+    mtx = pick("^matrix[.]mtx([.]gz)?$"),
+    barcodes = pick("^barcodes[.]tsv([.]gz)?$"),
+    features = pick("^(genes|features)[.]tsv([.]gz)?$")
+  )
+  missing <- names(found)[vapply(found, is.null, logical(1))]
+  if (length(missing) > 0L) {
+    cli::cli_abort(c(
+      "No complete 10x triplet in {.path {dir}}.",
+      "x" = "Missing: {.file {missing}}.",
+      "i" = "Expected matrix.mtx[.gz], barcodes.tsv[.gz] and genes/features.tsv[.gz]."
+    ))
+  }
+  found
+}
+
+#' Read a 10x Genomics count matrix
+#'
+#' One reader for the inputs a user actually has: a CellRanger output folder, a
+#' `.h5` file, or the three files passed explicitly. The result is a sparse
+#' genes x cells matrix with gene symbols as row names, which is what
+#' `preprocess_sc()` and `prepare_data()` expect.
+#'
+#' @param path Directory holding `matrix.mtx[.gz]`, `barcodes.tsv[.gz]` and
+#'   `genes.tsv[.gz]` / `features.tsv[.gz]`, or a `.h5` file written by
+#'   CellRanger. Ignored when the three files are given explicitly.
+#' @param mtx Path to `matrix.mtx` or `matrix.mtx.gz`.
+#' @param barcodes Path to `barcodes.tsv` or `barcodes.tsv.gz`.
+#' @param features Path to `genes.tsv` or `features.tsv` (either `.gz` or not).
+#'
+#' @return A `dgCMatrix` with genes as rows and cells as columns.
+#'
+#' @examples
+#' \dontrun{
+#' counts <- read_10x("path/to/filtered_feature_bc_matrix")
+#' counts <- read_10x("path/to/filtered_feature_bc_matrix.h5")
+#' counts <- read_10x(
+#'   mtx = "matrix.mtx.gz",
+#'   barcodes = "barcodes.tsv.gz",
+#'   features = "features.tsv.gz"
+#' )
+#' }
+#'
+#' @export
+read_10x <- function(
+  path = NULL,
+  mtx = NULL,
+  barcodes = NULL,
+  features = NULL
+) {
+  if (!is.null(path)) {
+    if (dir.exists(path)) {
+      found <- find_10x_triplet(path)
+      return(read_10x_triplet_files(
+        found$mtx,
+        found$barcodes,
+        found$features
+      ))
+    }
+    if (grepl("[.]h5$", path, ignore.case = TRUE)) {
+      rlang::check_installed("hdf5r", reason = "to read 10x .h5 matrices")
+      mat <- Seurat::Read10X_h5(path)
+      # Multi-modal files return a named list; the gene expression block is the
+      # one preprocess_sc() wants.
+      if (is.list(mat)) {
+        hit <- grep("gene expression", names(mat), ignore.case = TRUE)
+        mat <- mat[[if (length(hit) > 0L) hit[[1]] else 1L]]
+      }
+      return(methods::as(mat, "CsparseMatrix"))
+    }
+    cli::cli_abort(c(
+      "{.path {path}} is neither a directory nor a .h5 file.",
+      "i" = "Point {.arg path} at the CellRanger output folder, or pass {.arg mtx}, {.arg barcodes} and {.arg features}."
+    ))
+  }
+
+  if (is.null(mtx) || is.null(barcodes) || is.null(features)) {
+    cli::cli_abort(
+      "Supply either {.arg path}, or all three of {.arg mtx}, {.arg barcodes} and {.arg features}."
+    )
+  }
+  read_10x_triplet_files(mtx, barcodes, features)
+}
+
 # Upper fence of a robust (MAD-based) filter: median + nmads * MAD.
 # Returns Inf when MAD is zero (all values identical) so the filter keeps
 # everything instead of discarding half the cells on a degenerate sample.

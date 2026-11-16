@@ -25,7 +25,7 @@ prepare_data(
   data = NULL,
   clone_labels = NULL,
   assay = NULL,
-  layer = "data",
+  layer = NULL,
   clone_col = NULL
 )
 }
@@ -47,7 +47,9 @@ contains a character vector of cell IDs. Example:
 Specify column names via \code{cell_col} and \code{patient_col}.
 Example: \code{data.frame(cell_id = c("Cell_1", "Cell_2"), patient_id = c("P1", "P1"))}}
 }
-If NULL, all cells are assigned to a single patient "patient1".}
+If NULL and \code{clone_labels} carries a \code{patient} (or
+\code{patient_id}) column, the grouping is taken from those labels.
+Otherwise all cells are assigned to a single patient "patient1".}
 
 \item{cell_col}{Character. Cell ID column name in patient_mapping data frame.
 Default = "cell_id". Only used when patient_mapping is a data frame.}
@@ -99,13 +101,18 @@ matrix is read from \code{assay}/\code{layer}, clone labels from
 
 \item{clone_labels}{Optional data frame with \code{cell_id} and
 \code{clone_id} columns mapping every cell to a clone. Skips clustering.
-This is the \code{cell_labels} element returned by \code{preprocess_sc()}.}
+This is the \code{cell_labels} element returned by \code{preprocess_sc()},
+and its \code{patient} column makes \code{patient_mapping} optional. Cells
+of \code{expression_matrix} without a label (for example cells removed by
+QC) are dropped, so the unfiltered matrix can be passed directly.}
 
 \item{assay}{Character. Assay to read when \code{data} is a Seurat object.
 Default = \code{Seurat::DefaultAssay(data)}.}
 
 \item{layer}{Character. Layer (Seurat v5) or slot (Seurat v4) to read.
-Default = \code{"data"}.}
+Default = \code{NULL}: the \code{counts} layer when the object has one,
+otherwise \code{data}. Set it explicitly to override, e.g.
+\code{layer = "data"} to use normalised values.}
 
 \item{clone_col}{Character. Metadata column in \code{data} holding clone
 labels. When \code{NULL}, \code{Seurat::Idents(data)} is used.}
@@ -170,6 +177,15 @@ The pipeline performs:
   # Use directly with prediction functions
   clone_pred <- predict_drugs(models, prepared$clone_expression_rnorm)
   patient_pred <- predict_patients(clone_pred, prepared)
+
+  # After preprocess_sc(): the labels alone are enough, because they already
+  # carry the patient of every cell. The unfiltered matrix can be passed as
+  # is; cells without a label are dropped.
+  labels <- preprocess_sc(counts, cell_patients)
+  prepared <- prepare_data(
+    expression_matrix = counts,
+    clone_labels = labels$cell_labels
+  )
 }
 
 }

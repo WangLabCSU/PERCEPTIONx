@@ -481,6 +481,78 @@ test_that("prepare_data accepts clone_labels and records their source", {
 })
 
 
+test_that("clone_labels supply the patient grouping when no mapping is given", {
+  sim <- make_mock_counts(n_genes = 100, n_cells = 20)
+
+  labels <- data.frame(
+    cell_id = colnames(sim$counts),
+    clone_id = rep(c("c1", "c2"), length.out = ncol(sim$counts)),
+    patient = as.character(sim$patient),
+    stringsAsFactors = FALSE
+  )
+
+  prepared <- prepare_data(
+    expression_matrix = sim$counts,
+    clone_labels = labels
+  )
+
+  expect_equal(
+    sort(unique(prepared$clone_counts$patients)),
+    sort(unique(as.character(sim$patient)))
+  )
+  expect_equal(nrow(prepared$cell_clone_map), ncol(sim$counts))
+})
+
+
+test_that("cells without a clone label are dropped instead of failing", {
+  sim <- make_mock_counts(n_genes = 100, n_cells = 20)
+
+  # Simulates the QC case: labels exist for a subset of the matrix columns, and
+  # the unfiltered matrix is passed as is.
+  labels <- data.frame(
+    cell_id = colnames(sim$counts)[-1],
+    clone_id = rep(c("c1", "c2"), length.out = ncol(sim$counts) - 1L),
+    patient = as.character(sim$patient)[-1],
+    stringsAsFactors = FALSE
+  )
+
+  prepared <- prepare_data(
+    expression_matrix = sim$counts,
+    clone_labels = labels
+  )
+
+  expect_equal(nrow(prepared$cell_clone_map), ncol(sim$counts) - 1L)
+  expect_false(colnames(sim$counts)[1] %in% prepared$cell_clone_map$cell_id)
+})
+
+
+test_that("Seurat input prefers the counts layer and can be overridden", {
+  skip_if_not_installed("Seurat")
+
+  sim <- make_mock_counts(n_genes = 100, n_cells = 20)
+  so <- Seurat::CreateSeuratObject(
+    counts = sim$counts,
+    meta.data = data.frame(
+      patient = as.character(sim$patient),
+      row.names = colnames(sim$counts)
+    )
+  )
+  so <- Seurat::NormalizeData(so, verbose = FALSE)
+
+  auto <- PERCEPTIONx:::seurat_expression_matrix(so)
+  counts <- SeuratObject::LayerData(so, assay = "RNA", layer = "counts")
+  normalised <- SeuratObject::LayerData(so, assay = "RNA", layer = "data")
+
+  # Default = counts, so the Seurat path and the raw-counts path average the
+  # same scale. Passing layer = "data" still gets the normalised values.
+  expect_equal(auto, counts)
+  expect_equal(
+    PERCEPTIONx:::seurat_expression_matrix(so, layer = "data"),
+    normalised
+  )
+})
+
+
 test_that("prepare_data extracts labels from a Seurat object", {
   skip_if_not_installed("Seurat")
 

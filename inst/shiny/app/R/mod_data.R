@@ -300,56 +300,11 @@ extract_10x_archive <- function(path, name) {
   dir
 }
 
-# Read the triplet from three paths. Stays sparse end to end.
-read_10x_files <- function(mtx_path, bc_path, feat_path) {
-  read_lines_any <- function(path) {
-    if (grepl("[.]gz$", path)) {
-      con <- gzfile(path, "rt")
-      on.exit(close(con))
-      readLines(con, warn = FALSE)
-    } else {
-      readLines(path, warn = FALSE)
-    }
-  }
-
-  feat <- utils::read.delim(
-    text = read_lines_any(feat_path),
-    header = FALSE,
-    stringsAsFactors = FALSE,
-    quote = ""
-  )
-  barcodes <- read_lines_any(bc_path)
-  genes <- if (ncol(feat) >= 2L) feat[[2]] else feat[[1]]
-
-  mat <- if (grepl("[.]gz$", mtx_path)) {
-    con <- gzfile(mtx_path, "rt")
-    on.exit(close(con), add = TRUE)
-    Matrix::readMM(con)
-  } else {
-    Matrix::readMM(mtx_path)
-  }
-  mat <- methods::as(mat, "CsparseMatrix")
-
-  if (nrow(mat) != length(genes) || ncol(mat) != length(barcodes)) {
-    stop(sprintf(
-      "The 10x files do not belong together: the matrix is %d genes x %d cells, but features/barcodes give %d x %d.",
-      nrow(mat),
-      ncol(mat),
-      length(genes),
-      length(barcodes)
-    ))
-  }
-  # Feature files may repeat a symbol; Seurat requires unique row names.
-  rownames(mat) <- make.unique(as.character(genes))
-  colnames(mat) <- barcodes
-  mat
-}
-
-# Read a 10x Genomics "triplet" (matrix.mtx + barcodes.tsv + genes/features.tsv),
-# either as three loose files or as one archive holding them. Returns NULL when
-# the selection is not a complete triplet, so the caller can fall back to the
-# single-table reader.
-read_10x_triplet <- function(files) {
+# Detect a 10x upload: either three loose files or one archive holding the
+# triplet. Returns NULL when the selection is not a triplet, so the caller can
+# fall back to the single-table reader. Parsing itself stays in
+# PERCEPTIONx::read_10x(), which package users call directly.
+read_10x_upload <- function(files) {
   if (is.null(files) || !is.data.frame(files) || nrow(files) == 0L) {
     return(NULL)
   }
@@ -360,29 +315,17 @@ read_10x_triplet <- function(files) {
       grepl("[.](tar[.]gz|tgz|tar|zip)$", tolower(files$name[1]))
   ) {
     dir <- extract_10x_archive(files$datapath[1], files$name[1])
-    paths <- list.files(dir, recursive = TRUE, full.names = TRUE)
-    idx <- match_10x_triplet(basename(paths))
-    if (is.null(idx)) {
-      stop(
-        "The archive does not contain matrix.mtx, barcodes.tsv and ",
-        "genes/features.tsv (in any sub-folder)."
-      )
-    }
-    return(read_10x_files(
-      paths[idx[["mtx"]]],
-      paths[idx[["barcodes"]]],
-      paths[idx[["features"]]]
-    ))
+    return(PERCEPTIONx::read_10x(dir))
   }
 
   idx <- match_10x_triplet(files$name)
   if (is.null(idx)) {
     return(NULL)
   }
-  read_10x_files(
-    files$datapath[idx[["mtx"]]],
-    files$datapath[idx[["barcodes"]]],
-    files$datapath[idx[["features"]]]
+  PERCEPTIONx::read_10x(
+    mtx = files$datapath[idx[["mtx"]]],
+    barcodes = files$datapath[idx[["barcodes"]]],
+    features = files$datapath[idx[["features"]]]
   )
 }
 
@@ -2371,7 +2314,7 @@ mod_data_server <- function(id, shared) {
         {
           # 10x triplet first: it must stay sparse, so it cannot go through the
           # data.frame path below (which densifies).
-          mat <- read_10x_triplet(file)
+          mat <- read_10x_upload(file)
           is_10x <- !is.null(mat)
           is_seurat <- FALSE
           seurat_parts <- NULL
