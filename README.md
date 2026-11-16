@@ -16,6 +16,7 @@ experimental](https://img.shields.io/badge/Lifecycle-experimental-orange.svg)](h
 commit](https://img.shields.io/github/last-commit/WangLabCSU/PERCEPTIONx)](https://github.com/WangLabCSU/PERCEPTIONx)
 [![Project Status:
 Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
+[![Contributors](https://img.shields.io/github/contributors/WangLabCSU/PERCEPTIONx)](https://github.com/WangLabCSU/PERCEPTIONx/graphs/contributors)
 [![Ask
 DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-8A2BE2)](https://deepwiki.com/WangLabCSU/PERCEPTIONx)
 <!-- badges: end -->
@@ -214,7 +215,7 @@ If you use this package, please cite both the package and the original
 PERCEPTION study:
 
 - **Jia Ding**. PERCEPTIONx: Personalized Drug Response Prediction from
-  Single-Cell Transcriptomics. R package version 0.3.0.
+  Single-Cell Transcriptomics. R package version 0.4.0.
   <https://github.com/WangLabCSU/PERCEPTIONx>
 - Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts
   patient response and resistance to treatment using single-cell
@@ -228,7 +229,7 @@ citation("PERCEPTIONx")
 #> To cite PERCEPTIONx in publications use:
 #> 
 #>   Jia Ding. (2026). PERCEPTIONx: Personalized Drug Response Prediction from Single-Cell Transcriptomics. R package version
-#>   0.3.0. https://github.com/WangLabCSU/PERCEPTIONx
+#>   0.4.0. https://github.com/WangLabCSU/PERCEPTIONx
 #> 
 #>   Sinha, S., Vegesna, R., Mukherjee, S. et al. (2024). PERCEPTION predicts patient response and resistance to treatment
 #>   using single-cell transcriptomics of their tumors. Nature Cancer 5, 938-952. https://doi.org/10.1038/s43018-024-00756-7
