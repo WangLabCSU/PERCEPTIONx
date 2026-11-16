@@ -33,8 +33,9 @@ Imports:
     parallel,
     cli,
     data.table,
-    Matrix
-URL: https://wanglabcsu.github.io/PERCEPTIONx, https://github.com/WangLabCSU/PERCEPTIONx
+    Matrix,
+    methods
+URL: https://wanglabcsu.github.io/PERCEPTIONx/, https://github.com/WangLabCSU/PERCEPTIONx
 BugReports: https://github.com/WangLabCSU/PERCEPTIONx/issues
 Suggests:
     testthat (>= 3.0.0),
@@ -55,6 +56,7 @@ Suggests:
     harmony,
     scDblFinder,
     SingleCellExperiment,
+    SeuratObject,
     hdf5r
 Config/testthat/edition: 3
 Language: en-US

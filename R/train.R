@@ -536,7 +536,7 @@ build_on_BULK_v2 <- function(
   )[c(3L, 4L)])
 
   # Test on pseudo-Bulk (test 1)
-  Test_pred_Msc <- predict(cv.out, newdata = Test_features)
+  Test_pred_Msc <- stats::predict(cv.out, newdata = Test_features)
   performance_in_pseudo_bulk <- unlist(stats::cor.test(
     Test_pred_Msc,
     Test_Target_Label,

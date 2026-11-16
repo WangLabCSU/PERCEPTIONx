@@ -622,6 +622,7 @@ prepare_data <- function(
 
     # Parse patient ID from cell_col if requested
     if (parse_patient) {
+      patient_id_parsed <- NULL # data.table NSE column, created just below
       cli::cli_progress_step(
         "Parsing patient IDs from '{cell_col}' column using separator '{patient_sep}'"
       )

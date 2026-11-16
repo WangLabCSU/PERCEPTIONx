@@ -1347,7 +1347,7 @@ plot_qc_report <- function(
   # (and warns), which is why a sample with a single removed cell showed an
   # empty slot instead of a mark. Those cells are drawn as points instead.
   group_key <- paste(long$patient, long$metric, long$status, sep = "\r")
-  group_n <- ave(seq_len(nrow(long)), group_key, FUN = length)
+  group_n <- stats::ave(seq_len(nrow(long)), group_key, FUN = length)
   violin_df <- long[group_n >= 2L, , drop = FALSE]
   point_df <- long[group_n < 2L, , drop = FALSE]
 
@@ -1355,7 +1355,7 @@ plot_qc_report <- function(
   n_kept <- sum(metrics$status == "kept")
   n_samples <- length(unique(metrics$patient))
   subtitle <- sprintf(
-    "%s cells · %s retained · %s removed (%.1f%%) · %s sample%s",
+    "%s cells | %s retained | %s removed (%.1f%%) | %s sample%s",
     format(n_cells, big.mark = ","),
     format(n_kept, big.mark = ","),
     format(n_cells - n_kept, big.mark = ","),
@@ -1372,7 +1372,7 @@ plot_qc_report <- function(
     )
   } else {
     paste0(
-      "Dashed lines mark each sample's effective cut-off (upper fences at median + n×MAD, lower gene bound at min_genes).\n",
+      "Dashed lines mark each sample's effective cut-off (upper fences at median + n*MAD, lower gene bound at min_genes).\n",
       "Total counts has no cut-off and is shown for context."
     )
   }

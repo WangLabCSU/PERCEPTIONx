@@ -20,7 +20,7 @@ MIT + file LICENSE
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://wanglabcsu.github.io/PERCEPTIONx}
+  \item \url{https://wanglabcsu.github.io/PERCEPTIONx/}
   \item \url{https://github.com/WangLabCSU/PERCEPTIONx}
   \item Report bugs at \url{https://github.com/WangLabCSU/PERCEPTIONx/issues}
 }
