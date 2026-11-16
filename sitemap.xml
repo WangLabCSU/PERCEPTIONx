@@ -7,6 +7,7 @@
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/SUPPORT.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/articles/index.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/articles/pipeline.html</loc></url>
+<url><loc>https://wanglabcsu.github.io/PERCEPTIONx/articles/preprocess_from_raw_counts.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/articles/shiny_app.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/articles/shiny_app_cn.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/authors.html</loc></url>
@@ -51,6 +52,7 @@
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_model_roc.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_patient_response_panel.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_perception.html</loc></url>
+<url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_qc_report.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_response_boxplot.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_roc_curve.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_seurat_clustering.html</loc></url>
@@ -60,8 +62,10 @@
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/predict_patients.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/predict_perception.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/prepare_data.html</loc></url>
+<url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/preprocess_sc.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/range01.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/rank_normalization_mat.html</loc></url>
+<url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/read_10x.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/reset_mirrors.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/run_parallel_feature_ranking_bulk.html</loc></url>
 <url><loc>https://wanglabcsu.github.io/PERCEPTIONx/reference/run_perception_app.html</loc></url>

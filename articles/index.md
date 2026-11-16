@@ -6,6 +6,8 @@ Step-by-step guides for R package.
 
 - [PERCEPTIONx: Complete Pipeline
   Tutorial](https://wanglabcsu.github.io/PERCEPTIONx/articles/pipeline.md):
+- [Preprocessing raw single-cell
+  data](https://wanglabcsu.github.io/PERCEPTIONx/articles/preprocess_from_raw_counts.md):
 
 ### Shiny App Guide
 

@@ -1,5 +1,119 @@
 # Changelog
 
+## PERCEPTIONx 0.4.0
+
+### New features
+
+- [`read_10x()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/read_10x.md)
+  reads a CellRanger output folder, a `.h5` file, or the three files
+  passed explicitly, and returns the sparse genes x cells matrix that
+  [`preprocess_sc()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/preprocess_sc.md)
+  expects. The Shiny upload path now calls this function, so app users
+  and package users share one 10x reader instead of the app owning a
+  private copy.
+- [`preprocess_sc()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/preprocess_sc.md)
+  implements the full raw-counts to clone-label workflow: MAD-based
+  per-patient quality control, normalisation, variable-feature
+  selection, a shared PCA embedding, and clustering.
+  `cluster_scope = "global"` (default) clusters all cells together, as
+  in the original PERCEPTION method, so a clone id can occur in several
+  patients; `cluster_scope = "patient"` clusters inside each patient
+  only, so a clone can never span two patients. The two are identical
+  for a single-patient dataset. With the patient scope, harmony is
+  applied inside a patient that has more than one sample
+  (e.g. longitudinal biopsies) so a batch effect cannot split one clone
+  in two; `harmony` is optional and the step is skipped with a warning
+  when absent.
+- [`preprocess_sc()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/preprocess_sc.md)
+  gains `skip_qc = FALSE`. With `skip_qc = TRUE` the MAD fences are not
+  applied and every cell is kept, which reproduces the original
+  PERCEPTION pipeline on an already-curated matrix; the QC table still
+  reports the input but marks the fences as `off`.
+- [`plot_qc_report()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_qc_report.md)
+  draws the per-patient QC fences, so the automatic filtering can be
+  audited without knowing the MAD rule.
+- [`prepare_data()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/prepare_data.md)
+  gains two alternative inputs. `data = <Seurat object>` reads the
+  matrix from `assay`/`layer` and labels from `clone_col` or `Idents()`;
+  `clone_labels = <data.frame>` takes a pre-computed cell-to-clone
+  table. Both skip clustering.
+- [`prepare_data()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/prepare_data.md)
+  now records where the clone labels came from in `$label_source`:
+  `auto_cluster`, `user_labels`, `seurat_idents`, `seurat_metadata`, or
+  `provided_matrix_columns`.
+- [`preprocess_sc()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/preprocess_sc.md)
+  gains `remove_doublets = FALSE`: when enabled, cells classified as
+  doublets by `scDblFinder` are removed after QC, one patient at a time.
+  Doublets pass every QC fence (normal gene counts and mitochondrial
+  fraction) yet can form a spurious clone made of two fused clones.
+  `scDblFinder` and `SingleCellExperiment` are optional (`Suggests`);
+  without them the step warns and is skipped. Removed cells are returned
+  in `$doublet_cells` and counted in `qc$n_doublet_removed`.
+- [`preprocess_sc()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/preprocess_sc.md)
+  gains `exclude_markers` / `exclude_min_expr`: cells that strongly
+  express a user-supplied marker set are removed before clustering, so
+  immune and stromal populations do not form clusters that later read as
+  resistance clones. This is an exclusion rule, not a tumour-cell
+  classifier. Default `NULL` keeps every cell. Removed cells are
+  returned in `$excluded_cells`.
+- `confidence` in
+  [`preprocess_sc()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/preprocess_sc.md)
+  output is renamed `cluster_size_class` (`large` / `small`), because it
+  only describes cluster size and says nothing about how credible a
+  clone is.
+
+### Improvements
+
+- The MAD fence default is now `nmads = 5` (was 3). Benchmarked against
+  CellRanger’s own cell calls on real unfiltered matrices: PBMC 3k
+  Jaccard 0.914 -\> 0.969, lung squamous carcinoma 0.711 -\> 0.806,
+  precision unchanged in both. On the labelled Maynard cohort the
+  patient-level AUC returns to the no-QC value (0.821) instead of
+  dropping to 0.750, i.e. QC stops deleting real tumour cells.
+- Mitochondrial genes are now detected when row names are Ensembl IDs
+  (10x GRCh38 `features.tsv` column 1, many GEO uploads). Previously the
+  `MT-` prefix never matched, so `pct_mito` was silently 0 and the
+  mitochondrial fence did nothing.
+- `prepare_data(data = <Seurat>)` now reads the `counts` layer by
+  default and falls back to `data`, matching what the app does on
+  upload. Before, the package default was `data`, so the Seurat path
+  averaged log-normalised values while the raw-counts path averaged
+  counts. Pass `layer = "data"` to keep the old behaviour.
+- [`prepare_data()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/prepare_data.md)
+  now accepts the output of
+  [`preprocess_sc()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/preprocess_sc.md)
+  on its own: the `patient` column of `clone_labels` supplies the
+  patient grouping, so `patient_mapping` can be omitted, and the
+  unfiltered matrix can be passed directly because unlabelled cells
+  (removed by QC) are dropped with an informational message instead of
+  an error.
+- [`prepare_data()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/prepare_data.md)
+  also accepts patient and clone IDs as plain vectors
+  (`patient_mapping = my_patients`, `clone_col = my_clones`), so a
+  Seurat object does not need those columns in its metadata. While
+  adding this, a bug was fixed where the clone-level refinement
+  overwrote Seurat-derived clone labels with matrix column names.
+- DepMap now caches under `tools::R_user_dir("PERCEPTIONx", "cache")`,
+  the platform cache directory, instead of the roaming user data
+  directory. It is a regenerable 567 MB download, so it should not be
+  synced or backed up with user data. A copy found in the old location
+  is moved on first use rather than downloaded again.
+- Internal code migrated to `data.table`; user-facing results remain
+  `data.frame`.
+- Messages and errors use `cli`; `run_seurat_pipeline()` and its
+  `lifecycle` dependency were removed in favour of
+  [`prepare_data()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/prepare_data.md)
+  and the shared `cluster_embedding()` core.
+- Drug catalogues are exported as documented objects:
+  `perception_depmap_drugs`, `perception_fda_approved_drugs`,
+  `perception_all_drugs`.
+- `glmnet` and `randomForest` remain in `Imports`:
+  `caret::train(method = "glmnet")` is the default path and loads them
+  at runtime.
+- `Matrix` added to `Imports`; `harmony` added to `Suggests`.
+- Added `air` formatting, `jarl` linting, spelling checks, and
+  repository templates (CONTRIBUTING / SUPPORT / CODE_OF_CONDUCT).
+
 ## PERCEPTIONx 0.3.0
 
 ### New features

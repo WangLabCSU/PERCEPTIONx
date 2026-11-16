@@ -3,9 +3,10 @@ pkgdown: 2.2.1
 pkgdown_sha: ~
 articles:
   pipeline: pipeline.html
+  preprocess_from_raw_counts: preprocess_from_raw_counts.html
   shiny_app_cn: shiny_app_cn.html
   shiny_app: shiny_app.html
-last_built: 2026-11-05T11:47Z
+last_built: 2026-11-16T10:22Z
 urls:
   reference: https://wanglabcsu.github.io/PERCEPTIONx/reference
   article: https://wanglabcsu.github.io/PERCEPTIONx/articles

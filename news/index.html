@@ -36,6 +36,50 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.4.0" id="perceptionx-040">PERCEPTIONx 0.4.0<a class="anchor" aria-label="anchor" href="#perceptionx-040"></a></h2>
+<div class="section level3">
+<h3 id="new-features-0-4-0">New features<a class="anchor" aria-label="anchor" href="#new-features-0-4-0"></a></h3>
+<ul><li>
+<code><a href="../reference/read_10x.html">read_10x()</a></code> reads a CellRanger output folder, a <code>.h5</code> file, or the three files passed explicitly, and returns the sparse genes x cells matrix that <code><a href="../reference/preprocess_sc.html">preprocess_sc()</a></code> expects. The Shiny upload path now calls this function, so app users and package users share one 10x reader instead of the app owning a private copy.</li>
+<li>
+<code><a href="../reference/preprocess_sc.html">preprocess_sc()</a></code> implements the full raw-counts to clone-label workflow: MAD-based per-patient quality control, normalisation, variable-feature selection, a shared PCA embedding, and clustering. <code>cluster_scope = "global"</code> (default) clusters all cells together, as in the original PERCEPTION method, so a clone id can occur in several patients; <code>cluster_scope = "patient"</code> clusters inside each patient only, so a clone can never span two patients. The two are identical for a single-patient dataset. With the patient scope, harmony is applied inside a patient that has more than one sample (e.g. longitudinal biopsies) so a batch effect cannot split one clone in two; <code>harmony</code> is optional and the step is skipped with a warning when absent.</li>
+<li>
+<code><a href="../reference/preprocess_sc.html">preprocess_sc()</a></code> gains <code>skip_qc = FALSE</code>. With <code>skip_qc = TRUE</code> the MAD fences are not applied and every cell is kept, which reproduces the original PERCEPTION pipeline on an already-curated matrix; the QC table still reports the input but marks the fences as <code>off</code>.</li>
+<li>
+<code><a href="../reference/plot_qc_report.html">plot_qc_report()</a></code> draws the per-patient QC fences, so the automatic filtering can be audited without knowing the MAD rule.</li>
+<li>
+<code><a href="../reference/prepare_data.html">prepare_data()</a></code> gains two alternative inputs. <code>data = &lt;Seurat object&gt;</code> reads the matrix from <code>assay</code>/<code>layer</code> and labels from <code>clone_col</code> or <code>Idents()</code>; <code>clone_labels = &lt;data.frame&gt;</code> takes a pre-computed cell-to-clone table. Both skip clustering.</li>
+<li>
+<code><a href="../reference/prepare_data.html">prepare_data()</a></code> now records where the clone labels came from in <code>$label_source</code>: <code>auto_cluster</code>, <code>user_labels</code>, <code>seurat_idents</code>, <code>seurat_metadata</code>, or <code>provided_matrix_columns</code>.</li>
+<li>
+<code><a href="../reference/preprocess_sc.html">preprocess_sc()</a></code> gains <code>remove_doublets = FALSE</code>: when enabled, cells classified as doublets by <code>scDblFinder</code> are removed after QC, one patient at a time. Doublets pass every QC fence (normal gene counts and mitochondrial fraction) yet can form a spurious clone made of two fused clones. <code>scDblFinder</code> and <code>SingleCellExperiment</code> are optional (<code>Suggests</code>); without them the step warns and is skipped. Removed cells are returned in <code>$doublet_cells</code> and counted in <code>qc$n_doublet_removed</code>.</li>
+<li>
+<code><a href="../reference/preprocess_sc.html">preprocess_sc()</a></code> gains <code>exclude_markers</code> / <code>exclude_min_expr</code>: cells that strongly express a user-supplied marker set are removed before clustering, so immune and stromal populations do not form clusters that later read as resistance clones. This is an exclusion rule, not a tumour-cell classifier. Default <code>NULL</code> keeps every cell. Removed cells are returned in <code>$excluded_cells</code>.</li>
+<li>
+<code>confidence</code> in <code><a href="../reference/preprocess_sc.html">preprocess_sc()</a></code> output is renamed <code>cluster_size_class</code> (<code>large</code> / <code>small</code>), because it only describes cluster size and says nothing about how credible a clone is.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="improvements-0-4-0">Improvements<a class="anchor" aria-label="anchor" href="#improvements-0-4-0"></a></h3>
+<ul><li>The MAD fence default is now <code>nmads = 5</code> (was 3). Benchmarked against CellRanger’s own cell calls on real unfiltered matrices: PBMC 3k Jaccard 0.914 -&gt; 0.969, lung squamous carcinoma 0.711 -&gt; 0.806, precision unchanged in both. On the labelled Maynard cohort the patient-level AUC returns to the no-QC value (0.821) instead of dropping to 0.750, i.e. QC stops deleting real tumour cells.</li>
+<li>Mitochondrial genes are now detected when row names are Ensembl IDs (10x GRCh38 <code>features.tsv</code> column 1, many GEO uploads). Previously the <code>MT-</code> prefix never matched, so <code>pct_mito</code> was silently 0 and the mitochondrial fence did nothing.</li>
+<li>
+<code>prepare_data(data = &lt;Seurat&gt;)</code> now reads the <code>counts</code> layer by default and falls back to <code>data</code>, matching what the app does on upload. Before, the package default was <code>data</code>, so the Seurat path averaged log-normalised values while the raw-counts path averaged counts. Pass <code>layer = "data"</code> to keep the old behaviour.</li>
+<li>
+<code><a href="../reference/prepare_data.html">prepare_data()</a></code> now accepts the output of <code><a href="../reference/preprocess_sc.html">preprocess_sc()</a></code> on its own: the <code>patient</code> column of <code>clone_labels</code> supplies the patient grouping, so <code>patient_mapping</code> can be omitted, and the unfiltered matrix can be passed directly because unlabelled cells (removed by QC) are dropped with an informational message instead of an error.</li>
+<li>
+<code><a href="../reference/prepare_data.html">prepare_data()</a></code> also accepts patient and clone IDs as plain vectors (<code>patient_mapping = my_patients</code>, <code>clone_col = my_clones</code>), so a Seurat object does not need those columns in its metadata. While adding this, a bug was fixed where the clone-level refinement overwrote Seurat-derived clone labels with matrix column names.</li>
+<li>DepMap now caches under <code>tools::R_user_dir("PERCEPTIONx", "cache")</code>, the platform cache directory, instead of the roaming user data directory. It is a regenerable 567 MB download, so it should not be synced or backed up with user data. A copy found in the old location is moved on first use rather than downloaded again.</li>
+<li>Internal code migrated to <code>data.table</code>; user-facing results remain <code>data.frame</code>.</li>
+<li>Messages and errors use <code>cli</code>; <code>run_seurat_pipeline()</code> and its <code>lifecycle</code> dependency were removed in favour of <code><a href="../reference/prepare_data.html">prepare_data()</a></code> and the shared <code>cluster_embedding()</code> core.</li>
+<li>Drug catalogues are exported as documented objects: <code>perception_depmap_drugs</code>, <code>perception_fda_approved_drugs</code>, <code>perception_all_drugs</code>.</li>
+<li>
+<code>glmnet</code> and <code>randomForest</code> remain in <code>Imports</code>: <code>caret::train(method = "glmnet")</code> is the default path and loads them at runtime.</li>
+<li>
+<code>Matrix</code> added to <code>Imports</code>; <code>harmony</code> added to <code>Suggests</code>.</li>
+<li>Added <code>air</code> formatting, <code>jarl</code> linting, spelling checks, and repository templates (CONTRIBUTING / SUPPORT / CODE_OF_CONDUCT).</li>
+</ul></div>
+</div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.3.0" id="perceptionx-030">PERCEPTIONx 0.3.0<a class="anchor" aria-label="anchor" href="#perceptionx-030"></a></h2>
 <div class="section level3">
 <h3 id="new-features-0-3-0">New features<a class="anchor" aria-label="anchor" href="#new-features-0-3-0"></a></h3>

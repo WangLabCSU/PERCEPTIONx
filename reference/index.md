@@ -21,6 +21,10 @@ Download and load DepMap reference data and pre-trained models.
 
 ## Preprocessing
 
+- [`read_10x()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/read_10x.md)
+  : Read a 10x Genomics count matrix
+- [`preprocess_sc()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/preprocess_sc.md)
+  : Preprocess raw single-cell data into clone labels
 - [`prepare_data()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/prepare_data.md)
   : Prepare patient data for PERCEPTIONx prediction
 
@@ -71,6 +75,8 @@ Download and load DepMap reference data and pre-trained models.
   : Run Seurat clustering and plot 2D embedding
 - [`plot_patient_response_panel()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_patient_response_panel.md)
   : Complete patient response visualization pipeline
+- [`plot_qc_report()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_qc_report.md)
+  : Plot QC metrics before and after filtering
 
 ## Shiny Application
 

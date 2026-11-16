@@ -12,7 +12,7 @@ and
 ``` r
 prepare_data(
   method = c("umap", "tsne"),
-  expression_matrix,
+  expression_matrix = NULL,
   patient_mapping = NULL,
   cell_col = "cell_id",
   patient_col = "patient_id",
@@ -27,7 +27,12 @@ prepare_data(
   seurat_min_features = 200L,
   seurat_seed = 42L,
   skip_clustering = FALSE,
-  progress_cb = NULL
+  progress_cb = NULL,
+  data = NULL,
+  clone_labels = NULL,
+  assay = NULL,
+  layer = NULL,
+  clone_col = NULL
 )
 ```
 
@@ -47,7 +52,8 @@ prepare_data(
 
 - patient_mapping:
 
-  List or data frame. Patient-cell mapping in one of two formats:
+  List, data frame, or character vector. Patient-cell mapping in one of
+  three formats:
 
   List format
 
@@ -61,7 +67,15 @@ prepare_data(
       via `cell_col` and `patient_col`. Example:
       `data.frame(cell_id = c("Cell_1", "Cell_2"), patient_id = c("P1", "P1"))`
 
-  If NULL, all cells are assigned to a single patient "patient1".
+  Vector format
+
+  :   One patient ID per cell, in the column order of the expression
+      matrix; a named vector is matched by cell ID instead. Use this
+      when the IDs already exist as a variable, e.g. `my_patients`.
+
+  If NULL and `clone_labels` carries a `patient` (or `patient_id`)
+  column, the grouping is taken from those labels. Otherwise all cells
+  are assigned to a single patient "patient1".
 
 - cell_col:
 
@@ -134,6 +148,43 @@ prepare_data(
   Optional function called as `progress_cb(phase, i, n, drug)` with the
   current pipeline stage (e.g. `"seurat-pca"`, `"mapping"`). Used to
   show live progress in the Shiny app.
+
+- data:
+
+  Optional `Seurat` object. When supplied, the expression matrix is read
+  from `assay`/`layer`, clone labels from `clone_col` (a metadata
+  column, a label vector, or `Idents()`), and patient IDs from
+  `patient_col` or, when the object has no such column, from
+  `patient_mapping`. Use this instead of `expression_matrix` plus
+  `patient_mapping`.
+
+- clone_labels:
+
+  Optional data frame with `cell_id` and `clone_id` columns mapping
+  every cell to a clone. Skips clustering. This is the `cell_labels`
+  element returned by
+  [`preprocess_sc()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/preprocess_sc.md),
+  and its `patient` column makes `patient_mapping` optional. Cells of
+  `expression_matrix` without a label (for example cells removed by QC)
+  are dropped, so the unfiltered matrix can be passed directly.
+
+- assay:
+
+  Character. Assay to read when `data` is a Seurat object. Default =
+  `Seurat::DefaultAssay(data)`.
+
+- layer:
+
+  Character. Layer (Seurat v5) or slot (Seurat v4) to read. Default =
+  `NULL`: the `counts` layer when the object has one, otherwise `data`.
+  Set it explicitly to override, e.g. `layer = "data"` to use normalised
+  values.
+
+- clone_col:
+
+  Character. Metadata column in `data` holding clone labels, or a vector
+  of labels with one entry per cell (in matrix column order). When
+  `NULL`, `Seurat::Idents(data)` is used.
 
 ## Value
 
@@ -215,5 +266,21 @@ if (FALSE) { # \dontrun{
   # Use directly with prediction functions
   clone_pred <- predict_drugs(models, prepared$clone_expression_rnorm)
   patient_pred <- predict_patients(clone_pred, prepared)
+
+  # After preprocess_sc(): the labels alone are enough, because they already
+  # carry the patient of every cell. The unfiltered matrix can be passed as
+  # is; cells without a label are dropped.
+  labels <- preprocess_sc(counts, cell_patients)
+  prepared <- prepare_data(
+    expression_matrix = counts,
+    clone_labels = labels$cell_labels
+  )
+
+  # Seurat object: patient IDs from metadata, or from a vector
+  prepared <- prepare_data(data = so, patient_col = "patient_id")
+  prepared <- prepare_data(data = so, patient_mapping = my_patients)
+
+  # Clone labels as a vector, one per cell (same length as ncol(so))
+  prepared <- prepare_data(data = so, clone_col = my_clones)
 } # }
 ```

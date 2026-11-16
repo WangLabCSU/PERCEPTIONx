@@ -400,6 +400,19 @@ column per clone),
 [`prepare_data()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/prepare_data.md)
 skips clustering and only builds the normalized clone matrix and counts.
 
+Two alternative inputs also skip clustering. `data = <Seurat object>`
+reads the matrix from `assay`/`layer` (the `counts` layer by default)
+and takes clone labels from `clone_col` — either a metadata column or a
+vector with one label per cell — falling back to `Idents()`; patient IDs
+come from `patient_col` or from a vector passed as `patient_mapping`.
+`clone_labels = <data.frame>` takes a cell-to-clone table such as
+`labels$cell_labels` from
+[`preprocess_sc()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/preprocess_sc.md);
+cells without a label, for example the ones QC removed, are dropped
+instead of causing a size mismatch. The [raw-counts
+vignette](https://wanglabcsu.github.io/PERCEPTIONx/articles/preprocess_from_raw_counts.md)
+covers the from-CellRanger path end to end.
+
 Clone identity is carried in the row names as `Patient@@Clone`;
 [`parse_clone_keys()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/parse_clone_keys.md)
 splits them, and

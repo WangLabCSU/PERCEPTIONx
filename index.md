@@ -138,6 +138,8 @@ cp -r .claude/skills/perceptionx-result ~/.codex/skills/
 
 | Function | Description |
 |----|----|
+| [`read_10x()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/read_10x.md) | Read a CellRanger folder, `.h5` file, or the three files into a count matrix |
+| [`preprocess_sc()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/preprocess_sc.md) | QC + clustering from raw counts → clone labels |
 | [`prepare_data()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/prepare_data.md) | Seurat clustering + rank normalization → clone-level inputs |
 
 ### 5.3 Model Training
@@ -174,6 +176,7 @@ cp -r .claude/skills/perceptionx-result ~/.codex/skills/
 | [`plot_model_roc()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_model_roc.md) | Validation ROC curves after training |
 | [`plot_seurat_clustering()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_seurat_clustering.md) | Seurat clustering and UMAP visualization |
 | [`plot_patient_response_panel()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_patient_response_panel.md) | Composite patient response panel |
+| [`plot_qc_report()`](https://wanglabcsu.github.io/PERCEPTIONx/reference/plot_qc_report.md) | QC metrics before/after filtering, per patient |
 
 ## 6. Workflow
 
@@ -207,7 +210,7 @@ If you use this package, please cite both the package and the original
 PERCEPTION study:
 
 - **Jia Ding**. PERCEPTIONx: Personalized Drug Response Prediction from
-  Single-Cell Transcriptomics. R package version 0.3.0.
+  Single-Cell Transcriptomics. R package version 0.4.0.
   <https://github.com/WangLabCSU/PERCEPTIONx>
 - Sinha, S., Vegesna, R., Mukherjee, S. *et al.* PERCEPTION predicts
   patient response and resistance to treatment using single-cell
@@ -222,7 +225,7 @@ citation("PERCEPTIONx")
 #> To cite PERCEPTIONx in publications use:
 #> 
 #>   Jia Ding. (2026). PERCEPTIONx: Personalized Drug Response Prediction from Single-Cell Transcriptomics. R package version
-#>   0.3.0. https://github.com/WangLabCSU/PERCEPTIONx
+#>   0.4.0. https://github.com/WangLabCSU/PERCEPTIONx
 #> 
 #>   Sinha, S., Vegesna, R., Mukherjee, S. et al. (2024). PERCEPTION predicts patient response and resistance to treatment
 #>   using single-cell transcriptomics of their tumors. Nature Cancer 5, 938-952. https://doi.org/10.1038/s43018-024-00756-7

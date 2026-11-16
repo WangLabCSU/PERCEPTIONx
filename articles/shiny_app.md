@@ -568,7 +568,7 @@ raise the score.
 **Q5: Does data persist after I close the app?**
 
 Yes. DepMap data is cached in a persistent directory (on Windows, the
-user data directory; on Linux, set the `PERCEPTIONX_DEPMAP_CACHE_DIR`
+user cache directory; on Linux, set the `PERCEPTIONX_DEPMAP_CACHE_DIR`
 environment variable). Files stay on disk after the app closes and are
 **never auto-deleted** — a pre-downloaded copy (for example one fetched
 by the server administrator) is reused by every user, so the ~567 MB

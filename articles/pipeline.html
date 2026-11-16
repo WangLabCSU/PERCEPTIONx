@@ -63,7 +63,7 @@
       <img src="../logo.png" class="logo" alt=""><h1>PERCEPTIONx: Complete Pipeline Tutorial</h1>
                         <h4 data-toc-skip class="author">Jia Ding</h4>
             
-            <h4 data-toc-skip class="date">2026-11-05</h4>
+            <h4 data-toc-skip class="date">2026-11-16</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/WangLabCSU/PERCEPTIONx/blob/main/vignettes/pipeline.Rmd" class="external-link"><code>vignettes/pipeline.Rmd</code></a></small>
       <div class="d-none name"><code>pipeline.Rmd</code></div>
@@ -459,6 +459,18 @@ clustering), and <code>skip_clustering = TRUE</code> — if your data is
 already clone-level (one column per clone), <code><a href="../reference/prepare_data.html">prepare_data()</a></code>
 skips clustering and only builds the normalized clone matrix and
 counts.</p>
+<p>Two alternative inputs also skip clustering.
+<code>data = &lt;Seurat object&gt;</code> reads the matrix from
+<code>assay</code>/<code>layer</code> (the <code>counts</code> layer by
+default) and takes clone labels from <code>clone_col</code> — either a
+metadata column or a vector with one label per cell — falling back to
+<code>Idents()</code>; patient IDs come from <code>patient_col</code> or
+from a vector passed as <code>patient_mapping</code>.
+<code>clone_labels = &lt;data.frame&gt;</code> takes a cell-to-clone
+table such as <code>labels$cell_labels</code> from
+<code><a href="../reference/preprocess_sc.html">preprocess_sc()</a></code>; cells without a label, for example the
+ones QC removed, are dropped instead of causing a size mismatch. The <a href="preprocess_from_raw_counts.html">raw-counts vignette</a> covers
+the from-CellRanger path end to end.</p>
 <p>Clone identity is carried in the row names as
 <code>Patient@@Clone</code>; <code><a href="../reference/parse_clone_keys.html">parse_clone_keys()</a></code> splits
 them, and <code><a href="../reference/clone_mean_expression.html">clone_mean_expression()</a></code> /

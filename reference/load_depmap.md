@@ -24,9 +24,11 @@ load_depmap(
 
 - dest:
 
-  Directory to save the downloaded file. Default: a cache-root derived
-  path (see `options(PERCEPTIONx.cache_root)`), or "." when no cache
-  root is set.
+  Directory to save the downloaded file. Default: the user cache
+  directory (`tools::R_user_dir("PERCEPTIONx", "cache")`), or a
+  cache-root derived path when `options(PERCEPTIONx.cache_root)` is set.
+  An existing `DepMap.RDS` in the working directory is reused instead of
+  downloading another copy.
 
 - read:
 

@@ -67,9 +67,11 @@ Supports automatic mirror fallback for users in different regions.</p>
 
 
 <dl><dt id="arg-dest">dest<a class="anchor" aria-label="anchor" href="#arg-dest"></a></dt>
-<dd><p>Directory to save the downloaded file. Default: a cache-root
-derived path (see <code>options(PERCEPTIONx.cache_root)</code>), or "." when
-no cache root is set.</p></dd>
+<dd><p>Directory to save the downloaded file. Default: the user cache
+directory (<code>tools::R_user_dir("PERCEPTIONx", "cache")</code>), or a
+cache-root derived path when <code>options(PERCEPTIONx.cache_root)</code> is
+set. An existing <code class="file">DepMap.RDS</code> in the working directory is reused
+instead of downloading another copy.</p></dd>
 
 
 <dt id="arg-read">read<a class="anchor" aria-label="anchor" href="#arg-read"></a></dt>
