@@ -34,7 +34,7 @@ knitr::opts_chunk$set(
 [![pkgdown](https://github.com/WangLabCSU/PERCEPTIONx/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/WangLabCSU/PERCEPTIONx/actions/workflows/pkgdown.yaml)
 [![Last commit](https://img.shields.io/github/last-commit/WangLabCSU/PERCEPTIONx)](https://github.com/WangLabCSU/PERCEPTIONx)
 [![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
-[![DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/WangLabCSU/PERCEPTIONx)
+[![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-8A2BE2)](https://deepwiki.com/WangLabCSU/PERCEPTIONx)
 <!-- badges: end -->
 
 **Predicting Personalized Drug Response and Resistance from Single-Cell Tumor Transcriptomics.**
